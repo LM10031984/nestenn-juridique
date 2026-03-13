@@ -103,10 +103,7 @@ export default function ChatPage() {
               setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
             }
           } catch {
-            if (raw) {
-              accumulated += raw
-              setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
-            }
+            // Chunk JSON invalide ou partiel — ignorer silencieusement
           }
         }
       }
