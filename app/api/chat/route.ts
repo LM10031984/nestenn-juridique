@@ -136,39 +136,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   console.info(`[chat] Requête reçue — ip=${clientIp} sessionId=${sessionId ?? 'none'} msgLength=${trimmedMessage.length}`)
 
   // ── Étape 1 : Filtre hors-sujet ─────────────────────────────────────────
-  let isRelevant = true
-  try {
-    const rawFilter = await openRouterChat(
-      [
-        {
-          role: 'system',
-          content:
-            'Tu es un filtre de contenu pour un assistant juridique immobilier français. ' +
-            'Réponds UNIQUEMENT par OUI ou NON, sans ponctuation ni explication. ' +
-            'Réponds OUI si la question touche de près ou de loin à l\'immobilier ou au droit immobilier français : ' +
-            'achat, vente, transaction, mandat (exclusif, simple, semi-exclusif), agence immobilière, agent, ' +
-            'location, bail, loyer, locataire, propriétaire, copropriété, syndic, diagnostics, DPE, ' +
-            'loi Hoguet, ALUR, ELAN, notaire, compromis, promesse de vente, servitude, urbanisme, ' +
-            'permis de construire, fiscalité immobilière, plus-value, taxe foncière, hypothèque, prêt immobilier. ' +
-            'En cas de doute, réponds OUI. ' +
-            'Réponds NON uniquement si la question est clairement hors immobilier : cuisine, sport, médecine, politique, etc.',
-        },
-        { role: 'user', content: `Question : ${trimmedMessage}` },
-      ],
-      MODELS.FILTER,
-      5
-    )
-    isRelevant = rawFilter.trim().toUpperCase().startsWith('OUI')
-  } catch (err) {
-    // Fail-open : en cas d'erreur du filtre, on laisse passer la requête
-    console.error('[chat] Erreur filtre hors-sujet (fail-open) :', err)
-    isRelevant = true
-  }
-
-  if (!isRelevant) {
-    console.info(`[chat] Question hors périmètre — ip=${clientIp}`)
-    return staticSseResponse(REFUSAL_MESSAGE, { 'X-DILA-Available': 'false' })
-  }
+  // Le filtre LLM est supprimé — trop de faux positifs sur des questions légitimes.
+  // Le system prompt de GPT-4o gère nativement le refus hors-périmètre avec bien
+  // plus de contexte et sans risque de blocage erroné.
 
   // ── Étape 2 : Récupération du contexte DILA ─────────────────────────────
   const dilaContext = await fetchLegalContext(trimmedMessage, openRouterChat)
