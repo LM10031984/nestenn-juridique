@@ -23,13 +23,16 @@ interface FilterResponseBody {
 
 const FILTER_SYSTEM_PROMPT =
   'Tu es un filtre de contenu pour un assistant juridique immobilier français. ' +
-  'Réponds UNIQUEMENT par le mot OUI ou le mot NON, sans ponctuation ni explication. ' +
-  'OUI si la question concerne le droit immobilier français : ' +
-  'achat, vente, location, baux (habitation, commercial, professionnel), copropriété, ' +
-  'agents immobiliers, loi Hoguet, diagnostics immobiliers, urbanisme, fiscalité immobilière, ' +
-  'transactions immobilières, notaires dans le cadre immobilier, loi ALUR, loi ELAN. ' +
-  'NON si la question est hors périmètre : droit du travail, droit de la famille sans lien immobilier, ' +
-  'droit pénal, médecine, finance non immobilière, politique, divertissement, etc.'
+  'Réponds UNIQUEMENT par OUI ou NON, sans ponctuation ni explication. ' +
+  'Réponds OUI si la question touche de près ou de loin à l\'immobilier ou au droit immobilier français : ' +
+  'achat, vente, transaction, mandat (exclusif, simple, semi-exclusif), agence immobilière, agent immobilier, ' +
+  'location, bail, loyer, locataire, propriétaire, copropriété, syndic, charges, assemblée générale, ' +
+  'diagnostics immobiliers, DPE, amiante, plomb, loi Hoguet, ALUR, ELAN, ' +
+  'notaire, compromis, promesse de vente, acte authentique, servitude, mitoyenneté, ' +
+  'urbanisme, permis de construire, PLU, fiscalité immobilière, plus-value, taxe foncière, ' +
+  'hypothèque, prêt immobilier, caution, dépôt de garantie. ' +
+  'En cas de doute, réponds OUI. ' +
+  'Réponds NON uniquement si la question est clairement hors immobilier : cuisine, sport, médecine, politique, etc.'
 
 // ---------------------------------------------------------------------------
 // POST /api/filter

@@ -144,11 +144,14 @@ export async function POST(req: NextRequest): Promise<Response> {
           role: 'system',
           content:
             'Tu es un filtre de contenu pour un assistant juridique immobilier français. ' +
-            'Réponds UNIQUEMENT par le mot OUI ou le mot NON, sans ponctuation ni explication. ' +
-            'OUI si la question concerne le droit immobilier français : achat, vente, location, ' +
-            'baux, copropriété, agents immobiliers, loi Hoguet, diagnostics immobiliers, urbanisme, ' +
-            'fiscalité immobilière, transactions immobilières, loi ALUR, loi ELAN. ' +
-            'NON si hors périmètre.',
+            'Réponds UNIQUEMENT par OUI ou NON, sans ponctuation ni explication. ' +
+            'Réponds OUI si la question touche de près ou de loin à l\'immobilier ou au droit immobilier français : ' +
+            'achat, vente, transaction, mandat (exclusif, simple, semi-exclusif), agence immobilière, agent, ' +
+            'location, bail, loyer, locataire, propriétaire, copropriété, syndic, diagnostics, DPE, ' +
+            'loi Hoguet, ALUR, ELAN, notaire, compromis, promesse de vente, servitude, urbanisme, ' +
+            'permis de construire, fiscalité immobilière, plus-value, taxe foncière, hypothèque, prêt immobilier. ' +
+            'En cas de doute, réponds OUI. ' +
+            'Réponds NON uniquement si la question est clairement hors immobilier : cuisine, sport, médecine, politique, etc.',
         },
         { role: 'user', content: `Question : ${trimmedMessage}` },
       ],
