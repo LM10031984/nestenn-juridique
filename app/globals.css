@@ -2,120 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Metropolis from Google Fonts CDN or self-hosted */
-@import url('https://fonts.cdnfonts.com/css/metropolis-2');
+/* EB Garamond (titres élégants) + Lato (corps lisible) — duo juridique professionnel */
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&display=swap');
 
 :root {
   --nestenn-blue: #00AEBC;
   --nestenn-blue-dark: #007D8A;
-  --nestenn-blue-light: #E6F7F9;
-  --nestenn-gray: #4B4F54;
-  --nestenn-gray-light: #F5F5F6;
+  --nestenn-blue-light: #E0F5F7;
+  --nestenn-navy: #0F2744;
+  --nestenn-gray: #374151;
+  --nestenn-muted: #6B7280;
+  --nestenn-bg: #F0F4F8;
+  --nestenn-surface: #FFFFFF;
+  --nestenn-border: #E5E7EB;
+  --nestenn-red: #F4364C;
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
   margin: 0;
   padding: 0;
-  font-family: 'Metropolis', system-ui, -apple-system, sans-serif;
-  background-color: var(--nestenn-gray-light);
+  font-family: 'Lato', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  background-color: var(--nestenn-bg);
   color: var(--nestenn-gray);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--nestenn-blue);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--nestenn-blue-dark);
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--nestenn-blue); }
 
-/* Chat message animations */
-@keyframes messageAppear {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.message-appear {
-  animation: messageAppear 0.25s ease-out forwards;
-}
-
-/* Typing cursor for streaming */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.typing-cursor::after {
-  content: '▋';
-  display: inline-block;
-  animation: blink 0.7s infinite;
-  color: var(--nestenn-blue);
-  margin-left: 2px;
-}
-
-/* Focus styles */
+/* Focus */
 :focus-visible {
   outline: 2px solid var(--nestenn-blue);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* Typing indicator dots */
-@keyframes typingBounce {
-  0%, 60%, 100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  30% {
-    transform: translateY(-6px);
-    opacity: 1;
-  }
+/* Message animation */
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
+.message-appear {
+  animation: messageIn 0.2s ease-out forwards;
+}
+
+/* Streaming cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.typing-cursor::after {
+  content: '▋';
+  display: inline;
+  animation: blink 0.8s step-end infinite;
+  color: var(--nestenn-blue);
+  margin-left: 1px;
+  font-size: 0.85em;
+}
+
+/* Typing indicator */
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0);   opacity: 0.35; }
+  30%            { transform: translateY(-5px); opacity: 1;    }
+}
 .typing-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background-color: var(--nestenn-blue);
-  animation: typingBounce 1.2s ease-in-out infinite;
+  background: var(--nestenn-blue);
+  animation: bounce 1.3s ease-in-out infinite;
 }
 
-/* Legal content formatting */
-.legal-content {
-  line-height: 1.7;
-}
-
-.legal-content strong {
+/* Prose inside assistant bubbles */
+.prose-legal {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9375rem;  /* 15px */
+  line-height: 1.75;
   color: var(--nestenn-gray);
-  font-weight: 600;
+  text-align: left;
 }
-
-.legal-content a {
+.prose-legal strong {
+  font-weight: 700;
+  color: #1F2937;
+}
+.prose-legal a {
   color: var(--nestenn-blue);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.prose-legal a:hover { color: var(--nestenn-blue-dark); }
+.prose-legal p { margin: 0 0 0.6em; }
+.prose-legal p:last-child { margin-bottom: 0; }
+.prose-legal ul, .prose-legal ol {
+  margin: 0.4em 0 0.6em;
+  padding-left: 1.4em;
+}
+.prose-legal li { margin: 0.2em 0; }
 
-.legal-content a:hover {
-  color: var(--nestenn-blue-dark);
+/* File chip animation */
+@keyframes chipIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.chip-appear { animation: chipIn 0.15s ease-out forwards; }
+
+/* @media: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

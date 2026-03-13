@@ -10,34 +10,29 @@ const config: Config = {
     extend: {
       colors: {
         nestenn: {
-          blue: '#00AEBC',
+          blue:    '#00AEBC',
           'blue-dark': '#007D8A',
-          'blue-light': '#E6F7F9',
-          gray: '#4B4F54',
-          'gray-light': '#F5F5F6',
-          green: '#9BAE89',
-          yellow: '#F0DF00',
-          purple: '#625E9B',
-          red: '#F4364C',
+          'blue-light': '#E0F5F7',
+          navy:    '#0F2744',
+          gray:    '#374151',
+          muted:   '#6B7280',
+          bg:      '#F0F4F8',
+          surface: '#FFFFFF',
+          border:  '#E5E7EB',
+          red:     '#F4364C',
         },
       },
       fontFamily: {
-        metropolis: ['Metropolis', 'system-ui', 'sans-serif'],
+        garamond: ['"EB Garamond"', 'Georgia', 'serif'],
+        lato:     ['Lato', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        'card': '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+        'card-hover': '0 4px 12px rgba(0,0,0,0.08)',
+        'input': '0 2px 8px rgba(0,174,188,0.12)',
       },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        slideUp: {
-          '0%': { transform: 'translateY(8px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' },
-        },
+        'fade-in': 'messageIn 0.2s ease-out forwards',
       },
     },
   },

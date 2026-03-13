@@ -1,20 +1,14 @@
-'use client'
-
 export default function TypingIndicator() {
   return (
-    <div className="flex justify-start px-4 py-1">
-      <div className="bg-white border border-gray-200 rounded-[18px_18px_18px_4px] shadow-sm px-4 py-3 flex items-center gap-3">
-        {/* Label */}
-        <span className="text-xs font-metropolis text-nestenn-gray/60 hidden sm:inline">
-          Nestenn Juridique rédige
+    <div className="flex justify-start px-4 sm:px-6 py-1.5" role="status" aria-label="Nestenn Juridique rédige">
+      <div className="bg-white rounded-2xl rounded-tl-sm border px-4 py-3 flex items-center gap-2.5"
+        style={{ borderColor: '#E5E7EB', borderLeftColor: '#00AEBC', borderLeftWidth: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <span className="typing-dot" style={{ animationDelay: '0ms' }} aria-hidden="true"/>
+        <span className="typing-dot" style={{ animationDelay: '160ms' }} aria-hidden="true"/>
+        <span className="typing-dot" style={{ animationDelay: '320ms' }} aria-hidden="true"/>
+        <span className="text-xs ml-1" style={{ color: '#9CA3AF', fontFamily: 'Lato, sans-serif' }}>
+          Nestenn Juridique rédige…
         </span>
-
-        {/* Animated dots */}
-        <div className="flex items-center gap-1" aria-label="En cours de rédaction" role="status">
-          <span className="typing-dot" style={{ animationDelay: '0ms' }} />
-          <span className="typing-dot" style={{ animationDelay: '150ms' }} />
-          <span className="typing-dot" style={{ animationDelay: '300ms' }} />
-        </div>
       </div>
     </div>
   )
