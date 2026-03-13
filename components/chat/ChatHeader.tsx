@@ -4,12 +4,26 @@ import NestennLogo from '@/components/ui/NestennLogo'
 
 interface ChatHeaderProps {
   dilaAvailable?: boolean
+  onMenuClick?: () => void
 }
 
-export default function ChatHeader({ dilaAvailable = false }: ChatHeaderProps) {
+export default function ChatHeader({ dilaAvailable = false, onMenuClick }: ChatHeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-nestenn-border" style={{ boxShadow: '0 1px 0 #E5E7EB' }}>
       <div className="flex items-center justify-between px-4 sm:px-6 h-14 max-w-4xl mx-auto">
+        {/* Hamburger — mobile only */}
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="sm:hidden mr-3 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Ouvrir le menu"
+            style={{ color: '#374151' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
+        )}
         {/* Logo */}
         <NestennLogo size="md" />
 

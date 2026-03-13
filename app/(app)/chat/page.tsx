@@ -5,6 +5,14 @@ import ChatHeader from '@/components/chat/ChatHeader'
 import ChatInput, { type AttachedFile } from '@/components/chat/ChatInput'
 import MessageBubble from '@/components/chat/MessageBubble'
 import TypingIndicator from '@/components/chat/TypingIndicator'
+import ConversationSidebar from '@/components/chat/ConversationSidebar'
+import {
+  loadConversations,
+  saveConversation,
+  deleteConversation,
+  generateTitle,
+  type StoredConversation,
+} from '@/lib/conversation-storage'
 
 interface Message {
   id: string
@@ -33,9 +41,68 @@ export default function ChatPage() {
   const [feedbacks, setFeedbacks] = useState<Record<string, 1 | -1>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Sidebar state
+  const [conversations, setConversations] = useState<StoredConversation[]>([])
+  const [activeConvId, setActiveConvId] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Load conversations from localStorage on mount
+  useEffect(() => {
+    const stored = loadConversations()
+    setConversations(stored)
+    if (stored.length > 0) {
+      // Restore last active conversation
+      const last = stored[0]
+      setActiveConvId(last.id)
+      setMessages(
+        last.messages.map(m => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.timestamp),
+        }))
+      )
+    } else {
+      setActiveConvId(genId())
+    }
+  }, [])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
+
+  function startNewConversation() {
+    const newId = genId()
+    setActiveConvId(newId)
+    setMessages([])
+    setFeedbacks({})
+    setSidebarOpen(false)
+  }
+
+  function handleSelectConversation(id: string) {
+    const conv = conversations.find(c => c.id === id)
+    if (!conv) return
+    setActiveConvId(id)
+    setMessages(
+      conv.messages.map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(m.timestamp),
+      }))
+    )
+    setFeedbacks({})
+    setSidebarOpen(false)
+  }
+
+  function handleDeleteConversation(id: string) {
+    deleteConversation(id)
+    const updated = loadConversations()
+    setConversations(updated)
+    if (activeConvId === id) {
+      startNewConversation()
+    }
+  }
 
   async function handleSubmit(message: string, attachedFile?: AttachedFile) {
     const userContent = attachedFile
@@ -52,6 +119,8 @@ export default function ChatPage() {
     setIsLoading(true)
 
     const assistantId = genId()
+    let finalAssistantContent = ''
+    let isRejection = false
 
     try {
       const res = await fetch('/api/chat', {
@@ -68,51 +137,80 @@ export default function ChatPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Erreur inconnue' }))
-        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: err.error ?? 'Erreur survenue.', isRejection: true, timestamp: new Date() }])
+        const errContent = err.error ?? 'Erreur survenue.'
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: errContent, isRejection: true, timestamp: new Date() }])
         return
       }
 
       const ct = res.headers.get('Content-Type') ?? ''
       if (ct.includes('application/json')) {
         const data = await res.json()
-        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: data.content ?? data.error ?? 'Réponse indisponible.', isRejection: data.rejection === true, timestamp: new Date() }])
-        return
-      }
+        finalAssistantContent = data.content ?? data.error ?? 'Réponse indisponible.'
+        isRejection = data.rejection === true
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: finalAssistantContent, isRejection, timestamp: new Date() }])
+      } else {
+        // SSE streaming
+        const reader = res.body?.getReader()
+        if (!reader) throw new Error('Pas de body')
+        const decoder = new TextDecoder()
+        let accumulated = ''
 
-      // SSE streaming
-      const reader = res.body?.getReader()
-      if (!reader) throw new Error('Pas de body')
-      const decoder = new TextDecoder()
-      let accumulated = ''
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', isStreaming: true, timestamp: new Date() }])
 
-      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', isStreaming: true, timestamp: new Date() }])
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const lines = decoder.decode(value, { stream: true }).split('\n')
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const raw = line.slice(6).trim()
-          if (raw === '[DONE]') break
-          try {
-            const parsed = JSON.parse(raw)
-            const token: string = parsed.choices?.[0]?.delta?.content ?? parsed.content ?? parsed.token ?? ''
-            if (token) {
-              accumulated += token
-              setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const lines = decoder.decode(value, { stream: true }).split('\n')
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            const raw = line.slice(6).trim()
+            if (raw === '[DONE]') break
+            try {
+              const parsed = JSON.parse(raw)
+              const token: string = parsed.choices?.[0]?.delta?.content ?? parsed.content ?? parsed.token ?? ''
+              if (token) {
+                accumulated += token
+                setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
+              }
+            } catch {
+              // Chunk JSON invalide ou partiel — ignorer silencieusement
             }
-          } catch {
-            // Chunk JSON invalide ou partiel — ignorer silencieusement
           }
         }
-      }
 
-      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m))
+        finalAssistantContent = accumulated
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m))
+      }
     } catch {
       setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: 'Erreur de connexion. Vérifiez votre réseau et réessayez.', isRejection: true, timestamp: new Date() }])
     } finally {
       setIsLoading(false)
+
+      // Save conversation only after streaming is complete and we have content
+      if (finalAssistantContent && activeConvId) {
+        setMessages(prev => {
+          const allMsgs = prev
+          // Determine title from first user message
+          const firstUser = allMsgs.find(m => m.role === 'user')
+          const title = firstUser ? generateTitle(firstUser.content) : 'Nouvelle conversation'
+
+          const conv: StoredConversation = {
+            id: activeConvId,
+            title,
+            messages: allMsgs.map(m => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp.toISOString(),
+            })),
+            createdAt: allMsgs[0]?.timestamp.toISOString() ?? new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+          saveConversation(conv)
+          setConversations(loadConversations())
+          return prev
+        })
+      }
     }
   }
 
@@ -123,87 +221,101 @@ export default function ChatPage() {
   const isEmpty = messages.length === 0 && !isLoading
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: '#F0F4F8' }}>
-      <ChatHeader dilaAvailable={dilaAvailable} />
+    <div className="flex h-screen" style={{ background: '#F0F4F8' }}>
+      {/* Sidebar */}
+      <ConversationSidebar
+        conversations={conversations}
+        activeId={activeConvId}
+        onSelect={handleSelectConversation}
+        onNew={startNewConversation}
+        onDelete={handleDeleteConversation}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto" style={{ scrollBehavior: 'smooth' }}>
-        {isEmpty ? (
-          /* ── Welcome screen ──────────────────────────────────────────────── */
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-10 pb-6">
-            {/* Hero */}
-            <div className="text-center mb-8">
-              <p className="text-sm font-bold tracking-widest mb-3" style={{ color: '#00AEBC', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase' }}>
-                Assistant IA · Droit immobilier français
-              </p>
-              <h1 style={{ fontFamily: '"EB Garamond", Georgia, serif', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 600, color: '#0F2744', lineHeight: 1.25, marginBottom: '0.75rem' }}>
-                Votre expert juridique<br />immobilier, disponible 24h/24
-              </h1>
-              <p className="text-base" style={{ color: '#6B7280', fontFamily: 'Lato, sans-serif', maxWidth: 460, margin: '0 auto' }}>
-                Réponses précises avec sources officielles Légifrance. Posez votre question ou importez un document à analyser.
-              </p>
-            </div>
+      {/* Main area */}
+      <div className="flex flex-col flex-1 min-w-0">
+        <ChatHeader dilaAvailable={dilaAvailable} onMenuClick={() => setSidebarOpen(true)} />
 
-            {/* Capabilities */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
-              {[
-                { icon: '⚖️', label: 'Loi Hoguet & agents' },
-                { icon: '🏠', label: 'Baux & locations' },
-                { icon: '🏢', label: 'Copropriété' },
-                { icon: '📋', label: 'Diagnostics obligatoires' },
-                { icon: '📜', label: 'ALUR · ELAN' },
-                { icon: '📎', label: 'Analyse de documents' },
-              ].map(({ icon, label }) => (
-                <div key={label} className="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2.5 border"
-                  style={{ borderColor: '#E5E7EB', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-                  <span style={{ fontSize: 18 }} aria-hidden="true">{icon}</span>
-                  <span style={{ fontSize: 13, color: '#374151', fontFamily: 'Lato, sans-serif', fontWeight: 400 }}>{label}</span>
-                </div>
-              ))}
-            </div>
+        {/* Messages */}
+        <main className="flex-1 overflow-y-auto" style={{ scrollBehavior: 'smooth' }}>
+          {isEmpty ? (
+            /* ── Welcome screen ──────────────────────────────────────────────── */
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-10 pb-6">
+              {/* Hero */}
+              <div className="text-center mb-8">
+                <p className="text-sm font-bold tracking-widest mb-3" style={{ color: '#00AEBC', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase' }}>
+                  Assistant IA · Droit immobilier français
+                </p>
+                <h1 style={{ fontFamily: '"EB Garamond", Georgia, serif', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 600, color: '#0F2744', lineHeight: 1.25, marginBottom: '0.75rem' }}>
+                  Votre expert juridique<br />immobilier, disponible 24h/24
+                </h1>
+                <p className="text-base" style={{ color: '#6B7280', fontFamily: 'Lato, sans-serif', maxWidth: 460, margin: '0 auto' }}>
+                  Réponses précises avec sources officielles Légifrance. Posez votre question ou importez un document à analyser.
+                </p>
+              </div>
 
-            {/* Suggestion chips */}
-            <div>
-              <p className="text-xs mb-3 font-bold tracking-wide" style={{ color: '#9CA3AF', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase' }}>
-                Questions fréquentes
-              </p>
-              <div className="flex flex-col gap-2">
-                {SUGGESTIONS.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => handleSubmit(s)}
-                    className="text-left px-4 py-3 rounded-xl border bg-white text-sm transition-all duration-150 cursor-pointer hover:border-nestenn-blue hover:shadow-card-hover"
-                    style={{ borderColor: '#E5E7EB', color: '#374151', fontFamily: 'Lato, sans-serif', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-                  >
-                    {s}
-                  </button>
+              {/* Capabilities */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+                {[
+                  { icon: '⚖️', label: 'Loi Hoguet & agents' },
+                  { icon: '🏠', label: 'Baux & locations' },
+                  { icon: '🏢', label: 'Copropriété' },
+                  { icon: '📋', label: 'Diagnostics obligatoires' },
+                  { icon: '📜', label: 'ALUR · ELAN' },
+                  { icon: '📎', label: 'Analyse de documents' },
+                ].map(({ icon, label }) => (
+                  <div key={label} className="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2.5 border"
+                    style={{ borderColor: '#E5E7EB', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+                    <span style={{ fontSize: 18 }} aria-hidden="true">{icon}</span>
+                    <span style={{ fontSize: 13, color: '#374151', fontFamily: 'Lato, sans-serif', fontWeight: 400 }}>{label}</span>
+                  </div>
                 ))}
               </div>
-            </div>
-          </div>
-        ) : (
-          /* ── Message list ────────────────────────────────────────────────── */
-          <div className="max-w-4xl mx-auto py-4">
-            {messages.map(msg => (
-              <MessageBubble
-                key={msg.id}
-                role={msg.role}
-                content={msg.content}
-                isStreaming={msg.isStreaming}
-                isRejection={msg.isRejection}
-                timestamp={msg.timestamp}
-                feedbackGiven={feedbacks[msg.id] ?? null}
-                onFeedback={msg.role === 'assistant' && !msg.isRejection ? v => handleFeedback(msg.id, v) : undefined}
-              />
-            ))}
-            {isLoading && <TypingIndicator />}
-            <div ref={messagesEndRef} className="h-4" aria-hidden="true" />
-          </div>
-        )}
-      </main>
 
-      {/* Input */}
-      <ChatInput onSubmit={handleSubmit} isLoading={isLoading} disabled={isLoading} />
+              {/* Suggestion chips */}
+              <div>
+                <p className="text-xs mb-3 font-bold tracking-wide" style={{ color: '#9CA3AF', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase' }}>
+                  Questions fréquentes
+                </p>
+                <div className="flex flex-col gap-2">
+                  {SUGGESTIONS.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => handleSubmit(s)}
+                      className="text-left px-4 py-3 rounded-xl border bg-white text-sm transition-all duration-150 cursor-pointer hover:border-nestenn-blue hover:shadow-card-hover"
+                      style={{ borderColor: '#E5E7EB', color: '#374151', fontFamily: 'Lato, sans-serif', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ── Message list ────────────────────────────────────────────────── */
+            <div className="max-w-4xl mx-auto py-4">
+              {messages.map(msg => (
+                <MessageBubble
+                  key={msg.id}
+                  role={msg.role}
+                  content={msg.content}
+                  isStreaming={msg.isStreaming}
+                  isRejection={msg.isRejection}
+                  timestamp={msg.timestamp}
+                  feedbackGiven={feedbacks[msg.id] ?? null}
+                  onFeedback={msg.role === 'assistant' && !msg.isRejection ? v => handleFeedback(msg.id, v) : undefined}
+                />
+              ))}
+              {isLoading && <TypingIndicator />}
+              <div ref={messagesEndRef} className="h-4" aria-hidden="true" />
+            </div>
+          )}
+        </main>
+
+        {/* Input */}
+        <ChatInput onSubmit={handleSubmit} isLoading={isLoading} disabled={isLoading} />
+      </div>
     </div>
   )
 }
