@@ -4,6 +4,7 @@
 import { NextRequest } from 'next/server'
 import { openRouterChat, openRouterStream, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
 import { fetchLegalContext } from '@/lib/legifrance'
+import { fetchJurisprudence } from '@/lib/judilibre'
 import { getSystemPrompt } from '@/lib/system-prompt'
 
 // ---------------------------------------------------------------------------
@@ -93,6 +94,32 @@ function sanitizeHistory(raw: ConversationTurn[] | undefined): OpenRouterMessage
 }
 
 // ---------------------------------------------------------------------------
+// Filtre hors-périmètre (gpt-4o-mini — rapide et peu coûteux)
+// ---------------------------------------------------------------------------
+
+const FILTER_SYSTEM = `Tu es un classificateur. Réponds UNIQUEMENT avec {"relevant":true} ou {"relevant":false}.
+Sont dans le périmètre : droit immobilier français (baux, copropriété, loi Hoguet, mandats, diagnostics, urbanisme, ALUR, ELAN, transactions, SCI, syndics, notaire).
+Hors périmètre : cuisine, médecine, droit du travail (hors immobilier), politique, informatique générale.
+En cas de doute, réponds {"relevant":true}.`
+
+async function isRelevantQuestion(message: string): Promise<boolean> {
+  try {
+    const result = await openRouterChat(
+      [
+        { role: 'system', content: FILTER_SYSTEM },
+        { role: 'user', content: message.slice(0, 500) },
+      ],
+      MODELS.FILTER,
+      20
+    )
+    const parsed = JSON.parse(result.trim()) as { relevant: boolean }
+    return parsed.relevant !== false
+  } catch {
+    return true // fail-open : en cas d'erreur, on laisse passer
+  }
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/chat
 // ---------------------------------------------------------------------------
 
@@ -136,19 +163,23 @@ export async function POST(req: NextRequest): Promise<Response> {
   console.info(`[chat] Requête reçue — ip=${clientIp} sessionId=${sessionId ?? 'none'} msgLength=${trimmedMessage.length}`)
 
   // ── Étape 1 : Filtre hors-sujet ─────────────────────────────────────────
-  // Le filtre LLM est supprimé — trop de faux positifs sur des questions légitimes.
-  // Le system prompt de GPT-4o gère nativement le refus hors-périmètre avec bien
-  // plus de contexte et sans risque de blocage erroné.
+  const relevant = await isRelevantQuestion(trimmedMessage)
+  if (!relevant) {
+    return staticSseResponse(REFUSAL_MESSAGE)
+  }
 
-  // ── Étape 2 : Récupération du contexte DILA ─────────────────────────────
-  const dilaContext = await fetchLegalContext(trimmedMessage, openRouterChat)
+  // ── Étape 2 : Récupération parallèle DILA + Judilibre ───────────────────
+  const [dilaContext, juriContext] = await Promise.all([
+    fetchLegalContext(trimmedMessage, openRouterChat),
+    fetchJurisprudence(trimmedMessage),
+  ])
 
   console.info(
-    `[chat] Contexte DILA — available=${dilaContext.available} textsCount=${dilaContext.texts.length}`
+    `[chat] Contexte — DILA available=${dilaContext.available} texts=${dilaContext.texts.length} | Judilibre available=${juriContext.available} decisions=${juriContext.decisions.length}`
   )
 
   // ── Étape 3 : Construction des messages ─────────────────────────────────
-  const systemPromptContent = getSystemPrompt(dilaContext)
+  const systemPromptContent = getSystemPrompt(dilaContext, juriContext.text)
   const history = sanitizeHistory(conversationHistory)
 
   const messages: OpenRouterMessage[] = [
@@ -168,6 +199,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'X-DILA-Available': dilaContext.available ? 'true' : 'false',
+        'X-Judilibre-Available': juriContext.available && juriContext.decisions.length > 0 ? 'true' : 'false',
       },
     })
   } catch (err) {
