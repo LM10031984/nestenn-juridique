@@ -24,36 +24,43 @@ export async function GET(_req: NextRequest): Promise<Response> {
       return Response.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    // 20 derniers feedbacks négatifs (pour affichage)
-    const { data: negatives } = await supabase
-      .from('feedback_reviews')
-      .select('question, response, reason, created_at')
-      .eq('feedback', -1)
-      .order('created_at', { ascending: false })
-      .limit(20)
-
-    // 100 derniers feedbacks négatifs (pour analyse des questions récurrentes)
-    const { data: negativesForRecurring } = await supabase
-      .from('feedback_reviews')
-      .select('question')
-      .eq('feedback', -1)
-      .order('created_at', { ascending: false })
-      .limit(100)
-
-    // Compter le total de feedbacks négatifs (all time)
-    const { count: totalNegatives } = await supabase
-      .from('feedback_reviews')
-      .select('*', { count: 'exact', head: true })
-      .eq('feedback', -1)
-
-    // Taux de satisfaction sur 30 jours
+    // Toutes les requêtes sont indépendantes — on les parallélise
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const { data: allFeedbacks } = await supabase
-      .from('feedback_reviews')
-      .select('feedback')
-      .gte('created_at', thirtyDaysAgo.toISOString())
+    const [
+      { data: negatives, error: negativesError },
+      { data: negativesForRecurring, error: recurringError },
+      { count: totalNegatives, error: countError },
+      { data: allFeedbacks, error: allFeedbacksError },
+    ] = await Promise.all([
+      supabase
+        .from('feedback_reviews')
+        .select('id, question, response, reason, created_at')
+        .eq('feedback', -1)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('feedback_reviews')
+        .select('question')
+        .eq('feedback', -1)
+        .order('created_at', { ascending: false })
+        .limit(100),
+      supabase
+        .from('feedback_reviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('feedback', -1),
+      supabase
+        .from('feedback_reviews')
+        .select('feedback')
+        .gte('created_at', thirtyDaysAgo.toISOString()),
+    ])
+
+    if (negativesError || recurringError || countError || allFeedbacksError) {
+      const err = negativesError ?? recurringError ?? countError ?? allFeedbacksError
+      console.error('[feedback-report] Query error:', err)
+      return Response.json({ error: 'Erreur base de données' }, { status: 500 })
+    }
 
     const total = allFeedbacks?.length ?? 0
     const positives = allFeedbacks?.filter(f => f.feedback === 1).length ?? 0

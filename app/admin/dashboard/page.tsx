@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 
 interface FeedbackReport {
-  negatives: Array<{ question: string; response: string; reason?: string; created_at: string }>
+  negatives: Array<{ id: string; question: string; response: string; reason?: string; created_at: string }>
   satisfactionRate: number | null
   totalFeedbacks: number
   totalNegatives: number
@@ -72,8 +72,8 @@ export default function AdminDashboardPage() {
       <section>
         <h2 className="text-lg font-semibold text-gray-800 mb-3">20 dernières réponses à améliorer</h2>
         <div className="space-y-4">
-          {report.negatives.map((fb, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-4">
+          {report.negatives.map((fb) => (
+            <div key={fb.id} className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-400 mb-2">
                 {new Date(fb.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
