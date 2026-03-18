@@ -214,8 +214,30 @@ export default function ChatPage() {
     }
   }
 
-  function handleFeedback(id: string, value: 1 | -1) {
+  async function handleFeedback(id: string, value: 1 | -1) {
     setFeedbacks(prev => ({ ...prev, [id]: value }))
+
+    // Trouver la question associée (message user précédent)
+    const msgIndex = messages.findIndex(m => m.id === id)
+    const assistantMsg = messages[msgIndex]
+    const precedingUserMsg = messages.slice(0, msgIndex).reverse().find(m => m.role === 'user')
+
+    if (!assistantMsg || !precedingUserMsg) return
+
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: precedingUserMsg.content,
+          response: assistantMsg.content,
+          feedback: value,
+          sessionId: activeConvId ?? undefined,
+        }),
+      })
+    } catch {
+      // Feedback non bloquant — on ignore silencieusement les erreurs réseau
+    }
   }
 
   const isEmpty = messages.length === 0 && !isLoading
