@@ -23,7 +23,7 @@ interface BenchmarkResult {
   response: string
   refsFound: boolean
   keywordsFound: boolean
-  judgeScore: boolean
+  judgeScore: boolean | null
   tokensUsed: number
   costEur: number
 }
@@ -35,11 +35,16 @@ const COST_PER_1K_INPUT = 0.00015  // GPT-4o-mini input en EUR (approx)
 const COST_PER_1K_OUTPUT = 0.0006  // GPT-4o-mini output en EUR (approx)
 
 async function callChatApi(question: string): Promise<{ text: string; tokens: number }> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30_000)
+
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: question }),
+    signal: controller.signal,
   })
+  clearTimeout(timeout)
 
   if (!res.ok) {
     throw new Error(`API chat error: ${res.status}`)
@@ -52,14 +57,15 @@ async function callChatApi(question: string): Promise<{ text: string; tokens: nu
   const decoder = new TextDecoder()
   let accumulated = ''
 
-  while (true) {
+  let streamDone = false
+  while (!streamDone) {
     const { done, value } = await reader.read()
     if (done) break
     const lines = decoder.decode(value, { stream: true }).split('\n')
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue
       const raw = line.slice(6).trim()
-      if (raw === '[DONE]') break
+      if (raw === '[DONE]') { streamDone = true; break }
       try {
         const parsed = JSON.parse(raw)
         const token: string = parsed.choices?.[0]?.delta?.content ?? ''
@@ -67,6 +73,9 @@ async function callChatApi(question: string): Promise<{ text: string; tokens: nu
       } catch { /* ignore */ }
     }
   }
+
+  // Flush remaining bytes (important for UTF-8 multi-byte chars like French accents)
+  accumulated += decoder.decode()
 
   return { text: accumulated, tokens: Math.ceil(accumulated.length / 4) }
 }
@@ -76,7 +85,7 @@ async function judgeResponse(
   response: string,
   expectedRefs: string[],
   expectedKeywords: string[]
-): Promise<{ correct: boolean; cost: number }> {
+): Promise<{ correct: boolean | null; cost: number }> {
   const prompt = `Tu es un expert juridique. Évalue la réponse ci-dessous.
 
 Question : ${question}
@@ -104,7 +113,10 @@ Réponds UNIQUEMENT en JSON : {"correct": true} ou {"correct": false}`
     }),
   })
 
-  if (!res.ok) return { correct: false, cost: 0 }
+  if (!res.ok) {
+    console.warn('[judge] OpenRouter error:', res.status)
+    return { correct: null, cost: 0 }
+  }
 
   const data = await res.json() as {
     choices: Array<{ message: { content: string } }>
@@ -119,7 +131,7 @@ Réponds UNIQUEMENT en JSON : {"correct": true} ou {"correct": false}`
     const parsed = JSON.parse(data.choices[0].message.content.trim()) as { correct: boolean }
     return { correct: parsed.correct, cost }
   } catch {
-    return { correct: false, cost }
+    return { correct: null, cost }
   }
 }
 
@@ -136,7 +148,7 @@ async function main() {
   let totalCost = 0
 
   for (const q of questions) {
-    process.stdout.write(`[${q.id}/50] ${q.theme} — ${q.question.slice(0, 50)}... `)
+    process.stdout.write(`[${q.id}/${questions.length}] ${q.theme} — ${q.question.slice(0, 50)}... `)
 
     try {
       const { text, tokens } = await callChatApi(q.question)
@@ -167,14 +179,14 @@ async function main() {
       }
       results.push(result)
 
-      const status = judgeScore ? '✅' : '❌'
+      const status = judgeScore === true ? '✅' : judgeScore === null ? '⚠️' : '❌'
       console.log(`${status} refs=${refsFound ? '✓' : '✗'} kw=${keywordsFound ? '✓' : '✗'}`)
     } catch (err) {
       console.log(`💥 ERREUR: ${err}`)
     }
 
     // Rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise<void>(r => setTimeout(r, 500))
   }
 
   // ── Rapport final ─────────────────────────────────────────────────
@@ -182,10 +194,13 @@ async function main() {
   console.log('📊 RAPPORT FINAL\n')
 
   const total = results.length
-  const correct = results.filter(r => r.judgeScore).length
-  const globalRate = Math.round((correct / total) * 100)
+  const correct = results.filter(r => r.judgeScore === true).length
+  const skipped = results.filter(r => r.judgeScore === null).length
+  const evaluated = total - skipped
+  const globalRate = evaluated > 0 ? Math.round((correct / evaluated) * 100) : 0
 
-  console.log(`Taux de précision global : ${globalRate}% (${correct}/${total})`)
+  console.log(`Taux de précision global : ${globalRate}% (${correct}/${evaluated} évaluées)`)
+  if (skipped > 0) console.log(`Questions non évaluées (erreur juge) : ${skipped}`)
   console.log(`Coût total benchmark : ${totalCost.toFixed(4)} EUR\n`)
 
   // Par thème
@@ -193,17 +208,18 @@ async function main() {
   console.log('Par thème :')
   for (const theme of themes) {
     const themeResults = results.filter(r => r.theme === theme)
-    const themeCorrect = themeResults.filter(r => r.judgeScore).length
+    const themeCorrect = themeResults.filter(r => r.judgeScore === true).length
     const rate = Math.round((themeCorrect / themeResults.length) * 100)
     console.log(`  ${theme.padEnd(15)} ${rate}% (${themeCorrect}/${themeResults.length})`)
   }
 
   // Questions échouées
-  const failed = results.filter(r => !r.judgeScore)
+  const failed = results.filter(r => r.judgeScore === false)
   if (failed.length > 0) {
     console.log(`\n❌ Questions échouées (${failed.length}) :`)
     for (const f of failed) {
-      console.log(`  [${f.id}] ${f.question.slice(0, 70)}...`)
+      const q70 = f.question.length > 70 ? f.question.slice(0, 70) + '...' : f.question
+      console.log(`  [${f.id}] ${q70}`)
     }
   }
 
