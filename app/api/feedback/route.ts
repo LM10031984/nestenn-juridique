@@ -20,9 +20,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     return Response.json({ error: 'JSON invalide' }, { status: 400 })
   }
 
-  const { question, response, feedback, reason, sessionId } = body
+  const { question, response: aiResponse, feedback, reason, sessionId } = body
 
-  if (!question || !response || (feedback !== 1 && feedback !== -1)) {
+  if (!question || !aiResponse || (feedback !== 1 && feedback !== -1)) {
     return Response.json({ error: 'Champs requis : question, response, feedback (1 ou -1)' }, { status: 400 })
   }
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       .from('feedback_reviews')
       .insert({
         question: question.slice(0, 2000),
-        response: response.slice(0, 10000),
+        response: aiResponse.slice(0, 10000),
         feedback,
         reason: reason?.slice(0, 500),
         agent_id: user?.id ?? null,

@@ -225,7 +225,7 @@ export default function ChatPage() {
     if (!assistantMsg || !precedingUserMsg) return
 
     try {
-      await fetch('/api/feedback', {
+      const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,6 +235,9 @@ export default function ChatPage() {
           sessionId: activeConvId ?? undefined,
         }),
       })
+      if (!res.ok) {
+        console.warn('[feedback] API returned', res.status)
+      }
     } catch {
       // Feedback non bloquant — on ignore silencieusement les erreurs réseau
     }
