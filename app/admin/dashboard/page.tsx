@@ -7,6 +7,7 @@ interface FeedbackReport {
   negatives: Array<{ question: string; response: string; reason?: string; created_at: string }>
   satisfactionRate: number | null
   totalFeedbacks: number
+  totalNegatives: number
   recurringIssues: Array<{ question: string; count: number }>
 }
 
@@ -45,8 +46,8 @@ export default function AdminDashboardPage() {
         </div>
         <div className="bg-white rounded-xl p-5 border border-gray-200">
           <p className="text-sm text-gray-500 mb-1">Questions à réviser</p>
-          <p className="text-3xl font-bold text-red-500">{report.negatives.length}</p>
-          <p className="text-xs text-gray-400 mt-1">réponses notées 👎</p>
+          <p className="text-3xl font-bold text-red-500">{report.totalNegatives}</p>
+          <p className="text-xs text-gray-400 mt-1">réponses négatives au total</p>
         </div>
       </div>
 
@@ -80,7 +81,7 @@ export default function AdminDashboardPage() {
                 <span className="text-gray-400">Q :</span> {fb.question}
               </p>
               <p className="text-xs text-gray-500 line-clamp-3">
-                <span className="text-gray-400">R :</span> {fb.response.slice(0, 200)}...
+                <span className="text-gray-400">R :</span> {fb.response}
               </p>
               {fb.reason && (
                 <p className="mt-2 text-xs text-orange-600 bg-orange-50 rounded px-2 py-1">
