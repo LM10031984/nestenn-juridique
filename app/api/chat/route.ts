@@ -39,6 +39,8 @@ interface ChatRequestBody {
   message: string
   conversationHistory?: ConversationTurn[]
   sessionId?: string
+  model?: string
+  maxTokens?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +100,7 @@ function sanitizeHistory(raw: ConversationTurn[] | undefined): OpenRouterMessage
 // ---------------------------------------------------------------------------
 
 const FILTER_SYSTEM = `Tu es un classificateur. Réponds UNIQUEMENT avec {"relevant":true} ou {"relevant":false}.
-Sont dans le périmètre : droit immobilier français (baux, copropriété, loi Hoguet, mandats, diagnostics, urbanisme, ALUR, ELAN, transactions, SCI, syndics, notaire).
+Sont dans le périmètre : droit immobilier français (baux, copropriété, loi Hoguet, mandats, diagnostics immobiliers obligatoires (amiante, plomb, DPE, termites, électricité, gaz, ERP, assainissement), urbanisme, permis de construire, PLU, loi ZAN, ALUR, ELAN, transactions, SCI, syndics, notaire, viager, démembrement).
 Hors périmètre : cuisine, médecine, droit du travail (hors immobilier), politique, informatique générale.
 En cas de doute, réponds {"relevant":true}.`
 
@@ -136,7 +138,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     })
   }
 
-  const { message, conversationHistory, sessionId } = body
+  const { message, conversationHistory, sessionId, model, maxTokens } = body
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return new Response(JSON.stringify({ error: 'Le champ "message" est requis.' }), {
@@ -178,8 +180,17 @@ export async function POST(req: NextRequest): Promise<Response> {
     `[chat] Contexte — DILA available=${dilaContext.available} texts=${dilaContext.texts.length} | Judilibre available=${juriContext.available} decisions=${juriContext.decisions.length}`
   )
 
-  // ── Étape 3 : Construction des messages ─────────────────────────────────
-  const systemPromptContent = getSystemPrompt(dilaContext, juriContext.text)
+  // ── DEBUG TEMPORAIRE ────────────────────────────────────────────────────
+  console.log('=== CONTEXTE LÉGIFRANCE ===')
+  console.log(dilaContext.texts.length > 0 ? JSON.stringify(dilaContext.texts.map(t => ({ id: t.textId, title: t.title, contentLength: t.content?.length })), null, 2) : 'VIDE')
+  console.log('=== CONTEXTE JUDILIBRE ===')
+  console.log(juriContext?.text || 'VIDE')
+  console.log('=== SYSTEM PROMPT FINAL ===')
+  const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text)
+  console.log(systemPromptContent.slice(0, 3000) + (systemPromptContent.length > 3000 ? '\n[...tronqué]' : ''))
+  console.log('=== FIN CONTEXTE ===')
+  // ── FIN DEBUG ───────────────────────────────────────────────────────────
+
   const history = sanitizeHistory(conversationHistory)
 
   const messages: OpenRouterMessage[] = [
@@ -190,7 +201,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── Étape 4 : Streaming GPT-4o via OpenRouter ───────────────────────────
   try {
-    const llmStream = await openRouterStream(messages, MODELS.MAIN, 2000)
+    const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
 
     return new Response(llmStream, {
       status: 200,

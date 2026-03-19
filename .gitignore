@@ -34,3 +34,11 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# benchmark output (generated)
+scripts/benchmark-results/
+
+# temp context files
+.continue-here.md
+# internal planning docs
+docs/superpowers/

@@ -50,11 +50,18 @@ const LEGAL_TRIGGERS: Array<{ triggers: string[]; query: string }> = [
   { triggers: ['garantie', 'vices cachés', 'défaut'], query: 'vices cachés immeuble' },
   { triggers: ['expulsion', 'impayé', 'congé'], query: 'expulsion locataire' },
   { triggers: ['servitude', 'mitoyenneté', 'voisinage'], query: 'servitude voisinage' },
-  { triggers: ['diagnostic', 'dpe', 'amiante', 'plomb'], query: 'diagnostic immobilier obligation' },
+  { triggers: ['diagnostic', 'dpe', 'amiante', 'plomb', 'dpe collectif'], query: 'diagnostic immobilier obligation' },
   { triggers: ['urbanisme', 'permis', 'plu', 'préemption'], query: 'permis construire urbanisme' },
+  { triggers: ['démembrement', 'usufruit', 'usufruitier', 'nue-propriété', 'nu-propriétaire'], query: 'usufruit nue-propriété immeuble' },
+  { triggers: ['viager', 'rente viagère', 'bouquet'], query: 'viager rente viagère' },
+  { triggers: ['condition suspensive', 'délai de prêt', 'prêt immobilier', 'refus de prêt'], query: 'condition suspensive prêt immobilier' },
 ]
 
 function extractJuriQuery(question: string): string | null {
+  // Questions trop courtes = pas de jurisprudence utile (ex: "c'est quoi un bail ?")
+  const wordCount = question.trim().split(/\s+/).length
+  if (wordCount < 8) return null
+
   const lower = question.toLowerCase()
   for (const { triggers, query } of LEGAL_TRIGGERS) {
     if (triggers.some(t => lower.includes(t))) return query
@@ -120,20 +127,24 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
 
     const snippets: string[] = []
     for (const decision of results) {
-      const parts: string[] = []
-      if (decision.jurisdiction) parts.push(decision.jurisdiction)
-      if (decision.chamber) parts.push(decision.chamber)
-      if (decision.decision_date) parts.push(decision.decision_date.slice(0, 10))
-      if (decision.number) parts.push(`n° ${decision.number}`)
-      const header = parts.join(', ')
-      const summary = decision.summary ?? decision.solution ?? ''
-      if (header || summary) {
-        snippets.push([header, summary].filter(Boolean).join(' — '))
+      const ref: string[] = []
+      if (decision.number) ref.push(`Arrêt n° ${decision.number}`)
+      if (decision.decision_date) ref.push(decision.decision_date.slice(0, 10))
+      if (decision.jurisdiction) ref.push(decision.jurisdiction)
+      if (decision.chamber) ref.push(decision.chamber)
+      const header = ref.join(' · ')
+
+      // L'enseignement = résumé tronqué à 200 caractères pour rester lisible
+      const raw = decision.summary ?? decision.solution ?? ''
+      const enseignement = raw.length > 200 ? raw.slice(0, 200).trimEnd() + '…' : raw
+
+      if (header || enseignement) {
+        snippets.push(`- ${header}\n  Enseignement : ${enseignement}`)
       }
     }
 
     const text = snippets.length > 0
-      ? `Jurisprudences pertinentes (JUDILIBRE) :\n${snippets.join('\n')}`
+      ? `Jurisprudences pertinentes (source : JUDILIBRE / Cour de cassation) :\n${snippets.join('\n')}`
       : ''
 
     return { available: true, text, decisions: results }
