@@ -8,6 +8,16 @@ import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+// Charger .env.local (tsx ne le charge pas automatiquement contrairement à Next.js)
+try {
+  const envPath = resolve(__dirname, '../.env.local')
+  const envContent = readFileSync(envPath, 'utf-8')
+  for (const line of envContent.split('\n')) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim()
+  }
+} catch { /* .env.local absent — variables d'env système utilisées */ }
+
 interface TestQuestion {
   id: number
   theme: string
