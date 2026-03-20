@@ -943,6 +943,340 @@ async function testPipelineComplet(token: string) {
 }
 
 // ---------------------------------------------------------------------------
+// TEST VISA 1 — GET /search field=visa query='loi 89-462'
+// ---------------------------------------------------------------------------
+
+async function testJudilibreVisaSearch1(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST VISA 1 — GET /search field=visa query="loi 89-462"')
+  console.log('═'.repeat(70))
+
+  const url = new URL(`${JUDILIBRE_BASE}/search`)
+  url.searchParams.set('query', 'loi 89-462')
+  url.searchParams.append('field', 'visa')
+  url.searchParams.append('chamber', 'civ3')
+  url.searchParams.append('publication', 'b')
+  url.searchParams.append('publication', 'r')
+  url.searchParams.set('date_start', '2018-01-01')
+  url.searchParams.set('page_size', '5')
+  url.searchParams.set('resolve_references', 'true')
+
+  console.log('URL :', url.toString())
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url.toString(), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST VISA 1 /search', err); return }
+
+  console.log(`\ntotal : ${data?.total ?? data?.totalResultNumber ?? '—'}`)
+  const results: any[] = data?.results ?? []
+  console.log(`retour : ${results.length} résultat(s)`)
+  for (const r of results) {
+    const hlVisa: string[] = r?.highlights?.visa ?? []
+    console.log(`\n  n° ${r.number ?? '—'}  ${(r.decision_date ?? '').slice(0, 10)}  solution=${r.solution ?? '—'}`)
+    console.log(`  themes : ${(r.themes ?? []).slice(0, 3).join(', ') || '—'}`)
+    console.log(`  highlights.visa (${hlVisa.length}) : ${hlVisa.slice(0, 2).map(h => h.slice(0, 120)).join(' | ') || '—'}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST VISA 2 — GET /search field=visa query='article 24 loi 89-462'
+// ---------------------------------------------------------------------------
+
+async function testJudilibreVisaSearch2(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST VISA 2 — GET /search field=visa query="article 24 loi 89-462"')
+  console.log('═'.repeat(70))
+
+  const url = new URL(`${JUDILIBRE_BASE}/search`)
+  url.searchParams.set('query', 'article 24 loi 89-462')
+  url.searchParams.append('field', 'visa')
+  url.searchParams.set('operator', 'and')
+  url.searchParams.append('chamber', 'civ3')
+  url.searchParams.append('publication', 'b')
+  url.searchParams.append('publication', 'r')
+  url.searchParams.set('date_start', '2018-01-01')
+  url.searchParams.set('page_size', '5')
+
+  console.log('URL :', url.toString())
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url.toString(), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST VISA 2 /search', err); return }
+
+  console.log(`\ntotal : ${data?.total ?? data?.totalResultNumber ?? '—'}`)
+  const results: any[] = data?.results ?? []
+  console.log(`retour : ${results.length} résultat(s)`)
+  for (const r of results) {
+    console.log(`\n  n° ${r.number ?? '—'}  ${(r.decision_date ?? '').slice(0, 10)}  solution=${r.solution ?? '—'}`)
+    console.log(`  themes : ${(r.themes ?? []).slice(0, 3).join(', ') || '—'}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST CODE — POST /consult/code Légifrance (LEGITEXT000006070721, date 2026-03-20)
+// ---------------------------------------------------------------------------
+
+async function testLegifranceCode(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST CODE — POST /consult/getArticle { id: LEGIARTI000032042154 }')
+  console.log('═'.repeat(70))
+
+  const url = `${API_BASE}/consult/getArticle`
+  const body = { id: 'LEGIARTI000006436298' }
+
+  console.log('URL :', url)
+  console.log('Body :', JSON.stringify(body))
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST CODE /consult/getArticle', err); return }
+
+  console.log(`\nClés racine : ${Object.keys(data ?? {}).join(', ')}`)
+  const art = data?.article ?? data
+  if (!art || typeof art !== 'object') {
+    console.log('Réponse brute (600 chars) :', JSON.stringify(data).slice(0, 600))
+    return
+  }
+
+  console.log(`\nnum        : ${art.num ?? art.number ?? '—'}`)
+  console.log(`etat       : ${art.etat ?? art.legalStatus ?? '—'}`)
+  console.log(`pathTitle  : ${JSON.stringify(art.pathTitle ?? art.path ?? art.contexte ?? '—')}`)
+
+  const content: string = art.texte ?? art.content ?? art.text ?? ''
+  console.log(`\ncontent (600 chars) :\n${content.slice(0, 600).replace(/\s+/g, ' ')}`)
+
+  const lienConcordes: any[] = art.lienConcordes ?? art.concordances ?? []
+  console.log(`\nlienConcordes (${lienConcordes.length}) :`)
+  for (const l of lienConcordes.slice(0, 5)) {
+    console.log(`  · ${JSON.stringify(l).slice(0, 120)}`)
+  }
+
+  const lienCitations: any[] = art.lienCitations ?? art.citations ?? []
+  console.log(`\nlienCitations (${lienCitations.length}) :`)
+  for (const l of lienCitations.slice(0, 5)) {
+    console.log(`  · ${JSON.stringify(l).slice(0, 120)}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST TITLES — GET /decision 22-19.117 (id fixe) + titlesAndSummaries
+// ---------------------------------------------------------------------------
+
+async function testJudilibreTitlesAndSummaries(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST TITLES — GET /decision?id=60796b799ba5988459c49afd (22-19.117) titlesAndSummaries')
+  console.log('═'.repeat(70))
+
+  // ID connu de l'arrêt 22-19.117 (retourné lors du test pipeline complet)
+  const decId = '60796b799ba5988459c49afd'
+
+  const decUrl = new URL(`${JUDILIBRE_BASE}/decision`)
+  decUrl.searchParams.set('id', decId)
+  decUrl.searchParams.set('resolve_references', 'true')
+
+  console.log(`📤 GET /decision?id=${decId}&resolve_references=true`)
+  const t0 = Date.now()
+  let dec: any
+  try {
+    const res = await withTimeout(
+      fetch(decUrl.toString(), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { dec = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST TITLES /decision', err); return }
+
+  console.log(`\nnumber        : ${dec?.number ?? '—'}`)
+  console.log(`decision_date : ${dec?.decision_date ?? '—'}`)
+  console.log(`solution      : ${dec?.solution ?? '—'}`)
+
+  // titlesAndSummaries — structure exacte et contenu brut complet
+  const ts = dec?.titlesAndSummaries
+  if (ts === undefined || ts === null) {
+    console.log('\n⚠️  Champ titlesAndSummaries absent')
+    console.log('Clés disponibles :', Object.keys(dec ?? {}).join(', '))
+  } else {
+    console.log(`\ntitlesAndSummaries — type : ${Array.isArray(ts) ? `array[${ts.length}]` : typeof ts}`)
+    if (Array.isArray(ts)) {
+      if (ts.length === 0) {
+        console.log('  (tableau vide)')
+      }
+      for (let i = 0; i < ts.length; i++) {
+        const item = ts[i]
+        console.log(`\n  [${i}] clés : ${Object.keys(item ?? {}).join(', ')}`)
+        console.log(`       JSON brut : ${JSON.stringify(item).slice(0, 800)}`)
+      }
+    } else if (typeof ts === 'object') {
+      console.log(`clés : ${Object.keys(ts).join(', ')}`)
+      console.log(`JSON brut :\n${JSON.stringify(ts, null, 2).slice(0, 1200)}`)
+    } else {
+      console.log(`valeur : ${String(ts).slice(0, 600)}`)
+    }
+  }
+
+  // Affiche aussi les autres champs liés aux résumés/titres
+  for (const field of ['summary', 'abstract', 'headnotes', 'bulletin', 'themes']) {
+    const val = dec?.[field]
+    if (val !== undefined && val !== null) {
+      const str = Array.isArray(val) ? `[${val.length}] ${JSON.stringify(val).slice(0, 300)}` : String(val).slice(0, 300)
+      console.log(`\n${field} : ${str}`)
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST STATS — GET /stats?keys=nac&jurisdiction=cc
+// ---------------------------------------------------------------------------
+
+async function testJudilibreStats(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST STATS — GET /stats?keys=nac&jurisdiction=cc')
+  console.log('═'.repeat(70))
+
+  const url = new URL(`${JUDILIBRE_BASE}/stats`)
+  url.searchParams.set('keys', 'nac')
+  url.searchParams.set('jurisdiction', 'cc')
+
+  console.log('URL :', url.toString())
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url.toString(), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST STATS /stats nac cc', err); return }
+
+  console.log(`\nClés racine : ${Object.keys(data ?? {}).join(', ')}`)
+
+  function extractBuckets(node: any): any[] {
+    if (!node) return []
+    if (Array.isArray(node) && node.length > 0 && typeof node[0] === 'object') return node
+    for (const val of Object.values(node)) {
+      if (Array.isArray(val) && val.length > 0) return val as any[]
+      if (typeof val === 'object' && val !== null) {
+        const found = extractBuckets(val)
+        if (found.length > 0) return found
+      }
+    }
+    return []
+  }
+
+  const buckets: any[] = data?.results?.nac ?? []
+  console.log(`Total buckets NAC : ${buckets.length}`)
+
+  console.log('\n--- 10 premiers buckets NAC ---')
+  for (const b of buckets.slice(0, 10)) {
+    const key = b['key.nac'] ?? b.key ?? b.nac ?? b.label ?? JSON.stringify(b).slice(0, 80)
+    const count = b.decisions_count ?? b.doc_count ?? b.count ?? b.total ?? '?'
+    console.log(`  · ${key}  →  ${count}`)
+  }
+  if (buckets.length === 0) {
+    console.log('  Réponse brute (600 chars) :', JSON.stringify(data).slice(0, 600))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST VISA 3 — GET /search field=visa query='89-462' operator=exact + filtre JS article 24
+// ---------------------------------------------------------------------------
+
+async function testJudilibreVisaSearch3(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST VISA 3 — GET /search field=visa query="89-462" operator=exact')
+  console.log('   Filtre JS : highlights.visa contient "article 24" ET "89-462"')
+  console.log('═'.repeat(70))
+
+  const url = new URL(`${JUDILIBRE_BASE}/search`)
+  url.searchParams.set('query', '89-462')
+  url.searchParams.append('field', 'visa')
+  url.searchParams.set('operator', 'exact')
+  url.searchParams.append('chamber', 'civ3')
+  url.searchParams.append('publication', 'b')
+  url.searchParams.append('publication', 'r')
+  url.searchParams.set('date_start', '2018-01-01')
+  url.searchParams.set('page_size', '10')
+
+  console.log('URL :', url.toString())
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url.toString(), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST VISA 3 /search', err); return }
+
+  const results: any[] = data?.results ?? []
+  console.log(`\ntotal API : ${data?.total ?? data?.totalResultNumber ?? '—'}  |  retour : ${results.length} résultat(s)`)
+
+  // Affichage complet des highlights.visa pour chaque résultat
+  console.log('\n--- highlights.visa bruts ---')
+  for (const r of results) {
+    const hlVisa: string[] = r?.highlights?.visa ?? []
+    console.log(`\n  n° ${r.number ?? '—'}  ${(r.decision_date ?? '').slice(0, 10)}`)
+    console.log(`  highlights.visa (${hlVisa.length}) :`)
+    for (const h of hlVisa) {
+      console.log(`    · ${h.slice(0, 200)}`)
+    }
+  }
+
+  // Filtre JS : highlights.visa contient "article 24" ET "89-462" (insensible à la casse)
+  const filtered = results.filter(r => {
+    const hlText = (r?.highlights?.visa ?? []).join(' ').toLowerCase()
+    return hlText.includes('article 24') && hlText.includes('89-462')
+  })
+
+  console.log(`\n--- Après filtre JS (article 24 + 89-462) : ${filtered.length} résultat(s) ---`)
+  for (const r of filtered) {
+    const hlVisa: string[] = r?.highlights?.visa ?? []
+    console.log(`\n  ✅ n° ${r.number ?? '—'}  ${(r.decision_date ?? '').slice(0, 10)}  solution=${r.solution ?? '—'}`)
+    console.log(`  themes : ${(r.themes ?? []).slice(0, 3).join(', ') || '—'}`)
+    console.log(`  highlights.visa filtrés :`)
+    for (const h of hlVisa) {
+      const hl = h.toLowerCase()
+      if (hl.includes('article 24') && hl.includes('89-462')) {
+        console.log(`    · ${h.slice(0, 300)}`)
+      }
+    }
+  }
+  if (filtered.length === 0) {
+    console.log('  (aucun résultat ne satisfait les deux critères)')
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -1120,7 +1454,483 @@ async function main() {
     fail('TEST H /consult/getArticleWithIdAndNum', err)
   }
 
+  // TEST CODE — POST /consult/code Légifrance LEGITEXT000006070721
+  try {
+    await testLegifranceCode(token)
+  } catch (err) {
+    fail('TEST CODE /consult/code LEGITEXT000006070721', err)
+  }
+
+  // TEST TITLES — GET /decision titlesAndSummaries
+  try {
+    await testJudilibreTitlesAndSummaries(token)
+  } catch (err) {
+    fail('TEST TITLES /decision titlesAndSummaries', err)
+  }
+
+  // TEST STATS — GET /stats theme × cc
+  try {
+    await testJudilibreStats(token)
+  } catch (err) {
+    fail('TEST STATS /stats theme cc', err)
+  }
+
+  // TEST VISA 1 — Judilibre /search field=visa query='loi 89-462'
+  try {
+    await testJudilibreVisaSearch1(token)
+  } catch (err) {
+    fail('TEST VISA 1 Judilibre /search field=visa loi 89-462', err)
+  }
+
+  // TEST VISA 2 — Judilibre /search field=visa query='article 24 loi 89-462'
+  try {
+    await testJudilibreVisaSearch2(token)
+  } catch (err) {
+    fail('TEST VISA 2 Judilibre /search field=visa article 24 loi 89-462', err)
+  }
+
+  // TEST VISA 3 — Judilibre /search field=visa query='89-462' operator=exact + filtre JS article 24
+  try {
+    await testJudilibreVisaSearch3(token)
+  } catch (err) {
+    fail('TEST VISA 3 Judilibre /search field=visa 89-462 exact + filtre article 24', err)
+  }
+
+  // TEST SAMENUM — POST /consult/sameNumArticle
+  try {
+    await testLegifranceSameNum(token)
+  } catch (err) {
+    fail('TEST SAMENUM /consult/sameNumArticle', err)
+  }
+
+  // TEST CONCORDANCE — POST /consult/concordanceLinksArticle
+  try {
+    await testLegifranceConcordance(token)
+  } catch (err) {
+    fail('TEST CONCORDANCE /consult/concordanceLinksArticle', err)
+  }
+
+  // TEST RAPPROCHEMENTS — /decision 22-19.117 rapprochements[]
+  try {
+    await testJudilibreRapprochements(token)
+  } catch (err) {
+    fail('TEST RAPPROCHEMENTS /decision 22-19.117', err)
+  }
+
+  // TEST RELATED — POST /consult/relatedLinksArticle LEGIARTI000047900019
+  try {
+    await testLegifranceRelatedLinks(token)
+  } catch (err) {
+    fail('TEST RELATED /consult/relatedLinksArticle', err)
+  }
+
+  // TEST CHRONO — POST /chrono/textCidAndElementCid article 24 loi 89-462
+  try {
+    await testLegifranceChrono(token)
+  } catch (err) {
+    fail('TEST CHRONO /chrono/textCidAndElementCid', err)
+  }
+
+  // TEST CHRONO 2 — getArticleWithIdAndNum → cid réel → /chrono/textCidAndElementCid
+  try {
+    await testLegifranceChrono2(token)
+  } catch (err) {
+    fail('TEST CHRONO 2 getArticleWithIdAndNum → chrono', err)
+  }
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+}
+
+// ---------------------------------------------------------------------------
+// TEST RAPPROCHEMENTS — GET /decision 22-19.117 → rapprochements[]
+// ---------------------------------------------------------------------------
+
+async function testJudilibreRapprochements(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST RAPPROCHEMENTS — /decision 22-19.117 → rapprochements[]')
+  console.log('═'.repeat(70))
+
+  // Étape 1 : trouve l'ID de 22-19.117 via la requête connue de TEST VISA 2
+  const searchUrl = new URL(`${JUDILIBRE_BASE}/search`)
+  searchUrl.searchParams.set('query', 'article 24 loi 89-462')
+  searchUrl.searchParams.append('field', 'visa')
+  searchUrl.searchParams.set('operator', 'and')
+  searchUrl.searchParams.append('chamber', 'civ3')
+  searchUrl.searchParams.set('page_size', '10')
+
+  console.log('\n📤 GET /search (localisation de 22-19.117)...')
+  const t0 = Date.now()
+  let sData: any
+  try {
+    const res = await withTimeout(
+      fetch(searchUrl.toString(), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status}  (${Date.now() - t0}ms)`)
+    sData = await res.json()
+  } catch (err) { fail('TEST RAPPROCHEMENTS /search', err); return }
+
+  const results: any[] = sData?.results ?? []
+  const target = results.find((r: any) => r.number === '22-19.117')
+  if (!target) { console.log('⚠️  22-19.117 introuvable dans les résultats'); return }
+  const decId: string = target.id
+  console.log(`ID : ${decId}  (${target.number} — ${target.decision_date})`)
+
+  // Étape 2 : /decision avec resolve_references=true
+  const decUrl = new URL(`${JUDILIBRE_BASE}/decision`)
+  decUrl.searchParams.set('id', decId)
+  decUrl.searchParams.set('resolve_references', 'true')
+
+  console.log(`\n📤 GET /decision?id=${decId}&resolve_references=true`)
+  const t1 = Date.now()
+  let dec: any
+  try {
+    const res = await withTimeout(
+      fetch(decUrl.toString(), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t1}ms)`)
+    dec = await res.json()
+  } catch (err) { fail('TEST RAPPROCHEMENTS /decision', err); return }
+
+  // rapprochements[]
+  const rapp: any[] = dec?.rapprochements ?? []
+  console.log(`\nrapprochements : ${rapp.length} entrée(s)`)
+  if (rapp.length === 0) {
+    console.log('  (vide — clés disponibles :', Object.keys(dec ?? {}).join(', ') + ')')
+  }
+  for (const r of rapp) {
+    console.log(`\n  id          : ${r.id ?? '—'}`)
+    console.log(`  number      : ${r.number ?? '—'}`)
+    console.log(`  date        : ${r.decision_date ?? r.date ?? '—'}`)
+    console.log(`  description : ${String(r.description ?? r.text ?? r.summary ?? '—').slice(0, 200)}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST RELATED — POST /consult/relatedLinksArticle (article 24 loi 89-462)
+// ---------------------------------------------------------------------------
+
+async function testLegifranceRelatedLinks(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST RELATED — POST /consult/relatedLinksArticle LEGIARTI000047900019')
+  console.log('═'.repeat(70))
+
+  const url = `${API_BASE}/consult/relatedLinksArticle`
+  const body = { articleId: 'LEGIARTI000047900019' }
+
+  console.log('Body :', JSON.stringify(body))
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST RELATED /consult/relatedLinksArticle', err); return }
+
+  console.log(`\nClés racine : ${Object.keys(data ?? {}).join(', ')}`)
+
+  const liensCitePar: any[] = data?.liensCitePar ?? data?.linksArticle ?? data?.links ?? []
+  console.log(`\nliensCitePar (${liensCitePar.length} total) — 5 premiers :`)
+  if (liensCitePar.length === 0) {
+    console.log('  (vide — réponse brute) :', JSON.stringify(data).slice(0, 500))
+  }
+  for (const l of liensCitePar.slice(0, 5)) {
+    console.log(`  · name   : ${l.name ?? l.title ?? l.textTitle ?? '—'}`)
+    console.log(`    nature : ${l.nature ?? l.type ?? l.linkType ?? '—'}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST CHRONO — POST /chrono/textCidAndElementCid (article 24 loi 89-462)
+// ---------------------------------------------------------------------------
+
+async function testLegifranceChrono(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST CHRONO — POST /chrono/textCidAndElementCid (article 24 loi 89-462)')
+  console.log('═'.repeat(70))
+
+  const url = `${API_BASE}/chrono/textCidAndElementCid`
+  const body = { textCid: 'JORFTEXT000000509310', elementCid: 'LEGIARTI000006475187' }
+
+  console.log('Body :', JSON.stringify(body))
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST CHRONO /chrono/textCidAndElementCid', err); return }
+
+  console.log(`\nClés racine : ${Object.keys(data ?? {}).join(', ')}`)
+
+  const regroupements: any[] = data?.regroupements ?? []
+  console.log(`Regroupements (années) : ${regroupements.length}`)
+
+  // Collecte toutes les modifications (articlesModificateurs) triées chronologiquement
+  const allMods: Array<{ year: string; date: string; title: string }> = []
+  for (const grp of regroupements) {
+    const year: string = grp.title ?? '?'
+    for (const [date, verObj] of Object.entries(grp.versions ?? {})) {
+      const ver = verObj as any
+      for (const [, mod] of Object.entries(ver.articlesModificateurs ?? {})) {
+        const m = mod as any
+        allMods.push({ year, date, title: m.title ?? '—' })
+      }
+    }
+  }
+  console.log(`Total modifications : ${allMods.length}`)
+
+  console.log('\n--- 3 dernières modifications ---')
+  if (allMods.length === 0) {
+    console.log('  Réponse brute (600 chars) :', JSON.stringify(data).slice(0, 600))
+  }
+  for (const m of allMods.slice(-3)) {
+    console.log(`  · ${m.date}  ${m.title}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST SAMENUM — POST /consult/sameNumArticle (article 24 loi 89-462)
+// ---------------------------------------------------------------------------
+
+async function testLegifranceSameNum(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST SAMENUM — POST /consult/sameNumArticle (article 24 loi 89-462)')
+  console.log('═'.repeat(70))
+
+  const url = `${API_BASE}/consult/sameNumArticle`
+  const body = { articleCid: 'LEGIARTI000006475187', textCid: 'JORFTEXT000000509310', articleNum: '24', date: '2026-03-20' }
+
+  console.log('Body :', JSON.stringify(body))
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST SAMENUM /consult/sameNumArticle', err); return }
+
+  console.log(`\nClés racine : ${Object.keys(data ?? {}).join(', ')}`)
+
+  const newTexts: any[] = data?.newTexts ?? []
+  console.log(`\nnewTexts (${newTexts.length}) :`)
+  for (const t of newTexts) {
+    console.log(`  · id=${t.id ?? '—'}  name=${t.name ?? t.title ?? '—'}  dateDebut=${t.dateDebut ?? t.date ?? '—'}`)
+  }
+
+  const oldTexts: any[] = data?.oldTexts ?? []
+  console.log(`\noldTexts (${oldTexts.length}) :`)
+  for (const t of oldTexts) {
+    console.log(`  · id=${t.id ?? '—'}  name=${t.name ?? t.title ?? '—'}  dateDebut=${t.dateDebut ?? t.date ?? '—'}`)
+  }
+
+  if (newTexts.length === 0 && oldTexts.length === 0) {
+    console.log('\nRéponse brute (600 chars) :', JSON.stringify(data).slice(0, 600))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST CONCORDANCE — POST /consult/concordanceLinksArticle (article 24 loi 89-462)
+// ---------------------------------------------------------------------------
+
+async function testLegifranceConcordance(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST CONCORDANCE — POST /consult/concordanceLinksArticle LEGIARTI000047900019')
+  console.log('═'.repeat(70))
+
+  const url = `${API_BASE}/consult/concordanceLinksArticle`
+  const body = { articleId: 'LEGIARTI000047900019' }
+
+  console.log('Body :', JSON.stringify(body))
+  const t0 = Date.now()
+  let data: any
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST CONCORDANCE /consult/concordanceLinksArticle', err); return }
+
+  console.log(`\nClés racine : ${Object.keys(data ?? {}).join(', ')}`)
+
+  const liens: any[] = data?.lienConcorde ?? data?.concordances ?? data?.links ?? []
+  console.log(`\nlienConcorde (${liens.length}) :`)
+  if (liens.length === 0) {
+    console.log('  Réponse brute (600 chars) :', JSON.stringify(data).slice(0, 600))
+  }
+  for (const l of liens) {
+    console.log(`  · articleId=${l.articleId ?? l.id ?? '—'}  num=${l.articleNum ?? l.num ?? '—'}  linkType=${l.linkType ?? l.type ?? '—'}`)
+    console.log(`    textTitle=${l.textTitle ?? l.title ?? l.name ?? '—'}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEST CHRONO 2 — getArticleWithIdAndNum → cid réel → /chrono/textCidAndElementCid
+// ---------------------------------------------------------------------------
+
+async function testLegifranceChrono2(token: string) {
+  console.log('\n' + '═'.repeat(70))
+  console.log('🧪 TEST CHRONO 2 — getArticleWithIdAndNum → cid → /chrono/textCidAndElementCid')
+  console.log('═'.repeat(70))
+
+  // Étape 1 : récupère le vrai cid de l'article 24 via JORFTEXT
+  const step1Url = `${API_BASE}/consult/getArticleWithIdAndNum`
+  const step1Body = { id: 'JORFTEXT000000509310', num: '24' }
+  console.log('\n📤 POST /consult/getArticleWithIdAndNum')
+  console.log('Body :', JSON.stringify(step1Body))
+  const t0 = Date.now()
+  let step1Data: any
+  try {
+    const res = await withTimeout(
+      fetch(step1Url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(step1Body),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t0}ms)`)
+    const raw = await res.text()
+    try { step1Data = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST CHRONO 2 getArticleWithIdAndNum', err); return }
+
+  const art = step1Data?.article
+  if (!art) {
+    console.log('⚠️  article null — réponse brute :', JSON.stringify(step1Data).slice(0, 400))
+    return
+  }
+  console.log(`\narticle.id  : ${art.id ?? '—'}`)
+  console.log(`article.cid : ${art.cid ?? '—'}`)
+  console.log(`article.num : ${art.num ?? art.number ?? '—'}`)
+
+  const elementCid: string = art.cid
+  if (!elementCid) {
+    console.log('⚠️  article.cid absent — impossible de continuer')
+    return
+  }
+
+  // Étape 2 : /chrono/textCidAndElementCid avec le vrai cid
+  const step2Url = `${API_BASE}/chrono/textCidAndElementCid`
+  const step2Body = { textCid: 'LEGITEXT000006069108', elementCid }
+  console.log('\n📤 POST /chrono/textCidAndElementCid')
+  console.log('Body :', JSON.stringify(step2Body))
+  const t1 = Date.now()
+  let chronoData: any
+  try {
+    const res = await withTimeout(
+      fetch(step2Url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(step2Body),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t1}ms)`)
+    const raw = await res.text()
+    try { chronoData = JSON.parse(raw) } catch { console.log('⚠️  Non-JSON :', raw.slice(0, 400)); return }
+  } catch (err) { fail('TEST CHRONO 2 /chrono/textCidAndElementCid', err); return }
+
+  console.log('\n--- Réponse brute complète ---')
+  console.log(JSON.stringify(chronoData, null, 2).slice(0, 2000))
+
+  // Tentative parallèle : JORFTEXT comme textCid + lawDecree pour trouver le LEGITEXT canonique
+  console.log('\n📤 Appels parallèles...')
+  const [chronoJorf, lawDecree] = await Promise.all([
+    // Option 1 : textCid = JORFTEXT direct
+    (async () => {
+      const u = `${API_BASE}/chrono/textCidAndElementCid`
+      const b = { textCid: 'JORFTEXT000000509310', elementCid }
+      console.log(`\n  [A] POST /chrono/textCidAndElementCid  body=${JSON.stringify(b)}`)
+      const t = Date.now()
+      const res = await withTimeout(
+        fetch(u, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(b),
+        }),
+        TIMEOUT_MS
+      )
+      console.log(`  [A] HTTP ${res.status} ${res.statusText}  (${Date.now() - t}ms)`)
+      const raw = await res.text()
+      try { return JSON.parse(raw) } catch { return raw }
+    })(),
+    // Option 2 : lawDecree → récupère le cid (LEGITEXT canonique)
+    (async () => {
+      const u = `${API_BASE}/consult/lawDecree`
+      const b = { textId: 'JORFTEXT000000509310', date: '2026-03-20' }
+      console.log(`\n  [B] POST /consult/lawDecree  body=${JSON.stringify(b)}`)
+      const t = Date.now()
+      const res = await withTimeout(
+        fetch(u, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(b),
+        }),
+        TIMEOUT_MS
+      )
+      console.log(`  [B] HTTP ${res.status} ${res.statusText}  (${Date.now() - t}ms)`)
+      const raw = await res.text()
+      try { return JSON.parse(raw) } catch { return raw }
+    })(),
+  ])
+
+  console.log('\n[A] /chrono avec textCid=JORFTEXT000000509310 — réponse brute :')
+  console.log(JSON.stringify(chronoJorf, null, 2).slice(0, 1500))
+
+  const legitext: string = lawDecree?.cid ?? '(absent)'
+  console.log(`\n[B] lawDecree.cid (LEGITEXT canonique) : ${legitext}`)
+  if (legitext !== '(absent)' && legitext !== 'LEGITEXT000006069108') {
+    console.log(`\n📤 /chrono avec textCid=${legitext} (LEGITEXT canonique trouvé)`)
+    const u = `${API_BASE}/chrono/textCidAndElementCid`
+    const b = { textCid: legitext, elementCid }
+    const t = Date.now()
+    const res = await withTimeout(
+      fetch(u, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(b),
+      }),
+      TIMEOUT_MS
+    )
+    console.log(`HTTP ${res.status} ${res.statusText}  (${Date.now() - t}ms)`)
+    const raw = await res.text()
+    let result: any
+    try { result = JSON.parse(raw) } catch { result = raw }
+    console.log('Réponse brute :')
+    console.log(JSON.stringify(result, null, 2).slice(0, 1500))
+  }
 }
 
 // ---------------------------------------------------------------------------

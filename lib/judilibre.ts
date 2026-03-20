@@ -243,10 +243,14 @@ async function searchDecisions(
 // Étape 2 — /decision?id=xxx&resolve_references=true
 // ---------------------------------------------------------------------------
 
-async function fetchDecisionDetail(token: string, id: string): Promise<any | null> {
+async function fetchDecisionDetail(token: string, id: string, query?: string): Promise<any | null> {
   const url = new URL(`${API_URL}/decision`)
   url.searchParams.set('id', id)
   url.searchParams.set('resolve_references', 'true')
+  if (query) {
+    url.searchParams.set('query', query)
+    url.searchParams.set('operator', 'and')
+  }
 
   const res = await fetchWithTimeout(url.toString(), {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
@@ -259,6 +263,37 @@ async function fetchDecisionDetail(token: string, id: string): Promise<any | nul
     return null
   }
   return res.json()
+}
+
+// ---------------------------------------------------------------------------
+// Extraction des passages text_highlight (décisions pré-2018 sans zones)
+// ---------------------------------------------------------------------------
+
+function extractHighlights(detail: any): string {
+  const hl = detail?.text_highlight
+  if (!hl) return ''
+
+  // text_highlight peut être un objet {text:[...]}, un tableau ou une string
+  const raw: string[] = []
+  if (typeof hl === 'string') raw.push(hl)
+  else if (Array.isArray(hl)) raw.push(...hl)
+  else if (hl.text) raw.push(...(Array.isArray(hl.text) ? hl.text : [String(hl.text)]))
+
+  const segments: string[] = []
+  for (const s of raw) {
+    const matches = [...String(s).matchAll(/<em>([\s\S]*?)<\/em>/g)]
+    for (const m of matches) {
+      const seg = m[1].slice(0, 200).trim()
+      if (seg) segments.push(seg)
+      if (segments.length >= 3) break
+    }
+    if (segments.length >= 3) break
+  }
+
+  if (segments.length > 0) {
+    console.info(`[judilibre] text_highlight → ${segments.length} segments extraits`)
+  }
+  return segments.join(' … ')
 }
 
 // ---------------------------------------------------------------------------
@@ -279,8 +314,10 @@ function formatDecision(detail: any): string {
   const motivations = extractZoneText(detail, 'motivations', 600)
   const dispositif  = extractZoneText(detail, 'dispositif',  200)
 
-  // Summary officiel CC en fallback si zones absentes (décisions anciennes)
-  const body = motivations || (detail.summary ? `Sommaire : ${detail.summary}` : '')
+  // Fallback text_highlight pour décisions pré-2018 sans zones, sinon summary
+  const body = motivations
+    || extractHighlights(detail)
+    || (detail.summary ? `Sommaire : ${detail.summary}` : '')
 
   const visaTitles: string[] = (detail.visa ?? [])
     .map((v: any) => v?.title ?? '')
@@ -319,10 +356,10 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
       return { available: true, text: '', decisions: [], visaRefs: [] }
     }
 
-    // Détail des 2 meilleurs résultats en parallèle
+    // Détail des 2 meilleurs résultats en parallèle (query active text_highlight)
     const top2 = hits.slice(0, 2)
     const details = (
-      await Promise.all(top2.map(h => fetchDecisionDetail(token, h.id)))
+      await Promise.all(top2.map(h => fetchDecisionDetail(token, h.id, searchQuery)))
     ).filter(Boolean)
 
     const allVisaRefs: VisaRef[] = []

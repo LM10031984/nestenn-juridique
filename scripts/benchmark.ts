@@ -25,6 +25,7 @@ try {
 interface TestQuestion {
   id: number
   theme: string
+  type?: string
   question: string
   expected_refs: string[]
   expected_keywords: string[]
@@ -269,11 +270,23 @@ async function runBenchmark(questions: TestQuestion[], modelKey: string): Promis
     const refsFound = q.expected_refs.some(ref => normalizedIncludes(text, ref))
     const keywordsFound = q.expected_keywords.filter(kw => normalizedIncludes(text, kw)).length >= 2
 
+    // Questions comportementales : on vérifie les keywords mais on n'appelle pas le juge
+    // et on ne les compte pas dans le scoring pass/fail
+    const isComportemental = q.type === 'comportemental'
+    const responseCost = (tokens / 1000) * COST_PER_1K_OUTPUT
+
+    if (isComportemental) {
+      totalCost += responseCost
+      results.push({ id: q.id, theme: q.theme, question: q.question, response: text, refsFound, keywordsFound, judgeScore: null, tokensUsed: tokens, costEur: responseCost, durationMs, skipReason: 'comportemental' as any })
+      console.log(`🔵 [comportemental] kw=${keywordsFound ? '✓' : '✗'} ${durationMs}ms`)
+      await new Promise<void>(r => setTimeout(r, 500))
+      continue
+    }
+
     const { correct: judgeScore, cost: judgeCost } = await judgeResponse(
       q.question, text, q.expected_refs, q.expected_keywords
     )
 
-    const responseCost = (tokens / 1000) * COST_PER_1K_OUTPUT
     totalCost += judgeCost + responseCost
 
     const judgeSkip = judgeScore === null ? 'judge_error' : undefined

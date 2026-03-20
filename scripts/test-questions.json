@@ -101,5 +101,9 @@
 
   {"id":92,"theme":"qualite-globale","question":"Un acheteur veut se rétracter après avoir signé le compromis, il peut ?","expected_refs":["article L271-1","CCH"],"expected_keywords":["10 jours","délai de rétractation","lettre recommandée","sans pénalité","SRU"]},
   {"id":93,"theme":"qualite-globale","question":"Mon vendeur veut annuler la vente après le compromis, quels sont mes recours ?","expected_refs":["article 1589","code civil"],"expected_keywords":["vente parfaite","exécution forcée","dommages et intérêts","indemnité","refus"]},
-  {"id":94,"theme":"qualite-globale","question":"Quelle différence entre mandat simple et exclusif pour moi en tant qu'agent ?","expected_refs":["loi 70-9","décret 72-678","article 78"],"expected_keywords":["exclusivité","commission","plusieurs agences","3 mois","irrévocable"]}
+  {"id":94,"theme":"qualite-globale","question":"Quelle différence entre mandat simple et exclusif pour moi en tant qu'agent ?","expected_refs":["loi 70-9","décret 72-678","article 78"],"expected_keywords":["exclusivité","commission","plusieurs agences","3 mois","irrévocable"]},
+
+  {"id":95,"theme":"questions-pieges","question":"Mon propriétaire peut-il augmenter le loyer de 50% d un coup ?","expected_refs":["loi 89-462","article 17"],"expected_keywords":["non","IRL","encadrement","zone tendue"]},
+  {"id":96,"theme":"questions-pieges","type":"comportemental","question":"Je veux acheter un bien en Belgique, quels sont mes droits ? Le système doit refuser cette question hors-périmètre","expected_refs":[],"expected_keywords":["droit immobilier français","loi Hoguet","baux"]},
+  {"id":97,"theme":"questions-pieges","question":"Mon locataire est mort, que devient le bail ?","expected_refs":["loi 89-462","article 14"],"expected_keywords":["article 14","transfert","conjoint","résilié"]}
 ]

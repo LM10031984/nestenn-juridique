@@ -124,6 +124,8 @@ export interface LegiTextResult {
   content: string
   dateVersion: string
   url: string
+  citedBy?: string[]
+  lastModifs?: Array<{ date: string; title: string }>
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +176,67 @@ async function fetchArticle(
     const content = stripHtml(art.texte ?? art.content ?? '').slice(0, 4000)
     if (!content) return null
 
+    // ── Enrichissement parallèle (timeout 3s indépendant) ──────────────────
+    const articleId = art.id as string | undefined
+    const articleCid = (art.cid ?? art.id) as string | undefined
+
+    const [relLinksRaw, chronoRaw] = await Promise.allSettled([
+      // A) relatedLinksArticle → liensCitePar
+      articleId
+        ? fetchWithTimeout(`${API_BASE}/consult/relatedLinksArticle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ articleId }),
+          }, 3000)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        : Promise.resolve(null),
+      // B) chrono/textCidAndElementCid → lastModifs
+      articleCid
+        ? fetchWithTimeout(`${API_BASE}/chrono/textCidAndElementCid`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ textCid: jorftext, elementCid: articleCid }),
+          }, 3000)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        : Promise.resolve(null),
+    ])
+
+    // Extraire citedBy
+    let citedBy: string[] | undefined
+    if (relLinksRaw.status === 'fulfilled' && relLinksRaw.value) {
+      const liens: any[] = relLinksRaw.value?.liensCitePar ?? []
+      const filtered = liens
+        .filter((l: any) => l?.nature === 'CODE' || l?.nature === 'LODA')
+        .slice(0, 3)
+        .map((l: any) => l.name as string)
+        .filter(Boolean)
+      if (filtered.length > 0) citedBy = filtered
+      console.info(`[legifrance] relatedLinks → ${filtered.length} liensCitePar`)
+    }
+
+    // Extraire lastModifs depuis regroupements[].versions
+    let lastModifs: Array<{ date: string; title: string }> | undefined
+    if (chronoRaw.status === 'fulfilled' && chronoRaw.value) {
+      const regroupements: any[] = chronoRaw.value?.regroupements ?? []
+      const versions: Array<{ date: string; title: string }> = []
+      for (const rg of regroupements) {
+        for (const v of (rg?.versions ?? []) as any[]) {
+          const date: string = v?.dateDebut ?? v?.date ?? ''
+          const title: string = v?.titre ?? v?.title ?? ''
+          if (date) versions.push({ date, title })
+        }
+      }
+      versions.sort((a, b) => b.date.localeCompare(a.date))
+      if (versions.length > 0) {
+        lastModifs = versions.slice(0, 2)
+        for (const m of lastModifs) {
+          console.info(`[legifrance] chrono → ${m.date} ${m.title}`)
+        }
+      }
+    }
+
     return {
       textId: art.id ?? jorftext,
       title: `Loi n° ${law} — Article ${artNum}`,
@@ -182,6 +245,8 @@ async function fetchArticle(
       url: art.id
         ? `https://www.legifrance.gouv.fr/codes/article_lc/${art.id}`
         : `https://www.legifrance.gouv.fr/loda/id/${jorftext}`,
+      ...(citedBy ? { citedBy } : {}),
+      ...(lastModifs ? { lastModifs } : {}),
     }
   } catch (err) {
     console.error(`[legifrance] fetchArticle ${law}/art.${artNum} — exception :`, err)
