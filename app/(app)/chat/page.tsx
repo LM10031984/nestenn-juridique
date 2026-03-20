@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Scale, AlertTriangle } from 'lucide-react'
+import { Send, Scale, AlertTriangle, Mic } from 'lucide-react'
 import { SuggestionCard } from '@/components/SuggestionCard'
 import { LegalDisclaimer } from '@/components/LegalDisclaimer'
 import { LetterModal } from '@/components/LetterModal'
@@ -82,6 +82,44 @@ export default function ChatPage() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [letterSuggestions, setLetterSuggestions] = useState<Record<string, LetterSuggestion>>({})
   const [letterModal, setLetterModal] = useState<{ open: boolean; msgId: string } | null>(null)
+
+  const [isListening, setIsListening] = useState(false)
+  const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+  const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null)
+
+  useEffect(() => {
+    const SRClass = (window as typeof window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
+      ?? (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+    if (!SRClass) return
+    setHasSpeechSupport(true)
+    const ua = navigator.userAgent
+    const ios = /iPad|iPhone|iPod/.test(ua) && /Safari/.test(ua) && !/Chrome/.test(ua)
+    setIsIOS(ios)
+  }, [])
+
+  function toggleVoice() {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      return
+    }
+    const SRClass = (window as typeof window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
+      ?? (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+    if (!SRClass) return
+    const recognition = new SRClass()
+    recognition.lang = 'fr-FR'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognitionRef.current = recognition
+    recognition.onstart = () => setIsListening(true)
+    recognition.onend = () => setIsListening(false)
+    recognition.onerror = () => setIsListening(false)
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? ''
+      if (transcript) setInput(transcript)
+    }
+    recognition.start()
+  }
 
   useEffect(() => {
     const stored = loadConversations()
@@ -374,10 +412,30 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit(input)}
-              placeholder="Posez votre question juridique..."
+              placeholder={isListening ? 'Écoute...' : 'Posez votre question juridique...'}
               className="flex-1 px-4 py-3 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary transition-all"
               disabled={isLoading}
             />
+            {hasSpeechSupport && (
+              <div className="relative flex items-center justify-center">
+                {isListening && (
+                  <span className="absolute inset-0 rounded-xl bg-red-400 opacity-40 animate-ping" />
+                )}
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  disabled={isLoading}
+                  title={isIOS ? 'Maintenez le bouton pour parler' : isListening ? 'Arrêter' : 'Saisie vocale'}
+                  className={`relative px-4 py-3 rounded-xl transition-colors disabled:opacity-40 ${
+                    isListening
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  <Mic className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <button
               onClick={() => handleSubmit(input)}
               disabled={!input.trim() || isLoading}
