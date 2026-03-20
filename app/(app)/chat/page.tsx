@@ -43,6 +43,34 @@ function genId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function stripBold(text: string) {
+  return text.replace(/\*\*(.+?)\*\*/g, '$1')
+}
+
+function ThinkingBar() {
+  const steps = ['Analyse de la question…', 'Consultation Légifrance…', 'Vérification jurisprudence…']
+  const [step, setStep] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setStep(s => (s + 1) % steps.length), 2000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <div className="flex-1 min-w-0">
+      <motion.p key={step} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground mb-3">
+        {steps[step]}
+      </motion.p>
+      <div className="relative h-0.5 rounded-full bg-border overflow-hidden">
+        <motion.div
+          className="absolute top-0 h-full bg-primary rounded-full"
+          style={{ width: '40%' }}
+          animate={{ left: ['-40%', '140%'] }}
+          transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.1 }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -249,13 +277,10 @@ export default function ChatPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     {msg.isStreaming && !msg.content ? (
-                      <>
-                        <div className="text-xs font-medium text-muted-foreground mb-2">Consultation des bases Légifrance...</div>
-                        <div className="h-2 w-48 rounded-full bg-secondary animate-pulse" />
-                      </>
+                      <ThinkingBar />
                     ) : (
                       <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap font-serif-legal">
-                        {msg.content}
+                        {stripBold(msg.content)}
                         {msg.isStreaming && <span className="inline-block w-0.5 h-[1em] bg-primary ml-0.5 align-middle animate-pulse" />}
                       </p>
                     )}
@@ -305,6 +330,17 @@ export default function ChatPage() {
                 ))}
               </div>
             </div>
+          )}
+
+          {isLoading && !messages.some(m => m.role === 'assistant' && m.isStreaming) && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Scale className="h-4 w-4 text-primary" />
+                </div>
+                <ThinkingBar />
+              </div>
+            </motion.div>
           )}
 
           <div ref={messagesEndRef} />
