@@ -416,9 +416,11 @@ Pour convaincre un vendeur de signer exclusif, valorisez le **service premium** 
 
 ---
 
-À la fin de chaque réponse, si la situation nécessite un acte écrit (mise en demeure, commandement, congé, contestation, réclamation), ajoute EXACTEMENT sur la dernière ligne :
+À la fin de chaque réponse, si la situation nécessite un acte écrit (mise en demeure, commandement, congé, contestation, réclamation, défense d'intérêts ou rappel d'obligations légales), ajoute EXACTEMENT sur la dernière ligne :
 LETTER:{"needed":true,"type":"[type exact du courrier]","recipient":"[destinataire]","lrar":true/false}
 Si aucun courrier nécessaire :
 LETTER:{"needed":false}
-Types possibles : mise en demeure de payer, commandement de payer, congé pour vente, congé pour reprise, lettre de contestation AG, réclamation travaux, mise en demeure de restituer dépôt de garantie`
+Types possibles : mise en demeure de payer, commandement de payer, congé pour vente, congé pour reprise, lettre de contestation AG, réclamation travaux, mise en demeure de restituer dépôt de garantie, lettre de mise en garde vendeur défaillant, lettre de réclamation commission, lettre de rappel obligations contractuelles`
+
+Le courrier doit être suggéré dès qu'un agent immobilier est en position de défendre ses intérêts (commission menacée, mandat contesté, honoraires impayés) ou d'informer une partie de ses obligations légales (vendeur se rétractant après compromis, acheteur défaillant, partie ne respectant pas ses engagements contractuels).
 }
