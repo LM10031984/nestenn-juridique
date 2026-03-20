@@ -90,8 +90,7 @@ export default function ChatPage() {
   const recognitionRef = useRef<any>(null)
 
   useEffect(() => {
-    const SRClass = (window as typeof window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
-      ?? (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+    const SRClass = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
     if (!SRClass) return
     setHasSpeechSupport(true)
     const ua = navigator.userAgent
@@ -104,8 +103,7 @@ export default function ChatPage() {
       recognitionRef.current?.stop()
       return
     }
-    const SRClass = (window as typeof window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
-      ?? (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+    const SRClass = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
     if (!SRClass) return
     const recognition = new SRClass()
     recognition.lang = 'fr-FR'
@@ -115,7 +113,7 @@ export default function ChatPage() {
     recognition.onstart = () => setIsListening(true)
     recognition.onend = () => setIsListening(false)
     recognition.onerror = () => setIsListening(false)
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0]?.[0]?.transcript ?? ''
       if (transcript) setInput(transcript)
     }
