@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Send, Scale, AlertTriangle } from 'lucide-react'
 import { SuggestionCard } from '@/components/SuggestionCard'
 import { LegalDisclaimer } from '@/components/LegalDisclaimer'
+import { LetterModal } from '@/components/LetterModal'
 import {
   loadConversations,
   saveConversation,
@@ -12,6 +13,13 @@ import {
   generateTitle,
   type StoredConversation,
 } from '@/lib/conversation-storage'
+
+interface LetterSuggestion {
+  needed: boolean
+  type?: string
+  recipient?: string
+  lrar?: boolean
+}
 
 const SUGGESTIONS = [
   { question: 'Puis-je faire signer un mandat exclusif de 6 mois ?', category: 'Mandats' },
@@ -44,6 +52,8 @@ export default function ChatPage() {
 
   const [conversations, setConversations] = useState<StoredConversation[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
+  const [letterSuggestions, setLetterSuggestions] = useState<Record<string, LetterSuggestion>>({})
+  const [letterModal, setLetterModal] = useState<{ open: boolean; msgId: string } | null>(null)
 
   useEffect(() => {
     const stored = loadConversations()
@@ -122,8 +132,18 @@ export default function ChatPage() {
           }
         }
 
+        // Extraction de la suggestion LETTER
+        const letterMatch = accumulated.match(/\nLETTER:(\{[^}]+\})\s*$/)
+        if (letterMatch) {
+          try {
+            const suggestion = JSON.parse(letterMatch[1]) as LetterSuggestion
+            setLetterSuggestions(prev => ({ ...prev, [assistantId]: suggestion }))
+          } catch { /* JSON malformé ignoré */ }
+          accumulated = accumulated.replace(/\nLETTER:\{[^}]+\}\s*$/, '')
+        }
+
         finalContent = accumulated
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m))
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated, isStreaming: false } : m))
       }
     } catch {
       setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: 'Erreur de connexion. Vérifiez votre réseau et réessayez.', isRejection: true, timestamp: new Date() }])
@@ -253,6 +273,23 @@ export default function ChatPage() {
                         ))}
                       </div>
                     )}
+                    {!msg.isStreaming && letterSuggestions[msg.id]?.needed === true && (
+                      <div className="mt-4 p-4 rounded-lg border border-amber-200 bg-amber-50 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">📝 Courrier recommandé</p>
+                          <p className="text-sm text-amber-900 mt-0.5">
+                            {letterSuggestions[msg.id].type}
+                            {letterSuggestions[msg.id].lrar ? ' — envoi par LRAR conseillé' : ''}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setLetterModal({ open: true, msgId: msg.id })}
+                          className="px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
+                        >
+                          Générer →
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -273,6 +310,24 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {/* Letter Modal */}
+      {letterModal?.open && (() => {
+        const suggestion = letterSuggestions[letterModal.msgId]
+        const context = messages
+          .slice(-3)
+          .map(m => `${m.role === 'user' ? 'Question' : 'Réponse'}: ${m.content}`)
+          .join('\n\n')
+        return (
+          <LetterModal
+            letterType={suggestion?.type ?? ''}
+            recipient={suggestion?.recipient ?? ''}
+            lrar={suggestion?.lrar ?? false}
+            conversationContext={context}
+            onClose={() => setLetterModal(null)}
+          />
+        )
+      })()}
 
       {/* Input */}
       <div className="shrink-0 border-t border-border bg-card">
