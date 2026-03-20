@@ -46,11 +46,9 @@ export function LegalResponseCard({ response }: { response: LegalResponse }) {
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-primary mb-2">
             Résumé rapide
           </h3>
-          <ReactMarkdown
-            className="font-serif-legal text-sm font-medium text-foreground leading-relaxed prose prose-sm max-w-none prose-strong:text-foreground prose-ul:my-2 prose-li:my-0"
-          >
-            {response.summary}
-          </ReactMarkdown>
+          <div className="font-serif-legal text-sm font-medium text-foreground leading-relaxed prose prose-sm max-w-none prose-strong:text-foreground prose-ul:my-2 prose-li:my-0">
+            <ReactMarkdown>{response.summary}</ReactMarkdown>
+          </div>
         </div>
 
         {/* Analysis - L2 */}
@@ -58,11 +56,9 @@ export function LegalResponseCard({ response }: { response: LegalResponse }) {
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
             Analyse juridique
           </h3>
-          <ReactMarkdown
-            className="font-serif-legal text-sm text-foreground/90 leading-relaxed prose prose-sm max-w-none prose-strong:text-foreground prose-ul:my-2 prose-li:my-0"
-          >
-            {response.analysis}
-          </ReactMarkdown>
+          <div className="font-serif-legal text-sm text-foreground/90 leading-relaxed prose prose-sm max-w-none prose-strong:text-foreground prose-ul:my-2 prose-li:my-0">
+            <ReactMarkdown>{response.analysis}</ReactMarkdown>
+          </div>
         </div>
 
         {/* Recommendation */}
@@ -71,11 +67,9 @@ export function LegalResponseCard({ response }: { response: LegalResponse }) {
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-accent-foreground mb-2">
               Recommandation pratique
             </h3>
-            <ReactMarkdown
-              className="font-serif-legal text-sm text-accent-foreground/80 leading-relaxed prose prose-sm max-w-none prose-strong:text-accent-foreground prose-ul:my-2 prose-li:my-0"
-            >
-              {response.recommendation}
-            </ReactMarkdown>
+            <div className="font-serif-legal text-sm text-accent-foreground/80 leading-relaxed prose prose-sm max-w-none prose-strong:text-accent-foreground prose-ul:my-2 prose-li:my-0">
+              <ReactMarkdown>{response.recommendation}</ReactMarkdown>
+            </div>
           </div>
         )}
 
