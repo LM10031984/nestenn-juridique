@@ -190,6 +190,34 @@ async function checkOpenRouterKey(): Promise<boolean> {
   return true
 }
 
+/**
+ * Normalise une chaîne pour la comparaison souple :
+ * - supprime les accents (NFD + strip diacritiques)
+ * - minuscules
+ * - supprime "n°" (ex: "loi n° 89-462" → "loi 89-462")
+ * - normalise les apostrophes et guillemets
+ * - réduit les espaces multiples
+ */
+function normalize(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')   // supprime diacritiques
+    .toLowerCase()
+    .replace(/n°\s*/g, '')             // "n° 89-462" → "89-462"
+    .replace(/[''`]/g, "'")            // normalise apostrophes
+    .replace(/\s+/g, ' ')             // espaces multiples → un seul
+    .trim()
+}
+
+/**
+ * Retourne true si `haystack` contient `needle` après normalisation des deux.
+ * Permet à "loi 89-462" de matcher "loi n° 89-462 du 6 juillet 1989",
+ * et à "article 24" de matcher "l'article 24 de la loi".
+ */
+function normalizedIncludes(haystack: string, needle: string): boolean {
+  return normalize(haystack).includes(normalize(needle))
+}
+
 async function runBenchmark(questions: TestQuestion[], modelKey: string): Promise<{
   results: BenchmarkResult[]
   totalCost: number
@@ -238,9 +266,8 @@ async function runBenchmark(questions: TestQuestion[], modelKey: string): Promis
     }
 
     const { text, tokens, durationMs } = apiResult
-    const responseLower = text.toLowerCase()
-    const refsFound = q.expected_refs.some(ref => responseLower.includes(ref.toLowerCase()))
-    const keywordsFound = q.expected_keywords.filter(kw => responseLower.includes(kw.toLowerCase())).length >= 2
+    const refsFound = q.expected_refs.some(ref => normalizedIncludes(text, ref))
+    const keywordsFound = q.expected_keywords.filter(kw => normalizedIncludes(text, kw)).length >= 2
 
     const { correct: judgeScore, cost: judgeCost } = await judgeResponse(
       q.question, text, q.expected_refs, q.expected_keywords
@@ -317,6 +344,13 @@ function printReport(results: BenchmarkResult[], totalCost: number, label: strin
 async function main() {
   const questionsPath = resolve(__dirname, 'test-questions.json')
   let questions: TestQuestion[] = JSON.parse(readFileSync(questionsPath, 'utf-8'))
+
+  // Support --ids 57,60,62,69 (liste d'IDs séparés par virgule)
+  const idsArg = process.argv.indexOf('--ids')
+  if (idsArg !== -1 && process.argv[idsArg + 1]) {
+    const ids = process.argv[idsArg + 1].split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
+    if (ids.length > 0) questions = questions.filter(q => ids.includes(q.id))
+  }
 
   // Support --from ID (inclus) et --limit N
   const fromArg = process.argv.indexOf('--from')

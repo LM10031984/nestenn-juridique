@@ -1,8 +1,21 @@
 // lib/legifrance.ts
 // Intégration API DILA (Légifrance) via OAuth2 — Nestenn Juridique
+// Pipeline : VisaRef Judilibre → resolveJorftext → getArticleWithIdAndNum → fallback thème → fallback mots-clés
+
+import type { VisaRef } from './judilibre'
 
 // ---------------------------------------------------------------------------
-// 1. Cache token OAuth2 en mémoire serveur (singleton module-level)
+// 0. Fetch avec timeout AbortController (5s par défaut)
+// ---------------------------------------------------------------------------
+
+function fetchWithTimeout(url: string | URL, init: RequestInit = {}, ms = 5000): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
+// ---------------------------------------------------------------------------
+// 1. Cache token OAuth2
 // ---------------------------------------------------------------------------
 
 let tokenCache: { token: string; expiresAt: number } | null = null
@@ -13,110 +26,96 @@ export async function getAccessToken(): Promise<string> {
   const tokenUrl = process.env.PISTE_TOKEN_URL ?? 'https://oauth.piste.gouv.fr/api/oauth/token'
 
   if (!clientId || !clientSecret) {
-    throw new Error(
-      'Variables d\'environnement manquantes : PISTE_CLIENT_ID et/ou PISTE_CLIENT_SECRET'
-    )
+    throw new Error('Variables manquantes : PISTE_CLIENT_ID et/ou PISTE_CLIENT_SECRET')
   }
 
   const now = Date.now()
-  const marginMs = 60 * 1000 // 60 secondes de marge
+  if (tokenCache && now < tokenCache.expiresAt - 60_000) return tokenCache.token
 
-  if (tokenCache && now < tokenCache.expiresAt - marginMs) {
-    return tokenCache.token
-  }
-
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: clientId,
-    client_secret: clientSecret,
-    scope: 'openid',
-  })
-
-  const response = await fetch(tokenUrl, {
+  const res = await fetchWithTimeout(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: 'openid',
+    }).toString(),
   })
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(`Échec OAuth2 PISTE (${response.status}): ${text}`)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Échec OAuth2 PISTE (${res.status}): ${text}`)
   }
 
-  const data = (await response.json()) as { access_token: string; expires_in: number }
-
-  tokenCache = {
-    token: data.access_token,
-    expiresAt: now + data.expires_in * 1000,
-  }
-
+  const data = (await res.json()) as { access_token: string; expires_in: number }
+  tokenCache = { token: data.access_token, expiresAt: now + data.expires_in * 1000 }
   return tokenCache.token
 }
 
 // ---------------------------------------------------------------------------
-// 2. Extraction d'entités juridiques via LLM
+// 2. JORFTEXT hardcodés — codes et lois connues (skip /suggest)
 // ---------------------------------------------------------------------------
 
-export interface LegalEntities {
-  textIds: string[]     // ex: ["65-557", "2014-366"]
-  articleRefs: string[] // ex: ["article 14", "article L145-1"]
-  topics: string[]      // ex: ["copropriété", "bail commercial"]
+const JORFTEXT_HARDCODED: Record<string, string> = {
+  'civil':     'JORFTEXT000000504962', // Code civil
+  'code-civil': 'JORFTEXT000000504962', // Code civil (alias)
+  '89-462':    'JORFTEXT000000509310', // Loi 6 juillet 1989 (baux habitation)
+  '65-557':    'JORFTEXT000000880200', // Loi 10 juillet 1965 (copropriété)
+  '70-9':      'JORFTEXT000000509463', // Loi Hoguet 2 janvier 1970 (agents immobiliers)
+  '2014-366':  'JORFTEXT000028772238', // Loi ALUR 24 mars 2014
+  '2018-1021': 'JORFTEXT000037639011', // Loi ELAN 23 novembre 2018
+  '2021-1104': 'JORFTEXT000043977118', // Loi Climat et Résilience 22 août 2021
+  '79-596':    'JORFTEXT000000701978', // Loi Scrivener 13 juillet 1979 (prêt immobilier)
+  '67-223':    'JORFTEXT000000878350', // Décret 17 mars 1967 (copropriété)
 }
 
-const EXTRACTION_PROMPT = `Tu es un assistant juridique spécialisé en droit français.
-Analyse la question suivante et extrais les entités juridiques pertinentes.
-Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, avec exactement ces clés :
-- "textIds" : tableau de numéros de loi ou décret (ex: "65-557", "2014-366") — vide si aucun
-- "articleRefs" : tableau de références d'articles (ex: "article 14", "article L145-1") — vide si aucun
-- "topics" : tableau de thèmes juridiques en français (ex: "copropriété", "bail commercial") — 1 à 3 thèmes maximum
+const API_BASE = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'
 
-Table de référence — utilise ces articles directement si la question porte sur ces sujets :
-- démembrement, usufruit, nue-propriété, usufruitier → textIds: [], articleRefs: ["article 595", "article 596", "article 597"] (Code civil)
-- amiante, diagnostic amiante → articleRefs: ["article R1334-20", "article R1334-21"] (Code santé publique)
-- DPE, performance énergétique → articleRefs: ["article L126-26", "article L126-28"] (Code construction)
-- viager, rente viagère, bouquet → articleRefs: ["article 1968", "article 1976", "article 1983"] (Code civil)
-- condition suspensive, prêt immobilier, délai de prêt → textIds: ["79-596"], articleRefs: ["article L313-41"] (Code consommation)
-- copropriété, syndic, AG → textIds: ["65-557", "67-223"]
-- bail d'habitation, location, locataire → textIds: ["89-462"]
-- loi Hoguet, agent immobilier, mandat, carte T → textIds: ["70-9", "72-678"]
-- ALUR, encadrement loyers → textIds: ["2014-366"]
-- ELAN, bail mobilité → textIds: ["2018-1021"]
-- ZAN, zéro artificialisation nette, artificialisation des sols → textIds: ["2021-1104"], articleRefs: ["article 191", "article 192"] (loi Climat et Résilience)
-- décret ZAN, objectifs artificialisation 2031 → textIds: ["2023-372"]
-- VEFA, vente future achèvement → articleRefs: ["article L261-1", "article L261-10"] (CCH)
-- SCI, cession de parts → articleRefs: ["article 726"] (CGI), articleRefs: ["article 150 UB"] (CGI)
+// ---------------------------------------------------------------------------
+// 3. Cache /suggest (law → JORFTEXT, module-level, reset au cold start)
+// ---------------------------------------------------------------------------
 
-Question : `
+const suggestCache = new Map<string, string>()
 
-export async function extractLegalEntities(
-  userQuery: string,
-  openRouterChat: (messages: any[], model: string, maxTokens: number) => Promise<string>
-): Promise<LegalEntities> {
-  const fallback: LegalEntities = { textIds: [], articleRefs: [], topics: [] }
+async function resolveJorftext(law: string, token: string): Promise<string | null> {
+  // Codes/lois connus → retour immédiat, pas d'appel réseau
+  if (JORFTEXT_HARDCODED[law]) {
+    return JORFTEXT_HARDCODED[law]
+  }
 
+  // Cache suggest
+  if (suggestCache.has(law)) return suggestCache.get(law)!
+
+  // /suggest pour lois inconnues
   try {
-    const raw = await openRouterChat(
-      [{ role: 'user', content: EXTRACTION_PROMPT + userQuery }],
-      'openai/gpt-4o-mini',
-      256
-    )
-
-    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '')
-    const parsed = JSON.parse(cleaned) as Partial<LegalEntities>
-
-    return {
-      textIds: Array.isArray(parsed.textIds) ? parsed.textIds : [],
-      articleRefs: Array.isArray(parsed.articleRefs) ? parsed.articleRefs : [],
-      topics: Array.isArray(parsed.topics) ? parsed.topics : [],
+    const res = await fetchWithTimeout(`${API_BASE}/suggest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ searchText: law }),
+    })
+    if (!res.ok) {
+      console.warn(`[legifrance] /suggest "${law}" → HTTP ${res.status}`)
+      return null
     }
+    const data = await res.json() as { results?: any[] }
+    const items: any[] = data?.results ?? []
+    // Priorité : origin=LEGI + nature=loi, sinon premier résultat
+    const hit = items.find((i: any) => i?.origin === 'LEGI' && i?.nature === 'loi') ?? items[0]
+    if (!hit?.id) {
+      console.warn(`[legifrance] /suggest "${law}" → aucun résultat`)
+      return null
+    }
+    suggestCache.set(law, hit.id)
+    return hit.id
   } catch (err) {
-    console.error('[legifrance] extractLegalEntities — parsing échoué :', err)
-    return fallback
+    console.error(`[legifrance] /suggest "${law}" — exception :`, err)
+    return null
   }
 }
 
 // ---------------------------------------------------------------------------
-// 3. Récupération texte LEGI (textes consolidés)
+// 4. Résultat normalisé
 // ---------------------------------------------------------------------------
 
 export interface LegiTextResult {
@@ -127,190 +126,155 @@ export interface LegiTextResult {
   url: string
 }
 
-export async function fetchLegiText(
-  textId: string,
-  token: string
+// ---------------------------------------------------------------------------
+// 5. Strip HTML
+// ---------------------------------------------------------------------------
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// ---------------------------------------------------------------------------
+// 6. fetchArticle — /consult/getArticleWithIdAndNum
+// ---------------------------------------------------------------------------
+
+async function fetchArticle(
+  jorftext: string,
+  artNum: string,
+  law: string,
+  token: string,
 ): Promise<LegiTextResult | null> {
-  const apiUrl = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'
-  const endpoint = `${apiUrl}/consult/legi/getTextContent`
-
   try {
-    const response = await fetch(endpoint, {
+    const res = await fetchWithTimeout(`${API_BASE}/consult/getArticleWithIdAndNum`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        textId,
-        date: new Date().toISOString().split('T')[0],
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: jorftext, num: artNum }),
     })
-
-    if (response.status === 404) {
+    if (!res.ok) {
+      console.warn(`[legifrance] getArticleWithIdAndNum ${law}/art.${artNum} → HTTP ${res.status}`)
       return null
     }
 
-    if (!response.ok) {
-      console.error(`[legifrance] fetchLegiText — erreur HTTP ${response.status} pour textId="${textId}"`)
+    const data = await res.json() as any
+    const art = data?.article
+    if (!art) return null
+    if ((art.etat ?? '').toUpperCase() !== 'VIGUEUR') {
+      console.warn(`[legifrance] getArticleWithIdAndNum ${law}/art.${artNum} → etat=${art.etat} (ignoré)`)
       return null
     }
 
-    const data = await response.json()
-
-    // La structure exacte dépend de l'API DILA ; on tente les chemins courants
-    const text = data?.text ?? data?.result ?? data ?? {}
+    const content = stripHtml(art.texte ?? art.content ?? '').slice(0, 4000)
+    if (!content) return null
 
     return {
-      textId,
-      title: text.title ?? text.titre ?? '',
-      content: text.content ?? text.texte ?? text.articles?.map((a: any) => a.content ?? a.texte ?? '').join('\n\n') ?? '',
-      dateVersion: text.dateVersion ?? text.dateDebut ?? '',
-      url: `https://www.legifrance.gouv.fr/loda/id/${textId}`,
+      textId: art.id ?? jorftext,
+      title: `Loi n° ${law} — Article ${artNum}`,
+      content,
+      dateVersion: art.dateDebut ?? '',
+      url: art.id
+        ? `https://www.legifrance.gouv.fr/codes/article_lc/${art.id}`
+        : `https://www.legifrance.gouv.fr/loda/id/${jorftext}`,
     }
   } catch (err) {
-    console.error(`[legifrance] fetchLegiText — exception pour textId="${textId}" :`, err)
+    console.error(`[legifrance] fetchArticle ${law}/art.${artNum} — exception :`, err)
     return null
   }
 }
 
 // ---------------------------------------------------------------------------
-// 4. Recherche LEGI par mots-clés
+// 7. FALLBACK_REFS — si pas de visaRefs Judilibre
 // ---------------------------------------------------------------------------
 
-export async function fetchLegiArticles(
-  articleRefs: string[],
-  token: string
-): Promise<LegiTextResult[]> {
-  const apiUrl = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'
-  const endpoint = `${apiUrl}/search`
-  const results: LegiTextResult[] = []
-
-  for (const ref of articleRefs.slice(0, 5)) {
-    const match = ref.match(/article\s+(\S+)/i)
-    if (!match) continue
-    const artNum = match[1]
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          recherche: {
-            champs: [{ typeChamp: 'NUM_ARTICLE', criteres: [{ typeRecherche: 'EXACTE', valeur: artNum, operateur: 'ET' }], operateur: 'ET' }],
-            pageNumber: 1, pageSize: 1,
-            sort: 'PERTINENCE', typePagination: 'DEFAUT',
-            operateur: 'ET', fromAdvancedRecherche: false,
-          },
-          fond: 'CODE_DATE',
-        }),
-      })
-
-      if (!response.ok) {
-        console.error(`[legifrance] fetchLegiArticles — HTTP ${response.status} pour "${ref}"`)
-        continue
-      }
-
-      const data = await response.json()
-      const result = data?.results?.[0]
-      if (!result) continue
-
-      const extract = result.sections?.[0]?.extracts?.[0]
-      if (!extract) continue
-
-      const codeName = result.titles?.[0]?.title ?? ''
-      const content = (extract.values ?? []).join(' ')
-      if (!content) continue
-
-      results.push({
-        textId: extract.id ?? '',
-        title: `${codeName} — Article ${artNum}`,
-        content,
-        dateVersion: extract.dateVersion ?? '',
-        url: `https://www.legifrance.gouv.fr/codes/article_lc/${extract.id}`,
-      })
-    } catch (err) {
-      console.error(`[legifrance] fetchLegiArticles — exception pour "${ref}" :`, err)
-    }
-  }
-
-  return results
+interface FallbackEntry {
+  triggers: string[]
+  law: string
+  artNums: string[]
 }
 
-export async function searchLegiTexts(
-  query: string,
-  token: string
-): Promise<LegiTextResult[]> {
-  const apiUrl = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'
-  const endpoint = `${apiUrl}/search`
+const FALLBACK_REFS: FallbackEntry[] = [
+  { triggers: ['impayé', 'commandement', 'clause résolutoire', 'expulsion'], law: '89-462', artNums: ['24', '24-1'] },
+  { triggers: ['bail', 'location', 'locataire', 'loyer', 'congé', 'dépôt'], law: '89-462', artNums: ['6', '7', '8', '10', '15', '17', '22'] },
+  { triggers: ['copropriété', 'syndic', 'assemblée générale', 'charges'],    law: '65-557', artNums: ['10', '14', '17', '18', '24', '25', '42'] },
+  { triggers: ['devoir de conseil', 'responsabilité agent', 'information agent', 'conseil agent'], law: 'code-civil', artNums: ['1240', '1241'] },
+  { triggers: ['mandat', 'honoraires', 'hoguet', 'agent immobilier'],        law: '70-9',   artNums: ['6', '7', '1240'] },
+  { triggers: ['dpe', 'diagnostic', 'amiante', 'plomb'],                    law: '2021-1104', artNums: ['L126-26', 'L271-4'] },
+  { triggers: ['condition suspensive', 'prêt'],                              law: '79-596', artNums: ['L313-41'] },
+  { triggers: ['trêve hivernale'],                                           law: 'L412-6', artNums: ['L412-6'] },
+  { triggers: ['vices cachés'],                                              law: 'civil',  artNums: ['1641', '1648'] },
+  { triggers: ['usufruit', 'démembrement'],                                  law: 'civil',  artNums: ['578', '595', '596'] },
+  { triggers: ['vefa', 'décennale', 'biennale'],                             law: 'civil',  artNums: ['1792', '1792-3'] },
+  { triggers: ['zan', 'urbanisme', 'plu'],                                   law: '2021-1104', artNums: ['L141-8'] },
+  { triggers: ['viager', 'rente viagère'],                                   law: 'civil',  artNums: ['1968', '1976', '1983'] },
+]
 
+// ---------------------------------------------------------------------------
+// 8. Fallback mots-clés (recherche généraliste /search CODE_DATE)
+// ---------------------------------------------------------------------------
+
+export async function searchLegiTexts(query: string, token: string): Promise<LegiTextResult[]> {
   try {
-    const response = await fetch(endpoint, {
+    const res = await fetchWithTimeout(`${API_BASE}/search`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         recherche: {
-          champs: [
-            {
-              typeChamp: 'ALL',
-              criteres: [
-                {
-                  typeRecherche: 'UN_DES_MOTS',
-                  valeur: query,
-                  operateur: 'ET',
-                },
-              ],
-              operateur: 'ET',
-            },
-          ],
-          pageNumber: 1,
-          pageSize: 5,
-          sort: 'PERTINENCE',
-          typePagination: 'DEFAUT',
-          operateur: 'ET',
-          fromAdvancedRecherche: false,
+          champs: [{
+            typeChamp: 'ALL',
+            criteres: [{ typeRecherche: 'UN_DES_MOTS', valeur: query, operateur: 'ET' }],
+            operateur: 'ET',
+          }],
+          pageNumber: 1, pageSize: 5,
+          sort: 'PERTINENCE', typePagination: 'DEFAUT',
+          operateur: 'ET', fromAdvancedRecherche: false,
         },
         fond: 'CODE_DATE',
       }),
     })
 
-    if (!response.ok) {
-      console.error(`[legifrance] searchLegiTexts — erreur HTTP ${response.status} pour query="${query}"`)
+    if (!res.ok) {
+      console.error(`[legifrance] searchLegiTexts — HTTP ${res.status}`)
       return []
     }
 
-    const data = await response.json()
-    const rawResults: any[] = data?.results ?? data?.hits ?? []
+    const data = await res.json()
+    const rawResults: any[] = data?.results ?? []
     const mapped: LegiTextResult[] = []
 
     for (const item of rawResults.slice(0, 5)) {
-      const codeName = item.titles?.[0]?.title ?? item.title ?? item.titre ?? ''
+      const codeName = item.titles?.[0]?.title ?? item.title ?? ''
       const extracts: any[] = item.sections?.flatMap((s: any) => s.extracts ?? []) ?? []
       if (extracts.length > 0) {
-        // Structure CODE_DATE : articles dans sections.extracts
         for (const ext of extracts.slice(0, 2)) {
-          const content = (ext.values ?? []).join(' ')
+          const content = stripHtml((ext.values ?? []).join(' '))
           if (!content) continue
           mapped.push({
             textId: ext.id ?? '',
             title: `${codeName} — Article ${ext.num ?? ext.title ?? ''}`,
             content,
             dateVersion: ext.dateVersion ?? '',
-            url: ext.id ? `https://www.legifrance.gouv.fr/codes/article_lc/${ext.id}` : 'https://www.legifrance.gouv.fr',
+            url: ext.id
+              ? `https://www.legifrance.gouv.fr/codes/article_lc/${ext.id}`
+              : 'https://www.legifrance.gouv.fr',
           })
         }
       } else {
-        // Structure LEGI classique
         const textId = item.id ?? item.textId ?? item.cid ?? ''
         mapped.push({
           textId,
           title: codeName,
-          content: item.extract ?? item.content ?? item.texte ?? '',
+          content: stripHtml(item.extract ?? item.content ?? item.texte ?? ''),
           dateVersion: item.dateVersion ?? item.dateDebut ?? '',
-          url: textId ? `https://www.legifrance.gouv.fr/loda/id/${textId}` : 'https://www.legifrance.gouv.fr',
+          url: textId
+            ? `https://www.legifrance.gouv.fr/loda/id/${textId}`
+            : 'https://www.legifrance.gouv.fr',
         })
       }
     }
@@ -323,7 +287,7 @@ export async function searchLegiTexts(
 }
 
 // ---------------------------------------------------------------------------
-// 5. Pipeline principal fetchLegalContext
+// 9. DilaContext
 // ---------------------------------------------------------------------------
 
 export interface DilaContext {
@@ -332,75 +296,77 @@ export interface DilaContext {
   fallbackMessage?: string
 }
 
+// ---------------------------------------------------------------------------
+// 10. Pipeline principal
+// ---------------------------------------------------------------------------
+
 export async function fetchLegalContext(
   userQuery: string,
-  openRouterChat: (messages: any[], model: string, maxTokens: number) => Promise<string>
+  _openRouterChat?: unknown,  // conservé pour compatibilité avec route.ts
+  visaRefs?: VisaRef[],
 ): Promise<DilaContext> {
   if (!process.env.PISTE_CLIENT_ID || !process.env.PISTE_CLIENT_SECRET) {
-    return {
-      texts: [],
-      available: false,
-      fallbackMessage:
-        'Les variables d\'environnement PISTE_CLIENT_ID et PISTE_CLIENT_SECRET ne sont pas configurées.',
-    }
+    return { texts: [], available: false, fallbackMessage: 'PISTE_CLIENT_ID / PISTE_CLIENT_SECRET manquants.' }
   }
 
   try {
     const token = await getAccessToken()
-    const entities = await extractLegalEntities(userQuery, openRouterChat)
-
-    console.log('[legifrance] extractLegalEntities =>', JSON.stringify(entities))
-
     const texts: LegiTextResult[] = []
 
-    // Récupération directe par textId (max 3)
-    const textIdsToFetch = entities.textIds.slice(0, 3)
-    console.log('[legifrance] textIds à fetcher =>', textIdsToFetch)
-    for (const textId of textIdsToFetch) {
-      const result = await fetchLegiText(textId, token)
-      console.log(`[legifrance] fetchLegiText(${textId}) =>`, result ? `OK title="${result.title}" contentLen=${result.content?.length}` : 'NULL')
-      if (result) {
-        texts.push(result)
+    // ── Voie 1 : visaRefs Judilibre → resolveJorftext → getArticleWithIdAndNum ──
+    if (visaRefs && visaRefs.length > 0) {
+      const refsToFetch = visaRefs.slice(0, 4)
+
+      // Résolution des JORFTEXTs en parallèle
+      const jorftextResults = await Promise.all(refsToFetch.map(ref => resolveJorftext(ref.law, token)))
+      const jorftexts: string[] = jorftextResults.filter(Boolean) as string[]
+
+      // Récupération des articles en parallèle
+      const articleResults = await Promise.all(
+        refsToFetch.map((ref, i) => {
+          const jorftext = jorftextResults[i]
+          return jorftext ? fetchArticle(jorftext, ref.artNum, ref.law, token) : null
+        })
+      )
+      texts.push(...(articleResults.filter(Boolean) as LegiTextResult[]))
+
+      console.info(
+        `[legifrance] refs=[${refsToFetch.map(r => `${r.law}/art.${r.artNum}`).join(', ')}]` +
+        ` → suggest JORFTEXT=[${jorftexts.join(', ')}]` +
+        ` → getArticleWithIdAndNum → ${texts.length} article(s) OK`
+      )
+    }
+
+    // ── Voie 2 : FALLBACK_REFS si visaRefs vides ou aucun article trouvé ──────
+    if (texts.length === 0) {
+      const lower = userQuery.toLowerCase()
+      const match = FALLBACK_REFS.find(entry => entry.triggers.some(t => lower.includes(t)))
+
+      if (match) {
+        const jorftext = await resolveJorftext(match.law, token)
+        if (jorftext) {
+          const articleResults = await Promise.all(
+            match.artNums.slice(0, 4).map(artNum => fetchArticle(jorftext, artNum, match.law, token))
+          )
+          texts.push(...(articleResults.filter(Boolean) as LegiTextResult[]))
+        }
+        console.info(
+          `[legifrance] FALLBACK_REFS law=${match.law} artNums=[${match.artNums.slice(0, 4).join(', ')}] → ${texts.length} article(s) OK`
+        )
       }
     }
 
-    // Récupération directe par articleRef (articles de code — ex: art. 595 Code civil)
-    if (texts.length === 0 && entities.articleRefs.length > 0) {
-      console.log('[legifrance] articleRefs à fetcher =>', entities.articleRefs)
-      const articleTexts = await fetchLegiArticles(entities.articleRefs, token)
-      console.log('[legifrance] fetchLegiArticles résultats =>', articleTexts.length)
-      texts.push(...articleTexts)
-    }
-
-    // Si aucun texte trouvé via textId/articleRef, recherche par topics
-    if (texts.length === 0 && entities.topics.length > 0) {
-      const topicQuery = entities.topics.slice(0, 2).join(' ')
-      console.log('[legifrance] fallback recherche topics =>', topicQuery)
-      const searchResults = await searchLegiTexts(topicQuery, token)
-      console.log('[legifrance] searchLegiTexts résultats =>', searchResults.length)
-      texts.push(...searchResults)
-    }
-
-    // Fallback : recherche directe sur la question si toujours rien
+    // ── Voie 3 : fallback mots-clés si toujours vide ─────────────────────────
     if (texts.length === 0) {
-      console.log('[legifrance] fallback recherche question brute')
-      const safeQuery = [...userQuery].slice(0, 100).join('')
-      const directResults = await searchLegiTexts(safeQuery, token)
-      console.log('[legifrance] searchLegiTexts (brute) résultats =>', directResults.length)
-      texts.push(...directResults)
+      console.info('[legifrance] fallback searchLegiTexts')
+      const fallback = await searchLegiTexts(userQuery.slice(0, 100), token)
+      console.info(`[legifrance] fallback searchLegiTexts → ${fallback.length} résultat(s)`)
+      texts.push(...fallback)
     }
 
-    return {
-      texts,
-      available: true,
-    }
+    return { texts, available: true }
   } catch (err) {
     console.error('[legifrance] fetchLegalContext — API DILA indisponible :', err)
-    return {
-      texts: [],
-      available: false,
-      fallbackMessage:
-        'Le service Légifrance est temporairement indisponible. La réponse est basée sur les connaissances générales du modèle.',
-    }
+    return { texts: [], available: false, fallbackMessage: 'Le service Légifrance est temporairement indisponible.' }
   }
 }

@@ -4,7 +4,7 @@
 import { NextRequest } from 'next/server'
 import { openRouterChat, openRouterStream, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
 import { fetchLegalContext } from '@/lib/legifrance'
-import { fetchJurisprudence } from '@/lib/judilibre'
+import { fetchJurisprudence, type VisaRef } from '@/lib/judilibre'
 import { getSystemPrompt } from '@/lib/system-prompt'
 
 // ---------------------------------------------------------------------------
@@ -22,8 +22,8 @@ const REFUSAL_MESSAGE =
   "- La **copropriété** (charges, assemblée générale, syndic)\n" +
   "- Les **diagnostics immobiliers** (DPE, amiante, plomb…)\n" +
   "- La **loi ALUR** et la **loi ELAN**\n" +
-  "- Les **transactions immobilières** (compromis, promesse de vente, frais de notaire)\n" +
-  "- L'**urbanisme** et la **fiscalité immobilière**\n\n" +
+  "- Les **transactions immobilières** (compromis, promesse de vente, **conditions suspensives**, frais de notaire, viager)\n" +
+  "- L'**urbanisme** et la **fiscalité immobilière** (**SCI**, viager, démembrement)\n\n" +
   "N'hésitez pas à me poser une question dans ces domaines."
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,15 @@ function sanitizeHistory(raw: ConversationTurn[] | undefined): OpenRouterMessage
 // ---------------------------------------------------------------------------
 
 const FILTER_SYSTEM = `Tu es un classificateur. Réponds UNIQUEMENT avec {"relevant":true} ou {"relevant":false}.
-Sont dans le périmètre : droit immobilier français (baux, copropriété, loi Hoguet, mandats, diagnostics immobiliers obligatoires (amiante, plomb, DPE, termites, électricité, gaz, ERP, assainissement), urbanisme, permis de construire, PLU, loi ZAN, ALUR, ELAN, transactions, SCI, syndics, notaire, viager, démembrement).
+Sont dans le périmètre : droit immobilier français, notamment :
+- baux d'habitation (loyer, locataire, bailleur, expulsion, congé, dépôt de garantie, clause résolutoire, commandement de payer)
+- copropriété (syndic, syndicat, assemblée générale, charges, règlement de copropriété)
+- transactions immobilières (compromis, promesse de vente, conditions suspensives, délai de prêt, obtention de financement, refus de prêt, prêt immobilier, droit de rétractation, vices cachés, notaire, VEFA, vente en état futur d'achèvement, garantie décennale, garantie biennale, garantie de parfait achèvement, constructeur, maîtrise d'ouvrage)
+- agent immobilier (loi Hoguet, mandat, commission, honoraires, devoir de conseil)
+- diagnostics immobiliers obligatoires (DPE, amiante, plomb, termites, électricité, gaz, ERP, assainissement)
+- urbanisme (permis de construire, PLU, loi ZAN, préemption, ALUR, ELAN)
+- SCI, viager, rente viagère, démembrement, usufruit, nue-propriété
+- servitudes, mitoyenneté, troubles de voisinage
 Hors périmètre : cuisine, médecine, droit du travail (hors immobilier), politique, informatique générale.
 En cas de doute, réponds {"relevant":true}.`
 
@@ -170,26 +178,20 @@ export async function POST(req: NextRequest): Promise<Response> {
     return staticSseResponse(REFUSAL_MESSAGE)
   }
 
-  // ── Étape 2 : Récupération parallèle DILA + Judilibre ───────────────────
-  const [dilaContext, juriContext] = await Promise.all([
-    fetchLegalContext(trimmedMessage, openRouterChat),
-    fetchJurisprudence(trimmedMessage),
-  ])
-
-  console.info(
-    `[chat] Contexte — DILA available=${dilaContext.available} texts=${dilaContext.texts.length} | Judilibre available=${juriContext.available} decisions=${juriContext.decisions.length}`
+  // ── Étape 2 : Judilibre en premier → visaRefs → Légifrance ─────────────
+  const juriContext = await fetchJurisprudence(trimmedMessage)
+  const dilaContext = await fetchLegalContext(
+    trimmedMessage,
+    openRouterChat,
+    juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined
   )
 
-  // ── DEBUG TEMPORAIRE ────────────────────────────────────────────────────
-  console.log('=== CONTEXTE LÉGIFRANCE ===')
-  console.log(dilaContext.texts.length > 0 ? JSON.stringify(dilaContext.texts.map(t => ({ id: t.textId, title: t.title, contentLength: t.content?.length })), null, 2) : 'VIDE')
-  console.log('=== CONTEXTE JUDILIBRE ===')
-  console.log(juriContext?.text || 'VIDE')
-  console.log('=== SYSTEM PROMPT FINAL ===')
   const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text)
-  console.log(systemPromptContent.slice(0, 3000) + (systemPromptContent.length > 3000 ? '\n[...tronqué]' : ''))
-  console.log('=== FIN CONTEXTE ===')
-  // ── FIN DEBUG ───────────────────────────────────────────────────────────
+
+  const juriNumbers = juriContext.decisions.map((d) => d.number).join(', ') || '—'
+  console.info(
+    `[pipeline] juri=${juriNumbers} visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
+  )
 
   const history = sanitizeHistory(conversationHistory)
 
