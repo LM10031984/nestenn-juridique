@@ -9,9 +9,9 @@ import type { DilaContext } from '@/lib/legifrance'
 // ---------------------------------------------------------------------------
 
 function formatDilaContext(context: DilaContext): string {
-  if (!context.available || context.texts.length === 0) {
-    return ''
-  }
+  const hasTexts = context.available && context.texts.length > 0
+  const hasCirculaires = (context.circulaires?.length ?? 0) > 0
+  if (!hasTexts && !hasCirculaires) return ''
 
   const lines: string[] = [
     '## TEXTES JURIDIQUES DE RÉFÉRENCE (source : Légifrance / DILA)',
@@ -20,13 +20,12 @@ function formatDilaContext(context: DilaContext): string {
 
   for (const text of context.texts) {
     lines.push(`### ${text.title || text.textId}`)
-    if (text.dateVersion) {
-      lines.push(`*Version consolidée au : ${text.dateVersion}*`)
-    }
+    if (text.sectionPath) lines.push(`Section : ${text.sectionPath}`)
+    if (text.dateVersion) lines.push(`*Version consolidée au : ${text.dateVersion}*`)
+    if (text.modifiedRecently) lines.push(`*Article récemment modifié — vérifier la version en vigueur*`)
     lines.push(`Source : ${text.url}`)
     lines.push('')
     if (text.content) {
-      // Tronquer à 1 500 caractères par texte pour ne pas exploser la fenêtre
       const excerpt = text.content.length > 1500
         ? text.content.slice(0, 1500) + '\n[… extrait tronqué]'
         : text.content
@@ -38,7 +37,28 @@ function formatDilaContext(context: DilaContext): string {
     if (text.lastModifs && text.lastModifs.length > 0) {
       lines.push(`Dernières modifications : ${text.lastModifs.map(m => `${m.date} — ${m.title}`).join(' | ')}`)
     }
+    if (text.servicePublicLinks && text.servicePublicLinks.length > 0) {
+      lines.push(`Fiches service-public.fr : ${text.servicePublicLinks.join(' | ')}`)
+    }
     lines.push('')
+  }
+
+  if (hasCirculaires) {
+    lines.push('## CIRCULAIRES ADMINISTRATIVES', '')
+    for (const circ of context.circulaires!) {
+      lines.push(`### ${circ.title || circ.textId}`)
+      if (circ.dateVersion) lines.push(`Date : ${circ.dateVersion}`)
+      if (circ.opposable) lines.push(`*Circulaire opposable*`)
+      lines.push(`Source : ${circ.url}`)
+      lines.push('')
+      if (circ.content) {
+        const excerpt = circ.content.length > 1000
+          ? circ.content.slice(0, 1000) + '\n[… extrait tronqué]'
+          : circ.content
+        lines.push(excerpt)
+      }
+      lines.push('')
+    }
   }
 
   return lines.join('\n')
