@@ -109,6 +109,36 @@ function staticSseResponse(text: string, headers: Record<string, string> = {}): 
 }
 
 /**
+ * Détecte si la question est théorique/académique plutôt qu'un cas de dossier réel.
+ * Une question théorique ne doit pas déclencher la qualification des faits.
+ */
+function isTheoreticalQuestion(message: string): boolean {
+  const lower = message.toLowerCase()
+  // Marqueurs de question théorique (règle générale, pas un cas vécu)
+  const theoreticalMarkers = [
+    'est-il valide', 'est-elle valide', 'est-il possible', 'est-il légal',
+    'comment fonctionne', 'comment se calcule', 'quelle est la règle',
+    'quelle est la différence', 'qu\'est-ce que', 'quelles sont les conditions',
+    'quelles sont les obligations', 'depuis la loi', 'selon la loi',
+    'est-ce que la loi', 'que dit la loi', 'que prévoit', 'quel est le délai',
+    'quels sont les délais', 'quelles sont les mentions', 'comment calculer',
+    'est-ce obligatoire', 'est-il obligatoire', 'dois-je', 'faut-il',
+    'citez-moi', 'donnez-moi', 'expliquez', 'quelle jurisprudence',
+  ]
+  // Marqueurs de cas réel (première personne, situation vécue)
+  const realCaseMarkers = [
+    'mon client', 'mon acheteur', 'mon vendeur', 'mon locataire', 'mon bailleur',
+    'j\'ai reçu', 'j\'ai signé', 'nous avons signé', 'il conteste', 'elle conteste',
+    'ils refusent', 'il refuse', 'elle refuse', 'on m\'a envoyé', 'j\'ai un problème',
+    'ma commission', 'mes honoraires', 'mon mandat', 'ma situation',
+  ]
+  const hasRealCase = realCaseMarkers.some(m => lower.includes(m))
+  const hasTheoretical = theoreticalMarkers.some(m => lower.includes(m))
+  // Théorique si marqueur théorique présent ET pas de marqueur de cas réel
+  return hasTheoretical && !hasRealCase
+}
+
+/**
  * Détecte les faits requis absents du contexte conversationnel.
  * Retourne les labels des faits manquants ([] = tous présents).
  */
@@ -252,8 +282,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined
   )
 
-  // ── Étape 3 : Qualification des faits (cas premium seulement) ───────────
-  if (juriContext.isPremium && juriContext.requiredFacts.length > 0) {
+  // ── Étape 3 : Qualification des faits (cas premium + cas réel seulement) ─
+  if (juriContext.isPremium && juriContext.requiredFacts.length > 0 && !isTheoreticalQuestion(trimmedMessage)) {
     const missingFacts = checkMissingFacts(trimmedMessage, conversationHistory, juriContext.requiredFacts)
     // Si 2+ faits critiques absents : demander avant de générer
     if (missingFacts.length >= 2) {

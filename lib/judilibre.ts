@@ -226,6 +226,30 @@ function detectTheme(question: string): DetectedTheme | null {
     }
   }
 
+  // Validité du mandat / mentions honoraires — sous-cas PRIORITAIRE avant commission contestée
+  // Déclenché quand la question porte sur la conformité du mandat, pas sur l'exigibilité
+  if (
+    lower.includes('mandat sans honoraires') ||
+    lower.includes('à la charge de l\'acquéreur') ||
+    lower.includes('à la charge du vendeur') ||
+    lower.includes('mentions obligatoires') ||
+    lower.includes('validité du mandat') ||
+    lower.includes('mandat est-il valide') ||
+    lower.includes('mandat valide') ||
+    (lower.includes('honoraires') && lower.includes('répartition')) ||
+    ((lower.includes('loi alur') || lower.includes('alur')) && lower.includes('honoraires') && !lower.includes('conteste') && !lower.includes('contesté') && !lower.includes('compromis'))
+  ) {
+    return {
+      theme: 'agent immobilier',
+      chamber: 'civ1',
+      ccQuery: 'validité mandat honoraires répartition vendeur acquéreur loi Hoguet ALUR',
+      caQuery: 'mandat honoraires acquéreur validité mentions obligatoires loi ALUR',
+      noDateFilter: true,
+      publications: ['b', 'r', 'l'],
+      isPremium: false, // mode Flash — pas de qualification de faits
+    }
+  }
+
   // Commission agent / honoraires contestés — sous-cas prioritaire avant le thème générique
   if (
     (lower.includes('commission') || lower.includes('honoraires')) &&
