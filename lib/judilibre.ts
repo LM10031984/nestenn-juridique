@@ -1,6 +1,9 @@
 // lib/judilibre.ts
-// Client PISTE — API JUDILIBRE (Cour de cassation)
-// Pipeline : détection thème → /search filtres officiels → /decision (top 2) → zones + visa
+// Client PISTE — API JUDILIBRE
+// Pipeline double-piste CC+CA :
+//   Piste CC → /search (publication=['b','r'], theme, operator='or', field=['summary','motivations']) → /decision top-2
+//   Piste CA → /search (jurisdiction='ca', operator='and', field=['summary','motivations']) → summary direct
+//   Fusion : CC en priorité, CA en complément
 
 const isSandbox = process.env.PISTE_ENV === 'sandbox'
 const TOKEN_URL = isSandbox
@@ -71,19 +74,22 @@ export interface JudilibreContext {
 }
 
 // ---------------------------------------------------------------------------
-// Détection de thème + sub-queries affinées
+// Détection de thème + sub-queries CC/CA affinées
 // ---------------------------------------------------------------------------
 
 interface ThemeEntry {
   triggers: string[]
-  theme: string
-  chamber: string
+  theme: string    // valeur exacte taxonomie CC (validée)
+  chamber: string  // chambre CC
+  caQuery?: string // query CA spécifique (optionnel)
 }
 
+// NOTE: "diagnostics immobiliers" supprimé — thème invalide dans la taxonomie CC
 const THEME_MAP: ThemeEntry[] = [
   {
     triggers: ['bail', 'loyer', 'locataire', 'location', 'congé', 'dépôt', 'impayé',
-               'commandement', 'expulsion', 'trêve', 'clause résolutoire'],
+               'commandement', 'expulsion', 'trêve', 'clause résolutoire',
+               'vétusté', 'décence', 'logement décent'],
     theme: "bail d'habitation",
     chamber: 'civ3',
   },
@@ -128,38 +134,104 @@ const THEME_MAP: ThemeEntry[] = [
 interface DetectedTheme {
   theme: string
   chamber: string
-  query?: string
+  ccQuery?: string       // query CC affinée (défaut = question brute)
+  caQuery?: string       // query CA affinée (défaut = question brute)
   noDateFilter?: boolean
   publications?: string[]
+  dpeSignal?: boolean    // true = pas de jurisprudence CC, CA uniquement date>=2022
 }
 
 function detectTheme(question: string): DetectedTheme | null {
-  if (question.trim().split(/\s+/).length < 8) return null
+  // Seuil réduit 8→5 mots pour déclencher la recherche
+  if (question.trim().split(/\s+/).length < 5) return null
   const lower = question.toLowerCase()
 
-  // Sub-queries affinées — agent immobilier (prioritaire, arrêts de référence dès 1997)
-  if (lower.includes('agent immobilier') || lower.includes('devoir de conseil') || lower.includes('responsabilité agent') || lower.includes('conseil agent')) {
-    return { theme: 'agent immobilier', chamber: 'civ1', query: 'agent immobilier obligation information conseil responsabilité', noDateFilter: true, publications: ['b', 'r', 'l'] }
+  // DPE — jurisprudence CC inexistante (trop récent), CA ciblé date>=2022
+  if (
+    lower.includes('dpe') || lower.includes('diagnostic performance') ||
+    lower.includes('diagnostiqueur') || lower.includes('diagnostic immobilier') ||
+    lower.includes('opposable')
+  ) {
+    return {
+      theme: 'vente immobilière',
+      chamber: 'civ3',
+      caQuery: 'responsabilité diagnostiqueur DPE',
+      dpeSignal: true,
+    }
   }
 
-  // Sub-queries affinées — vente immobilière (prioritaires sur le match générique)
+  // Agent immobilier — arrêts de principe dès 1997, publications étendues
+  if (
+    lower.includes('agent immobilier') || lower.includes('devoir de conseil') ||
+    lower.includes('responsabilité agent') || lower.includes('conseil agent')
+  ) {
+    return {
+      theme: 'agent immobilier',
+      chamber: 'civ1',
+      ccQuery: 'agent immobilier obligation information conseil responsabilité',
+      caQuery: 'agent immobilier obligation information conseil',
+      noDateFilter: true,
+      publications: ['b', 'r', 'l'],
+    }
+  }
+
+  // Vente — sub-queries spécialisées
   if (lower.includes('vices cachés') || lower.includes('vice caché') || lower.includes('défaut caché')) {
-    return { theme: 'vente immobilière', chamber: 'civ3', query: 'vices cachés garantie immeuble acheteur' }
+    return {
+      theme: 'vente immobilière', chamber: 'civ3',
+      ccQuery: 'vices cachés garantie immeuble acheteur',
+      caQuery: 'vice caché immeuble acheteur garantie',
+    }
   }
   if (lower.includes('condition suspensive') || lower.includes('refus de prêt') || lower.includes('obtention du prêt')) {
-    return { theme: 'vente immobilière', chamber: 'civ3', query: 'condition suspensive prêt immobilier refus' }
+    return {
+      theme: 'vente immobilière', chamber: 'civ3',
+      ccQuery: 'condition suspensive prêt immobilier refus',
+      caQuery: 'condition suspensive prêt immobilier',
+    }
   }
   if (lower.includes('rétractation') || lower.includes('délai de réflexion')) {
-    return { theme: 'vente immobilière', chamber: 'civ3', query: 'droit rétractation acquéreur vente immobilière délai' }
+    return {
+      theme: 'vente immobilière', chamber: 'civ3',
+      ccQuery: 'droit rétractation acquéreur vente immobilière délai',
+      caQuery: 'rétractation acquéreur délai vente',
+    }
   }
   if ((lower.includes('promesse') || lower.includes('compromis')) && !lower.includes('bail')) {
-    return { theme: 'vente immobilière', chamber: 'civ3', query: 'promesse vente compromis caducité inexécution' }
+    return {
+      theme: 'vente immobilière', chamber: 'civ3',
+      ccQuery: 'promesse vente compromis caducité inexécution',
+      caQuery: 'promesse vente compromis inexécution',
+    }
+  }
+
+  // Bail — sub-queries spécialisées
+  if (lower.includes('vétusté') || lower.includes('dégradation') || lower.includes('état des lieux')) {
+    return {
+      theme: "bail d'habitation", chamber: 'civ3',
+      ccQuery: 'vétusté dégradation locataire bail état des lieux',
+      caQuery: 'vétusté dégradation locataire',
+    }
+  }
+  if (lower.includes('clause résolutoire') || lower.includes('commandement') || lower.includes('impayé')) {
+    return {
+      theme: "bail d'habitation", chamber: 'civ3',
+      ccQuery: 'clause résolutoire commandement payer loyer impayé',
+      caQuery: 'clause résolutoire commandement loyer impayé',
+    }
+  }
+  if (lower.includes('expulsion') || lower.includes('trêve hivernale')) {
+    return {
+      theme: "bail d'habitation", chamber: 'civ3',
+      ccQuery: 'expulsion locataire trêve hivernale',
+      caQuery: 'expulsion locataire trêve hivernale',
+    }
   }
 
   // Match général sur THEME_MAP
   for (const entry of THEME_MAP) {
     if (entry.triggers.some(t => lower.includes(t))) {
-      return { theme: entry.theme, chamber: entry.chamber }
+      return { theme: entry.theme, chamber: entry.chamber, caQuery: entry.caQuery }
     }
   }
   return null
@@ -195,85 +267,13 @@ function extractZoneText(detail: any, zoneName: string, maxChars: number): strin
 }
 
 // ---------------------------------------------------------------------------
-// Étape 1 — /search
-// ---------------------------------------------------------------------------
-
-async function searchDecisions(
-  token: string,
-  query: string,
-  theme: string,
-  chamber: string,
-  withFilters: boolean,
-  publications?: string[],
-  noDateFilter?: boolean,
-): Promise<Array<{ id: string }>> {
-  const url = new URL(`${API_URL}/search`)
-  url.searchParams.set('query', query)
-  url.searchParams.set('theme', theme)
-  url.searchParams.set('chamber', chamber)
-  if (withFilters) {
-    const pubs = publications ?? ['b', 'r']
-    for (const p of pubs) url.searchParams.append('publication', p)
-    if (!noDateFilter) url.searchParams.set('date_start', '2018-01-01')
-  }
-  url.searchParams.set('operator', 'and')
-  url.searchParams.set('page_size', '3')
-  url.searchParams.set('resolve_references', 'true')
-
-  const res = await fetchWithTimeout(url.toString(), {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-  }).catch((err: unknown) => {
-    console.error(`[judilibre] /search timeout/erreur :`, err)
-    return null
-  })
-  if (!res || !res.ok) {
-    if (res) console.error(`[judilibre] /search HTTP ${res.status}`)
-    return []
-  }
-
-  const data = await res.json() as { results?: Array<{ id: string }>; total?: number }
-  const pubsLabel = withFilters ? ` publication=${(publications ?? ['b', 'r']).join(',')}${noDateFilter ? '' : ' date>=2018'}` : ' (sans filtres)'
-  console.info(
-    `[judilibre] theme='${theme}' chamber=${chamber}${pubsLabel} → ${data?.total ?? 0} résultats`
-  )
-  return data.results ?? []
-}
-
-// ---------------------------------------------------------------------------
-// Étape 2 — /decision?id=xxx&resolve_references=true
-// ---------------------------------------------------------------------------
-
-async function fetchDecisionDetail(token: string, id: string, query?: string): Promise<any | null> {
-  const url = new URL(`${API_URL}/decision`)
-  url.searchParams.set('id', id)
-  url.searchParams.set('resolve_references', 'true')
-  if (query) {
-    url.searchParams.set('query', query)
-    url.searchParams.set('operator', 'and')
-  }
-
-  const res = await fetchWithTimeout(url.toString(), {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-  }).catch((err: unknown) => {
-    console.error(`[judilibre] /decision timeout/erreur pour id=${id} :`, err)
-    return null
-  })
-  if (!res || !res.ok) {
-    if (res) console.error(`[judilibre] /decision HTTP ${res.status} pour id=${id}`)
-    return null
-  }
-  return res.json()
-}
-
-// ---------------------------------------------------------------------------
-// Extraction des passages text_highlight (décisions pré-2018 sans zones)
+// extractHighlights : text_highlight pour décisions pré-2018 sans zones
 // ---------------------------------------------------------------------------
 
 function extractHighlights(detail: any): string {
   const hl = detail?.text_highlight
   if (!hl) return ''
 
-  // text_highlight peut être un objet {text:[...]}, un tableau ou une string
   const raw: string[] = []
   if (typeof hl === 'string') raw.push(hl)
   else if (Array.isArray(hl)) raw.push(...hl)
@@ -297,12 +297,149 @@ function extractHighlights(detail: any): string {
 }
 
 // ---------------------------------------------------------------------------
-// Formatage d'une décision pour injection dans le prompt
+// Piste CC — /search avec filtres publication + theme + field=['summary','motivations']
+// operator='or' (validé comme optimal pour CC multi-mots)
+// ---------------------------------------------------------------------------
+
+async function searchCC(
+  token: string,
+  query: string,
+  theme: string,
+  chamber: string,
+  publications: string[],
+  noDateFilter: boolean,
+): Promise<any[]> {
+  const url = new URL(`${API_URL}/search`)
+  url.searchParams.set('query', query)
+  url.searchParams.set('theme', theme)
+  url.searchParams.set('chamber', chamber)
+  for (const p of publications) url.searchParams.append('publication', p)
+  if (!noDateFilter) url.searchParams.set('date_start', '2018-01-01')
+  url.searchParams.set('operator', 'or')
+  url.searchParams.append('type', 'arret')
+  url.searchParams.append('field', 'summary')
+  url.searchParams.append('field', 'motivations')
+  url.searchParams.set('page_size', '3')
+  url.searchParams.set('resolve_references', 'true')
+
+  const res = await fetchWithTimeout(url.toString(), {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+  }).catch((err: unknown) => {
+    console.error('[judilibre] CC /search timeout :', err)
+    return null
+  })
+  if (!res || !res.ok) {
+    if (res) console.error(`[judilibre] CC /search HTTP ${res.status}`)
+    return []
+  }
+  const data = await res.json() as { results?: any[]; total?: number; relaxed?: boolean }
+  console.info(
+    `[judilibre] CC theme='${theme}' chamber=${chamber} pub=${publications.join(',')} → ${data?.total ?? 0} résultats${data?.relaxed ? ' (relaxed)' : ''}`
+  )
+  return data.results ?? []
+}
+
+// ---------------------------------------------------------------------------
+// Piste CC fallback — sans filtres publication/date (si 0 résultats stricts)
+// ---------------------------------------------------------------------------
+
+async function searchCCFallback(
+  token: string,
+  query: string,
+  theme: string,
+  chamber: string,
+): Promise<any[]> {
+  const url = new URL(`${API_URL}/search`)
+  url.searchParams.set('query', query)
+  url.searchParams.set('theme', theme)
+  url.searchParams.set('chamber', chamber)
+  url.searchParams.set('operator', 'or')
+  url.searchParams.append('type', 'arret')
+  url.searchParams.append('field', 'summary')
+  url.searchParams.append('field', 'motivations')
+  url.searchParams.set('page_size', '3')
+  url.searchParams.set('resolve_references', 'true')
+
+  const res = await fetchWithTimeout(url.toString(), {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+  }).catch((err: unknown) => {
+    console.error('[judilibre] CC fallback /search timeout :', err)
+    return null
+  })
+  if (!res || !res.ok) return []
+  const data = await res.json() as { results?: any[]; total?: number }
+  console.info(`[judilibre] CC fallback theme='${theme}' → ${data?.total ?? 0} résultats`)
+  return data.results ?? []
+}
+
+// ---------------------------------------------------------------------------
+// Piste CA — /search avec jurisdiction='ca', operator='and'
+// Pas de filtre theme ni publication (nomenclature NAC différente)
+// ---------------------------------------------------------------------------
+
+async function searchCA(
+  token: string,
+  query: string,
+  dateStart?: string,
+): Promise<any[]> {
+  const url = new URL(`${API_URL}/search`)
+  url.searchParams.set('query', query)
+  url.searchParams.set('jurisdiction', 'ca')
+  url.searchParams.set('operator', 'and')
+  url.searchParams.append('type', 'arret')
+  url.searchParams.append('field', 'summary')
+  url.searchParams.append('field', 'motivations')
+  if (dateStart) url.searchParams.set('date_start', dateStart)
+  url.searchParams.set('page_size', '3')
+
+  const res = await fetchWithTimeout(url.toString(), {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+  }).catch((err: unknown) => {
+    console.error('[judilibre] CA /search timeout :', err)
+    return null
+  })
+  if (!res || !res.ok) {
+    if (res) console.error(`[judilibre] CA /search HTTP ${res.status}`)
+    return []
+  }
+  const data = await res.json() as { results?: any[]; total?: number }
+  console.info(`[judilibre] CA query='${query}'${dateStart ? ` date>=${dateStart}` : ''} → ${data?.total ?? 0} résultats`)
+  return data.results ?? []
+}
+
+// ---------------------------------------------------------------------------
+// /decision?id=xxx — détail complet (zones, visa) pour piste CC
+// ---------------------------------------------------------------------------
+
+async function fetchDecisionDetail(token: string, id: string, query?: string): Promise<any | null> {
+  const url = new URL(`${API_URL}/decision`)
+  url.searchParams.set('id', id)
+  url.searchParams.set('resolve_references', 'true')
+  if (query) {
+    url.searchParams.set('query', query)
+    url.searchParams.set('operator', 'or')
+  }
+
+  const res = await fetchWithTimeout(url.toString(), {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+  }).catch((err: unknown) => {
+    console.error(`[judilibre] /decision timeout pour id=${id} :`, err)
+    return null
+  })
+  if (!res || !res.ok) {
+    if (res) console.error(`[judilibre] /decision HTTP ${res.status} pour id=${id}`)
+    return null
+  }
+  return res.json()
+}
+
+// ---------------------------------------------------------------------------
+// Formatage CC — zones motivations/dispositif depuis /decision
 // ---------------------------------------------------------------------------
 
 function formatDecision(detail: any): string {
   const header = [
-    detail.number   ? `Arrêt n° ${detail.number}` : null,
+    detail.number ? `Arrêt n° ${detail.number}` : null,
     detail.decision_date ? detail.decision_date.slice(0, 10) : null,
     'Cour de cassation',
     detail.solution ?? null,
@@ -314,7 +451,7 @@ function formatDecision(detail: any): string {
   const motivations = extractZoneText(detail, 'motivations', 600)
   const dispositif  = extractZoneText(detail, 'dispositif',  200)
 
-  // Fallback text_highlight pour décisions pré-2018 sans zones, sinon summary
+  // Fallback : text_highlight pour pré-2018, puis summary
   const body = motivations
     || extractHighlights(detail)
     || (detail.summary ? `Sommaire : ${detail.summary}` : '')
@@ -327,6 +464,36 @@ function formatDecision(detail: any): string {
   return [header, themesLine, body, dispositif || null, visaLine]
     .filter(Boolean)
     .join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// Formatage CA — summary + highlights depuis searchResult (pas de /decision)
+// ---------------------------------------------------------------------------
+
+function formatCAResult(result: any): string {
+  const header = [
+    result.number ? `Arrêt n° ${result.number}` : null,
+    result.decision_date ? result.decision_date.slice(0, 10) : null,
+    "Cour d'appel",
+    result.solution ?? null,
+  ].filter(Boolean).join(' · ')
+
+  // Préférer les highlights (fragments pertinents surlignés par l'API)
+  let body = ''
+  if (result.highlights) {
+    for (const zone of ['motivations', 'summary', 'expose']) {
+      const arr = result.highlights[zone]
+      if (Array.isArray(arr) && arr.length > 0) {
+        body = arr[0].replace(/<\/?em>/g, '').slice(0, 400)
+        break
+      }
+    }
+  }
+  if (!body && result.summary) {
+    body = `Sommaire : ${String(result.summary).slice(0, 400)}`
+  }
+
+  return [header, body].filter(Boolean).join('\n')
 }
 
 // ---------------------------------------------------------------------------
@@ -343,46 +510,89 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
     return { available: true, text: '', decisions: [], visaRefs: [] }
   }
 
-  const { theme, chamber, query: refinedQuery, noDateFilter, publications } = detected
-  const searchQuery = refinedQuery ?? question
+  const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal } = detected
+  const ccSearchQuery = ccQuery ?? question
+  const caSearchQuery = caQuery ?? question
+  const pubs = publications ?? ['b', 'r']
 
   try {
-    // Recherche avec filtres stricts, retry sans filtres si 0 résultat
-    let hits = await searchDecisions(token, searchQuery, theme, chamber, true, publications, noDateFilter)
-    if (hits.length === 0) {
-      hits = await searchDecisions(token, searchQuery, theme, chamber, false)
+    let ccHits: any[] = []
+    let caHits: any[] = []
+
+    if (dpeSignal) {
+      // DPE : pas de recherche CC (jurisprudence inexistante avant 2025),
+      // CA uniquement avec date>=2022 et query très ciblée
+      caHits = await searchCA(token, caSearchQuery, '2022-01-01')
+    } else {
+      // Pistes CC + CA lancées en parallèle
+      ;[ccHits, caHits] = await Promise.all([
+        searchCC(token, ccSearchQuery, theme, chamber, pubs, noDateFilter ?? false),
+        searchCA(token, caSearchQuery),
+      ])
+
+      // Fallback CC sans filtres stricts si 0 résultat
+      if (ccHits.length === 0) {
+        ccHits = await searchCCFallback(token, ccSearchQuery, theme, chamber)
+      }
     }
-    if (hits.length === 0) {
+
+    if (ccHits.length === 0 && caHits.length === 0) {
       return { available: true, text: '', decisions: [], visaRefs: [] }
     }
 
-    // Détail des 2 meilleurs résultats en parallèle (query active text_highlight)
-    const top2 = hits.slice(0, 2)
-    const details = (
-      await Promise.all(top2.map(h => fetchDecisionDetail(token, h.id, searchQuery)))
+    // CC : appel /decision pour les 2 meilleurs (zones complètes + visa)
+    const top2CC = ccHits.slice(0, 2)
+    const ccDetails = (
+      await Promise.all(top2CC.map(h => fetchDecisionDetail(token, h.id, ccSearchQuery)))
     ).filter(Boolean)
 
+    // Formatage CC
     const allVisaRefs: VisaRef[] = []
-    const formattedBlocks: string[] = []
+    const ccBlocks: string[] = []
 
-    for (const detail of details) {
+    for (const detail of ccDetails) {
       const visaRefs = parseVisaRefs(detail.visa ?? [])
       const motivationsLen = extractZoneText(detail, 'motivations', 9999).length
-
       console.info(
-        `[judilibre] décision n°${detail.number ?? '?'} ${detail.decision_date?.slice(0, 10) ?? '?'} ${detail.solution ?? '?'} zones=[motivations ${motivationsLen} chars] visa=[${visaRefs.map(v => `${v.law}/art.${v.artNum}`).join(', ') || '—'}]`
+        `[judilibre] CC n°${detail.number ?? '?'} ${detail.decision_date?.slice(0, 10) ?? '?'} ${detail.solution ?? '?'} zones=[motivations ${motivationsLen} chars] visa=[${visaRefs.map(v => `${v.law}/art.${v.artNum}`).join(', ') || '—'}]`
       )
-
       allVisaRefs.push(...visaRefs)
-      formattedBlocks.push(formatDecision(detail))
+      ccBlocks.push(formatDecision(detail))
     }
 
-    const text = `Jurisprudence pertinente (source : JUDILIBRE / Cour de cassation) :\n\n${formattedBlocks.join('\n\n---\n\n')}`
+    // Formatage CA (top 2, directement depuis searchResult — pas de /decision)
+    const caBlocks: string[] = []
+    for (const result of caHits.slice(0, 2)) {
+      caBlocks.push(formatCAResult(result))
+    }
+
+    // Assemblage : CC en priorité, CA en complément
+    const textParts: string[] = []
+
+    if (dpeSignal) {
+      textParts.push(
+        "Note : La jurisprudence DPE opposable (post-juillet 2021) n'est pas encore disponible à la Cour de cassation (délai normal de traitement judiciaire). Décisions de Cours d'appel récentes :"
+      )
+    }
+
+    if (ccBlocks.length > 0) {
+      textParts.push(
+        `Jurisprudence Cour de cassation (source : JUDILIBRE) :\n\n${ccBlocks.join('\n\n---\n\n')}`
+      )
+    }
+
+    if (caBlocks.length > 0) {
+      textParts.push(
+        `Jurisprudence Cours d'appel (source : JUDILIBRE) :\n\n${caBlocks.join('\n\n---\n\n')}`
+      )
+    }
+
+    const text = textParts.join('\n\n===\n\n')
 
     return {
       available: true,
       text,
-      decisions: details,
+      decisions: [...ccDetails, ...caHits.slice(0, 2)],
       visaRefs: allVisaRefs,
     }
   } catch (err) {
