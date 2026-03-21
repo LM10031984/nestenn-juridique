@@ -66,9 +66,20 @@ export interface VisaRef {
   artNum: string // ex: '24'
 }
 
+export interface NormalizedCase {
+  court: 'cass' | 'ca'
+  date: string
+  number: string
+  solution?: string
+  holding: string        // premier principe dégagé (1 phrase max)
+  authorityRank: number  // 1 = CC publiée, 2 = CC non-publiée, 3 = CA
+  formattedText: string  // bloc texte complet pour injection narrative
+}
+
 export interface JudilibreContext {
   available: boolean
   text: string
+  cases: NormalizedCase[]
   decisions: any[]
   visaRefs: VisaRef[]
 }
@@ -157,6 +168,22 @@ function detectTheme(question: string): DetectedTheme | null {
       chamber: 'civ3',
       caQuery: 'responsabilité diagnostiqueur DPE',
       dpeSignal: true,
+    }
+  }
+
+  // Commission agent / honoraires contestés — sous-cas prioritaire avant le thème générique
+  if (
+    (lower.includes('commission') || lower.includes('honoraires')) &&
+    (lower.includes('agent') || lower.includes('mandat') || lower.includes('compromis') ||
+     lower.includes('conteste') || lower.includes('contester') || lower.includes('vente'))
+  ) {
+    return {
+      theme: 'agent immobilier',
+      chamber: 'civ1',
+      ccQuery: 'commission agent immobilier exigibilité mandat vente réalisation définitive',
+      caQuery: 'commission agent immobilier honoraires contestation mandat compromis',
+      noDateFilter: true,
+      publications: ['b', 'r', 'l'],
     }
   }
 
@@ -353,6 +380,7 @@ async function searchCCFallback(
   url.searchParams.set('query', query)
   url.searchParams.set('theme', theme)
   url.searchParams.set('chamber', chamber)
+  url.searchParams.set('date_start', '2010-01-01')
   url.searchParams.set('operator', 'or')
   url.searchParams.append('type', 'arret')
   url.searchParams.append('field', 'summary')
@@ -497,17 +525,74 @@ function formatCAResult(result: any): string {
 }
 
 // ---------------------------------------------------------------------------
+// Builders NormalizedCase
+// ---------------------------------------------------------------------------
+
+function extractHolding(detail: any): string {
+  const motivations = extractZoneText(detail, 'motivations', 500)
+  if (motivations) {
+    const first = motivations.split(/\.\s+/)[0]?.trim() ?? ''
+    return (first.length >= 20 ? first : motivations.slice(0, 200)).replace(/\s+/g, ' ') + '.'
+  }
+  const hl = extractHighlights(detail)
+  if (hl) return hl.slice(0, 200)
+  return detail.summary ? String(detail.summary).slice(0, 200) : ''
+}
+
+function buildNormalizedCC(detail: any, publications: string[]): NormalizedCase {
+  const rank = publications.includes('b') || publications.includes('r') ? 1 : 2
+  return {
+    court: 'cass',
+    date: detail.decision_date?.slice(0, 10) ?? '?',
+    number: detail.number ?? '?',
+    solution: detail.solution,
+    holding: extractHolding(detail),
+    authorityRank: rank,
+    formattedText: formatDecision(detail),
+  }
+}
+
+function buildNormalizedCAFromDecision(detail: any): NormalizedCase {
+  return {
+    court: 'ca',
+    date: detail.decision_date?.slice(0, 10) ?? '?',
+    number: detail.number ?? '?',
+    solution: detail.solution,
+    holding: extractHolding(detail),
+    authorityRank: 3,
+    formattedText: formatDecision(detail),
+  }
+}
+
+function buildNormalizedCAFromSearch(result: any): NormalizedCase {
+  const snippet = (
+    (result.highlights?.motivations?.[0] ??
+     result.highlights?.summary?.[0] ??
+     result.summary ?? '') as string
+  ).replace(/<\/?em>/g, '').slice(0, 200)
+  return {
+    court: 'ca',
+    date: result.decision_date?.slice(0, 10) ?? '?',
+    number: result.number ?? '?',
+    solution: result.solution,
+    holding: snippet,
+    authorityRank: 3,
+    formattedText: formatCAResult(result),
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Point d'entrée public
 // ---------------------------------------------------------------------------
 
 export async function fetchJurisprudence(question: string): Promise<JudilibreContext> {
   const token = await getJudilibreToken()
-  if (!token) return { available: false, text: '', decisions: [], visaRefs: [] }
+  if (!token) return { available: false, text: '', cases: [], decisions: [], visaRefs: [] }
 
   const detected = detectTheme(question)
   if (!detected) {
     console.info('[judilibre] Aucun thème détecté — pas de jurisprudence')
-    return { available: true, text: '', decisions: [], visaRefs: [] }
+    return { available: true, text: '', cases: [], decisions: [], visaRefs: [] }
   }
 
   const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal } = detected
@@ -537,37 +622,60 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
     }
 
     if (ccHits.length === 0 && caHits.length === 0) {
-      return { available: true, text: '', decisions: [], visaRefs: [] }
+      return { available: true, text: '', cases: [], decisions: [], visaRefs: [] }
     }
 
-    // CC : appel /decision pour les 2 meilleurs (zones complètes + visa)
+    // /decision pour top 2 CC + top 1 CA en parallèle (zones complètes pour tous)
     const top2CC = ccHits.slice(0, 2)
-    const ccDetails = (
-      await Promise.all(top2CC.map(h => fetchDecisionDetail(token, h.id, ccSearchQuery)))
-    ).filter(Boolean)
+    const top1CA = caHits.slice(0, 1)
+    const caRest = caHits.slice(1, 2)
 
-    // Formatage CC
+    const [ccRawDetails, caRawDetails] = await Promise.all([
+      Promise.all(top2CC.map(h => fetchDecisionDetail(token, h.id, ccSearchQuery))),
+      Promise.all(top1CA.map(h => fetchDecisionDetail(token, h.id, caSearchQuery))),
+    ])
+
+    const ccDetails = ccRawDetails.filter(Boolean)
+    const caDetails = caRawDetails.filter(Boolean)
+
+    // Log + extraction visaRefs
     const allVisaRefs: VisaRef[] = []
-    const ccBlocks: string[] = []
-
     for (const detail of ccDetails) {
       const visaRefs = parseVisaRefs(detail.visa ?? [])
       const motivationsLen = extractZoneText(detail, 'motivations', 9999).length
       console.info(
-        `[judilibre] CC n°${detail.number ?? '?'} ${detail.decision_date?.slice(0, 10) ?? '?'} ${detail.solution ?? '?'} zones=[motivations ${motivationsLen} chars] visa=[${visaRefs.map(v => `${v.law}/art.${v.artNum}`).join(', ') || '—'}]`
+        `[judilibre] CC n°${detail.number ?? '?'} ${detail.decision_date?.slice(0, 10) ?? '?'} ${detail.solution ?? '?'} zones=[motivations ${motivationsLen} chars] visa=[${visaRefs.map((v: VisaRef) => `${v.law}/art.${v.artNum}`).join(', ') || '—'}]`
       )
       allVisaRefs.push(...visaRefs)
-      ccBlocks.push(formatDecision(detail))
+    }
+    for (const detail of caDetails) {
+      const motivationsLen = extractZoneText(detail, 'motivations', 9999).length
+      console.info(
+        `[judilibre] CA /decision n°${detail.number ?? '?'} ${detail.decision_date?.slice(0, 10) ?? '?'} zones=[motivations ${motivationsLen} chars]`
+      )
     }
 
-    // Formatage CA (top 2, directement depuis searchResult — pas de /decision)
-    const caBlocks: string[] = []
-    for (const result of caHits.slice(0, 2)) {
-      caBlocks.push(formatCAResult(result))
-    }
+    // Construction NormalizedCase[] : CC enrichis + top CA enrichi + CA restant (searchResult)
+    const normalizedCases: NormalizedCase[] = [
+      ...ccDetails.map((d: any) => buildNormalizedCC(d, pubs)),
+      ...caDetails.map((d: any) => buildNormalizedCAFromDecision(d)),
+      ...caRest.map((r: any) => buildNormalizedCAFromSearch(r)),
+    ]
 
-    // Assemblage : CC en priorité, CA en complément
+    // Assemblage du texte injecté
     const textParts: string[] = []
+
+    // Bloc machine-friendly en tête : holding structuré par arrêt
+    if (normalizedCases.length > 0) {
+      const holdingLines = normalizedCases.map(c => {
+        const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
+        const authLabel = c.court === 'cass' ? '[CC — autorité maximale]' : '[CA — jurisprudence récente]'
+        return `- ${courtLabel} ${c.date} n° ${c.number} ${authLabel} : ${c.holding}`
+      })
+      textParts.push(
+        `ARRÊTS RETENUS — À CITER OBLIGATOIREMENT dans la section 2️⃣ en expliquant en une phrase leur apport à la réponse :\n${holdingLines.join('\n')}`
+      )
+    }
 
     if (dpeSignal) {
       textParts.push(
@@ -575,15 +683,18 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
       )
     }
 
-    if (ccBlocks.length > 0) {
+    const ccCases = normalizedCases.filter(c => c.court === 'cass')
+    const caCases = normalizedCases.filter(c => c.court === 'ca')
+
+    if (ccCases.length > 0) {
       textParts.push(
-        `Jurisprudence Cour de cassation (source : JUDILIBRE) :\n\n${ccBlocks.join('\n\n---\n\n')}`
+        `Jurisprudence Cour de cassation (source : JUDILIBRE) :\n\n${ccCases.map(c => c.formattedText).join('\n\n---\n\n')}`
       )
     }
 
-    if (caBlocks.length > 0) {
+    if (caCases.length > 0) {
       textParts.push(
-        `Jurisprudence Cours d'appel (source : JUDILIBRE) :\n\n${caBlocks.join('\n\n---\n\n')}`
+        `Jurisprudence Cours d'appel (source : JUDILIBRE) :\n\n${caCases.map(c => c.formattedText).join('\n\n---\n\n')}`
       )
     }
 
@@ -592,11 +703,12 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
     return {
       available: true,
       text,
-      decisions: [...ccDetails, ...caHits.slice(0, 2)],
+      cases: normalizedCases,
+      decisions: [...ccDetails, ...caDetails, ...caRest],
       visaRefs: allVisaRefs,
     }
   } catch (err) {
     console.error('[judilibre] fetchJurisprudence — exception :', err)
-    return { available: false, text: '', decisions: [], visaRefs: [] }
+    return { available: false, text: '', cases: [], decisions: [], visaRefs: [] }
   }
 }

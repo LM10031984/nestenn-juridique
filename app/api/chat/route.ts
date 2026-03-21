@@ -223,9 +223,9 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text)
 
-  const juriNumbers = juriContext.decisions.map((d) => d.number).join(', ') || '—'
+  const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(
-    `[pipeline] juri=${juriNumbers} visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
+    `[pipeline] juri=${juriNumbers} (${juriContext.cases.length} arrêts: ${juriContext.cases.filter(c => c.court === 'cass').length}CC/${juriContext.cases.filter(c => c.court === 'ca').length}CA) visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
   )
 
   const history = sanitizeHistory(conversationHistory)
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   ]
 
   // ── Étape 4 : Génération avec validation jurisprudence si nécessaire ─────
-  const hasJuri = juriContext.available && juriContext.decisions.length > 0
+  const hasJuri = juriContext.available && juriContext.cases.length > 0
 
   try {
     if (hasJuri) {
