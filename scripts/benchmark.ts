@@ -124,17 +124,17 @@ async function judgeResponse(
   expectedRefs: string[],
   expectedKeywords: string[]
 ): Promise<{ correct: boolean | null; cost: number }> {
-  const prompt = `Tu es un expert juridique. Évalue la réponse ci-dessous.
+  const prompt = `Tu es un expert juridique. Évalue la réponse ci-dessous de façon strictement binaire.
 
 Question : ${question}
 
 Réponse à évaluer :
 ${response.slice(0, 2000)}
 
-Critères d'évaluation :
-1. La réponse cite-t-elle au moins une de ces références légales ? ${expectedRefs.join(', ')}
-2. La réponse mentionne-t-elle au moins 2 de ces mots-clés ? ${expectedKeywords.join(', ')}
-3. La réponse est-elle cohérente avec le droit français en vigueur ?
+Critères — réponds true si AU MOINS 2 des 3 critères sont vrais :
+1. [REFS] La réponse cite ou paraphrase au moins une de ces références légales : ${expectedRefs.join(', ')}
+2. [MOTS] La réponse mentionne au moins 2 de ces mots-clés (sens exact ou équivalent) : ${expectedKeywords.join(', ')}
+3. [FOND] La réponse donne une réponse juridiquement correcte à la question posée (oui/non clair + règle applicable)
 
 Réponds UNIQUEMENT en JSON : {"correct": true} ou {"correct": false}`
 
@@ -148,6 +148,7 @@ Réponds UNIQUEMENT en JSON : {"correct": true} ou {"correct": false}`
       model: JUDGE_MODEL,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 20,
+      temperature: 0,
     }),
   })
 
