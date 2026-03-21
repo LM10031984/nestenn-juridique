@@ -358,17 +358,6 @@ export default function ChatPage() {
             )
           })}
 
-          {showSuggestions && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Questions fréquentes</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {SUGGESTIONS.map((s, i) => (
-                  <SuggestionCard key={s.question} question={s.question} category={s.category} onClick={handleSubmit} index={i} />
-                ))}
-              </div>
-            </div>
-          )}
-
           {isLoading && !messages.some(m => m.role === 'assistant' && m.isStreaming) && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-start gap-3">
