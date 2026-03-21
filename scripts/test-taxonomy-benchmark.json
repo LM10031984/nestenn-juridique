@@ -1,0 +1,162 @@
+[
+  {
+    "id": 100,
+    "theme": "mandat_validite_honoraires",
+    "subtheme": "mandat_validite_honoraires",
+    "question": "Un mandat de vente est signé mais sans barème d'honoraires ni montant. Ce mandat est-il valide et l'agent peut-il réclamer une commission ?",
+    "expected_refs": ["loi 70-9", "décret 72-678", "article 6"],
+    "expected_keywords": ["nul", "nullité", "mentions obligatoires", "honoraires", "registre des mandats"]
+  },
+  {
+    "id": 101,
+    "theme": "mandat_validite_honoraires",
+    "subtheme": "mandat_validite_honoraires",
+    "question": "Le mandat de vente doit-il préciser si les honoraires sont à la charge du vendeur ou de l'acquéreur, et quelles sont les conséquences si cette mention est absente ?",
+    "expected_refs": ["loi ALUR 2014-366", "loi 70-9", "décret 72-678"],
+    "expected_keywords": ["mention obligatoire", "à la charge", "vendeur", "acquéreur", "nullité"]
+  },
+  {
+    "id": 102,
+    "theme": "commission_exigibilite",
+    "subtheme": "commission_exigibilite",
+    "question": "Le compromis est signé, l'agent a fait son travail, mais l'acte authentique n'a jamais été signé car le vendeur s'est rétracté. L'agent peut-il réclamer sa commission ?",
+    "expected_refs": ["loi 70-9", "article 6", "Cass. civ. 1re"],
+    "expected_keywords": ["réitération", "acte authentique", "commission non due", "vente non conclue", "condition"]
+  },
+  {
+    "id": 103,
+    "theme": "commission_exigibilite",
+    "subtheme": "commission_exigibilite",
+    "question": "La vente a échoué parce que l'acheteur a renoncé sans motif après la levée de toutes les conditions suspensives. L'agent immobilier peut-il tout de même prétendre à ses honoraires ?",
+    "expected_refs": ["loi 70-9", "article 6", "article 1589", "code civil"],
+    "expected_keywords": ["conditions suspensives levées", "commission due", "vente parfaite", "renonciation", "acheteur fautif"]
+  },
+  {
+    "id": 104,
+    "theme": "condition_suspensive_pret",
+    "subtheme": "condition_suspensive_pret",
+    "question": "L'acheteur n'a déposé aucune demande de prêt dans le délai de la condition suspensive de financement. Peut-il se prévaloir du non-obtention du prêt pour annuler la vente ?",
+    "expected_refs": ["article L313-41", "code de la consommation", "loi 79-596", "Cass. civ. 3e"],
+    "expected_keywords": ["déloyauté", "mauvaise foi", "demande de prêt", "non", "forclusion", "condition réputée accomplie"]
+  },
+  {
+    "id": 105,
+    "theme": "condition_suspensive_pret",
+    "subtheme": "condition_suspensive_pret",
+    "question": "L'acheteur a essuyé un refus de prêt d'une seule banque. Peut-il invoquer la condition suspensive pour annuler la vente, ou doit-il avoir sollicité plusieurs établissements ?",
+    "expected_refs": ["article L313-41", "code de la consommation", "Cass. civ. 3e"],
+    "expected_keywords": ["démarches sérieuses", "bonne foi", "plusieurs banques", "diligences", "refus unique"]
+  },
+  {
+    "id": 106,
+    "theme": "depot_garantie_vetuste",
+    "subtheme": "depot_garantie_vetuste",
+    "question": "Un locataire a occupé un appartement pendant 8 ans. Le propriétaire peut-il retenir la totalité du dépôt de garantie pour repeindre entièrement l'appartement ?",
+    "expected_refs": ["loi 89-462", "article 22", "décret 2016-382"],
+    "expected_keywords": ["vétusté", "grille", "8 ans", "non", "usure normale", "abattement"]
+  },
+  {
+    "id": 107,
+    "theme": "depot_garantie_vetuste",
+    "subtheme": "depot_garantie_vetuste",
+    "question": "Le contrat de location ne mentionne aucune grille de vétusté. Quelle règle s'applique pour calculer la retenue sur dépôt de garantie en cas de dégradations ?",
+    "expected_refs": ["loi 89-462", "article 22", "décret 2016-382"],
+    "expected_keywords": ["grille de vétusté", "durée de vie", "juge", "appréciation", "usure normale"]
+  },
+  {
+    "id": 108,
+    "theme": "depot_garantie_degradation",
+    "subtheme": "depot_garantie_degradation",
+    "question": "Le locataire n'était pas présent à l'état des lieux de sortie et n'a pas été convoqué. Le propriétaire peut-il retenir le dépôt de garantie sur la base de cet état des lieux ?",
+    "expected_refs": ["loi 89-462", "article 22", "décret 2016-382"],
+    "expected_keywords": ["contradictoire", "non opposable", "convocation", "huissier", "constat unilatéral"]
+  },
+  {
+    "id": 109,
+    "theme": "depot_garantie_degradation",
+    "subtheme": "depot_garantie_degradation",
+    "question": "Des travaux de réparation sont en cours après le départ du locataire. Le propriétaire peut-il attendre la fin des travaux pour restituer le dépôt de garantie au-delà de 2 mois ?",
+    "expected_refs": ["loi 89-462", "article 22"],
+    "expected_keywords": ["2 mois", "non", "pénalité", "intérêts légaux", "délai impératif", "devis suffit"]
+  },
+  {
+    "id": 110,
+    "theme": "responsabilite_agent_information",
+    "subtheme": "responsabilite_agent_information",
+    "question": "Un agent immobilier n'a pas informé l'acheteur d'une servitude de passage grevant le bien. L'acheteur peut-il se retourner contre l'agent ?",
+    "expected_refs": ["loi 70-9", "article 1240", "code civil", "Cass. civ. 1re"],
+    "expected_keywords": ["devoir de conseil", "obligation d'information", "servitude", "responsabilité délictuelle", "titre de propriété"]
+  },
+  {
+    "id": 111,
+    "theme": "responsabilite_agent_information",
+    "subtheme": "responsabilite_agent_information",
+    "question": "Un agent savait qu'un projet de ligne de tramway allait passer devant l'immeuble vendu mais ne l'a pas dit à l'acheteur. Engage-t-il sa responsabilité ?",
+    "expected_refs": ["loi 70-9", "article 1240", "code civil", "Cass. civ. 1re"],
+    "expected_keywords": ["information essentielle", "dol", "réticence", "devoir de conseil", "urbanisme"]
+  },
+  {
+    "id": 112,
+    "theme": "compromis_caducite",
+    "subtheme": "compromis_caducite",
+    "question": "La date de réitération prévue dans le compromis est dépassée depuis 3 semaines. Aucune des parties n'a réagi. Le compromis est-il automatiquement caduc ?",
+    "expected_refs": ["article 1589", "code civil", "Cass. civ. 3e"],
+    "expected_keywords": ["non automatiquement", "mise en demeure", "délai indicatif", "exécution forcée", "résolution"]
+  },
+  {
+    "id": 113,
+    "theme": "compromis_caducite",
+    "subtheme": "compromis_caducite",
+    "question": "Un compromis prévoit une réitération au plus tard le 30 juin. Le vendeur refuse de signer chez le notaire ce jour-là. Que peut faire l'acheteur ?",
+    "expected_refs": ["article 1589", "code civil", "article 1221", "code civil"],
+    "expected_keywords": ["exécution forcée", "vente parfaite", "dommages et intérêts", "mise en demeure", "tribunal"]
+  },
+  {
+    "id": 114,
+    "theme": "vente_non_reiteree",
+    "subtheme": "commission_exigibilite",
+    "question": "La vente a échoué parce que l'acheteur n'a pas obtenu son prêt bancaire dans les conditions prévues. L'agent immobilier perd-il automatiquement sa commission ?",
+    "expected_refs": ["loi 70-9", "article 6", "article L313-41", "code de la consommation"],
+    "expected_keywords": ["condition suspensive", "vente résolue", "commission non due", "bonne foi", "démarches"]
+  },
+  {
+    "id": 115,
+    "theme": "commission_partage",
+    "subtheme": "commission_exigibilite",
+    "question": "Deux agences ont chacune un mandat simple sur le même bien. L'acheteur a été présenté par l'agence A mais le compromis a été signé via l'agence B. Comment se répartit la commission ?",
+    "expected_refs": ["loi 70-9", "décret 72-678", "article 6"],
+    "expected_keywords": ["cause efficiente", "primo-visiteur", "accord inter-agences", "partage", "mandat"]
+  },
+  {
+    "id": 116,
+    "theme": "mandat_expire",
+    "subtheme": "mandat_validite_honoraires",
+    "question": "Le mandat de vente a expiré depuis 15 jours. L'agent organise quand même des visites et présente un acheteur sérieux. Peut-il prétendre à une commission si la vente se conclut ?",
+    "expected_refs": ["loi 70-9", "article 6", "décret 72-678"],
+    "expected_keywords": ["mandat expiré", "non", "sans mandat valide", "commission non due", "renouvellement"]
+  },
+  {
+    "id": 117,
+    "theme": "condition_suspensive_permis",
+    "subtheme": "condition_suspensive_permis",
+    "question": "Un compromis inclut une condition suspensive d'obtention de permis de construire mais ne précise aucun délai. Quel délai s'applique et que se passe-t-il à son terme ?",
+    "expected_refs": ["article 1304", "code civil", "code de l'urbanisme"],
+    "expected_keywords": ["délai raisonnable", "instruction", "caducité", "absence de délai", "2 mois", "juge"]
+  },
+  {
+    "id": 118,
+    "theme": "commission_contestation_client",
+    "subtheme": "commission_contestation_client",
+    "question": "Un acquéreur découvre après le compromis que le bien a une infiltration non signalée. Peut-il refuser de payer les honoraires d'agence en invoquant ce défaut ?",
+    "expected_refs": ["loi 70-9", "article 6", "article 1641", "code civil"],
+    "expected_keywords": ["non", "honoraires dus", "vice caché", "vendeur", "action séparée", "garantie"]
+  },
+  {
+    "id": 119,
+    "theme": "mandat_forme",
+    "subtheme": "mandat_validite_honoraires",
+    "question": "Un propriétaire a donné son accord par email pour confier la vente à un agent. Cet échange d'emails vaut-il mandat valable selon la loi Hoguet ?",
+    "expected_refs": ["loi 70-9", "article 6", "décret 72-678"],
+    "expected_keywords": ["écrit", "non", "signature électronique", "mandat nul", "mentions obligatoires", "registre"]
+  }
+]

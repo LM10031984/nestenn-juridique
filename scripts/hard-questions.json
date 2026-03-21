@@ -1,0 +1,72 @@
+[
+  {
+    "id": 201,
+    "theme": "llm-classifier",
+    "question": "Mon client avait obtenu son accord de financement depuis 3 semaines. Il m'appelle aujourd'hui pour m'annoncer qu'il ne souhaite plus acquérir le bien. Ma commission est-elle définitivement perdue ?",
+    "expected_refs": ["loi 70-9", "article 1583", "code civil"],
+    "expected_keywords": ["commission due", "conditions suspensives levées", "acheteur fautif", "vente parfaite", "inexécution fautive"]
+  },
+  {
+    "id": 202,
+    "theme": "llm-classifier",
+    "question": "Le passage chez le notaire était planifié il y a deux mois. Depuis, le dossier est au point mort — personne ne fait de démarche ni d'un côté ni de l'autre. Le contrat de vente est-il toujours valable ou s'est-il éteint automatiquement ?",
+    "expected_refs": ["article 1589", "article 1104", "code civil"],
+    "expected_keywords": ["non automatiquement", "mise en demeure", "clause expresse", "délai indicatif", "exécution forcée"]
+  },
+  {
+    "id": 203,
+    "theme": "llm-classifier",
+    "question": "L'acquéreur n'a contacté que son conseiller bancaire habituel, qui lui a opposé un refus. Il réclame maintenant la restitution de son dépôt en invoquant la clause de financement du compromis. Peut-il le faire ?",
+    "expected_refs": ["article L313-41", "code de la consommation"],
+    "expected_keywords": ["bonne foi", "diligences sérieuses", "plusieurs établissements", "condition réputée accomplie", "défaillance imputable"]
+  },
+  {
+    "id": 204,
+    "theme": "llm-classifier",
+    "question": "J'ai vendu un appartement sans évoquer l'existence d'un projet d'implantation d'une voie de circulation bruyante à 80 mètres de l'immeuble, pourtant visible dans le PLU. L'acquéreur le découvre trois mois après la vente. Quelle est mon exposition juridique ?",
+    "expected_refs": ["loi 70-9", "article 1240", "code civil"],
+    "expected_keywords": ["obligation d'information", "réticence dolosive", "information essentielle", "devoir de conseil", "responsabilité"]
+  },
+  {
+    "id": 205,
+    "theme": "llm-classifier",
+    "question": "J'ai présenté un acquéreur sérieux au prix demandé et le compromis a été signé. Le propriétaire-vendeur m'appelle maintenant pour me dire qu'il préfère garder son bien et souhaite annuler l'opération. Est-ce que je touche quand même ma commission ?",
+    "expected_refs": ["loi 70-9", "code civil"],
+    "expected_keywords": ["commission non due", "acte authentique", "vente non conclue", "dommages et intérêts", "faute du vendeur"]
+  },
+  {
+    "id": 206,
+    "theme": "llm-classifier",
+    "question": "Trois mois après la vente, l'acheteur me contacte pour me signaler des infiltrations en sous-sol qu'il dit n'avoir pas été signalées lors de la visite. Il exige que je renonce à mes honoraires pour compenser son préjudice. A-t-il un quelconque fondement juridique ?",
+    "expected_refs": ["loi 70-9", "article 1641", "code civil"],
+    "expected_keywords": ["honoraires indépendants", "vice caché", "action distincte", "garantie des vices cachés", "obligation séparée"]
+  },
+  {
+    "id": 207,
+    "theme": "llm-classifier",
+    "question": "Mon locataire ne s'est pas présenté à l'état des lieux de sortie. J'ai tout de même fait constater l'état du logement en présence d'un huissier. Ce document me permet-il de retenir une partie du dépôt de garantie ?",
+    "expected_refs": ["loi 89-462", "article 22"],
+    "expected_keywords": ["état des lieux contradictoire", "non opposable", "constat unilatéral", "convocation", "opposable"]
+  },
+  {
+    "id": 208,
+    "theme": "llm-classifier",
+    "question": "L'acheteur avait inséré dans l'acte une clause liée à l'obtention d'une autorisation d'urbanisme pour son projet de construction sur le terrain. La mairie vient de la refuser. Qu'advient-il du compromis ?",
+    "expected_refs": ["article 1304", "article 1304-2", "code civil"],
+    "expected_keywords": ["condition suspensive", "permis de construire", "délai raisonnable", "caducité", "diligence du demandeur"]
+  },
+  {
+    "id": 209,
+    "theme": "llm-classifier-collision",
+    "question": "Le propriétaire est injoignable depuis 5 semaines. La signature définitive de l'acte aurait dû avoir lieu mi-février chez le notaire. En tant qu'agent, puis-je réclamer ma rémunération, et quels recours reste-t-il à l'acheteur ?",
+    "expected_refs": ["article 1589", "loi 70-9", "code civil"],
+    "expected_keywords": ["mise en demeure", "acte authentique", "commission", "réitération", "exécution forcée"]
+  },
+  {
+    "id": 210,
+    "theme": "llm-classifier",
+    "question": "Mon contrat de représentation avec le vendeur s'est achevé le 5 mars. La vente s'est finalement conclue le 19 mars avec l'acheteur que j'avais fait visiter en février. Le vendeur conteste mes honoraires en affirmant que je n'avais plus qualité pour agir. A-t-il raison ?",
+    "expected_refs": ["loi 70-9", "loi Hoguet"],
+    "expected_keywords": ["mandat expiré", "commission non due", "sans mandat valide", "registre des mandats", "loi Hoguet"]
+  }
+]
