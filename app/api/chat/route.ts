@@ -4,7 +4,7 @@
 import { NextRequest } from 'next/server'
 import { openRouterChat, openRouterStream, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
 import { fetchLegalContext } from '@/lib/legifrance'
-import { fetchJurisprudence, type VisaRef } from '@/lib/judilibre'
+import { fetchJurisprudence, type VisaRef, type RequiredFact } from '@/lib/judilibre'
 import { getSystemPrompt } from '@/lib/system-prompt'
 
 // ---------------------------------------------------------------------------
@@ -106,6 +106,37 @@ function staticSseResponse(text: string, headers: Record<string, string> = {}): 
       ...headers,
     },
   })
+}
+
+/**
+ * Détecte les faits requis absents du contexte conversationnel.
+ * Retourne les labels des faits manquants ([] = tous présents).
+ */
+function checkMissingFacts(
+  message: string,
+  history: ConversationTurn[] | undefined,
+  requiredFacts: RequiredFact[],
+): RequiredFact[] {
+  if (requiredFacts.length === 0) return []
+
+  // Texte de recherche : message courant + 4 derniers tours de l'historique
+  const historyText = (history ?? [])
+    .slice(-4)
+    .map(t => t.content)
+    .join(' ')
+  const searchText = (message + ' ' + historyText).toLowerCase()
+
+  return requiredFacts.filter(
+    fact => !fact.keywords.some(kw => searchText.includes(kw.toLowerCase()))
+  )
+}
+
+/**
+ * Construit le message de qualification des faits manquants.
+ */
+function buildQualificationResponse(missingFacts: RequiredFact[]): string {
+  const questions = missingFacts.map((f, i) => `${i + 1}. ${f.label}`).join('\n')
+  return `Pour vous donner un avis précis sur ce point, j'ai besoin de quelques informations supplémentaires :\n\n${questions}\n\nDès que vous me les communiquez, je pourrai vous dire si votre position est solide ou fragile, et quelle démarche adopter.`
 }
 
 /**
@@ -221,11 +252,22 @@ export async function POST(req: NextRequest): Promise<Response> {
     juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined
   )
 
-  const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text)
+  // ── Étape 3 : Qualification des faits (cas premium seulement) ───────────
+  if (juriContext.isPremium && juriContext.requiredFacts.length > 0) {
+    const missingFacts = checkMissingFacts(trimmedMessage, conversationHistory, juriContext.requiredFacts)
+    // Si 2+ faits critiques absents : demander avant de générer
+    if (missingFacts.length >= 2) {
+      console.info(`[pipeline] qualification requise — ${missingFacts.length} faits manquants: ${missingFacts.map(f => f.id).join(', ')}`)
+      return staticSseResponse(buildQualificationResponse(missingFacts))
+    }
+  }
+
+  const mode: 'flash' | 'stratégique' = juriContext.isPremium ? 'stratégique' : 'flash'
+  const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text, mode)
 
   const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(
-    `[pipeline] juri=${juriNumbers} (${juriContext.cases.length} arrêts: ${juriContext.cases.filter(c => c.court === 'cass').length}CC/${juriContext.cases.filter(c => c.court === 'ca').length}CA) visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
+    `[pipeline] mode=${mode} juri=${juriNumbers} (${juriContext.cases.length} arrêts: ${juriContext.cases.filter(c => c.court === 'cass').length}CC/${juriContext.cases.filter(c => c.court === 'ca').length}CA) visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
   )
 
   const history = sanitizeHistory(conversationHistory)

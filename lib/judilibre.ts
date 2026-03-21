@@ -66,6 +66,12 @@ export interface VisaRef {
   artNum: string // ex: '24'
 }
 
+export interface RequiredFact {
+  id: string       // identifiant machine ex: 'acte_signe'
+  label: string    // question posée à l'utilisateur
+  keywords: string[] // mots-clés qui indiquent que ce fait est mentionné
+}
+
 export interface NormalizedCase {
   court: 'cass' | 'ca'
   date: string
@@ -82,6 +88,8 @@ export interface JudilibreContext {
   cases: NormalizedCase[]
   decisions: any[]
   visaRefs: VisaRef[]
+  isPremium: boolean
+  requiredFacts: RequiredFact[]
 }
 
 // ---------------------------------------------------------------------------
@@ -150,7 +158,54 @@ interface DetectedTheme {
   noDateFilter?: boolean
   publications?: string[]
   dpeSignal?: boolean    // true = pas de jurisprudence CC, CA uniquement date>=2022
+  isPremium?: boolean    // true = mode stratégique requis
+  requiredFacts?: RequiredFact[] // faits à collecter avant avis stratégique
 }
+
+// ---------------------------------------------------------------------------
+// Table des faits requis par sous-thème premium
+// ---------------------------------------------------------------------------
+
+const FACTS_COMMISSION: RequiredFact[] = [
+  {
+    id: 'acte_signe',
+    label: "L'acte authentique (signature chez le notaire) a-t-il été signé ?",
+    keywords: ['acte authentique', 'notaire', 'réitéré', 'réitération', 'signature définitive', 'acte signé'],
+  },
+  {
+    id: 'conditions_suspensives',
+    label: 'Les conditions suspensives (notamment le prêt immobilier) ont-elles été levées ?',
+    keywords: ['condition suspensive', 'conditions suspensives', 'prêt obtenu', 'levée', 'financement accordé', 'offre de prêt'],
+  },
+  {
+    id: 'debiteur_honoraires',
+    label: 'Qui supporte les honoraires selon le mandat et le compromis (acheteur, vendeur ou les deux) ?',
+    keywords: ['acheteur', 'vendeur', 'qui paie', 'à la charge', 'débiteur', 'supporté par', 'honoraires à charge'],
+  },
+  {
+    id: 'mandat_regulier',
+    label: 'Le mandat est-il signé, enregistré au registre des mandats et en cours de validité ?',
+    keywords: ['mandat signé', 'mandat régulier', 'registre des mandats', 'mandat enregistré', 'mandat valide', 'mandat en cours'],
+  },
+]
+
+const FACTS_CONDITIONS_SUSPENSIVES: RequiredFact[] = [
+  {
+    id: 'nature_condition',
+    label: 'Quelle est la nature exacte de la condition suspensive (prêt, permis de construire, autre) ?',
+    keywords: ['condition suspensive', 'prêt', 'permis de construire', 'nature de la condition', 'type de condition'],
+  },
+  {
+    id: 'delai_expire',
+    label: 'Le délai prévu pour réaliser la condition suspensive est-il expiré ?',
+    keywords: ['délai', 'expiré', 'dépassé', 'échéance', 'date limite', 'date butoir'],
+  },
+  {
+    id: 'renoncement',
+    label: "L'une des parties a-t-elle renoncé à se prévaloir de la condition non réalisée ?",
+    keywords: ['renoncé', 'renoncement', 'waiver', 'se prévaut', 'invoqué', 'accepté malgré'],
+  },
+]
 
 function detectTheme(question: string): DetectedTheme | null {
   // Seuil réduit 8→5 mots pour déclencher la recherche
@@ -184,6 +239,8 @@ function detectTheme(question: string): DetectedTheme | null {
       caQuery: 'commission agent immobilier honoraires contestation mandat compromis',
       noDateFilter: true,
       publications: ['b', 'r', 'l'],
+      isPremium: true,
+      requiredFacts: FACTS_COMMISSION,
     }
   }
 
@@ -199,6 +256,7 @@ function detectTheme(question: string): DetectedTheme | null {
       caQuery: 'agent immobilier obligation information conseil',
       noDateFilter: true,
       publications: ['b', 'r', 'l'],
+      isPremium: true,
     }
   }
 
@@ -215,6 +273,8 @@ function detectTheme(question: string): DetectedTheme | null {
       theme: 'vente immobilière', chamber: 'civ3',
       ccQuery: 'condition suspensive prêt immobilier refus',
       caQuery: 'condition suspensive prêt immobilier',
+      isPremium: true,
+      requiredFacts: FACTS_CONDITIONS_SUSPENSIVES,
     }
   }
   if (lower.includes('rétractation') || lower.includes('délai de réflexion')) {
@@ -587,15 +647,15 @@ function buildNormalizedCAFromSearch(result: any): NormalizedCase {
 
 export async function fetchJurisprudence(question: string): Promise<JudilibreContext> {
   const token = await getJudilibreToken()
-  if (!token) return { available: false, text: '', cases: [], decisions: [], visaRefs: [] }
+  if (!token) return { available: false, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [] }
 
   const detected = detectTheme(question)
   if (!detected) {
     console.info('[judilibre] Aucun thème détecté — pas de jurisprudence')
-    return { available: true, text: '', cases: [], decisions: [], visaRefs: [] }
+    return { available: true, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [] }
   }
 
-  const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal } = detected
+  const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal, isPremium, requiredFacts } = detected
   const ccSearchQuery = ccQuery ?? question
   const caSearchQuery = caQuery ?? question
   const pubs = publications ?? ['b', 'r']
@@ -622,7 +682,7 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
     }
 
     if (ccHits.length === 0 && caHits.length === 0) {
-      return { available: true, text: '', cases: [], decisions: [], visaRefs: [] }
+      return { available: true, text: '', cases: [], decisions: [], visaRefs: [], isPremium: isPremium ?? false, requiredFacts: requiredFacts ?? [] }
     }
 
     // /decision pour top 2 CC + top 1 CA en parallèle (zones complètes pour tous)
@@ -706,9 +766,11 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
       cases: normalizedCases,
       decisions: [...ccDetails, ...caDetails, ...caRest],
       visaRefs: allVisaRefs,
+      isPremium: isPremium ?? false,
+      requiredFacts: requiredFacts ?? [],
     }
   } catch (err) {
     console.error('[judilibre] fetchJurisprudence — exception :', err)
-    return { available: false, text: '', cases: [], decisions: [], visaRefs: [] }
+    return { available: false, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [] }
   }
 }
