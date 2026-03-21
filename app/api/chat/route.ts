@@ -201,8 +201,39 @@ export async function POST(req: NextRequest): Promise<Response> {
     { role: 'user', content: trimmedMessage },
   ]
 
-  // ── Étape 4 : Streaming GPT-4o via OpenRouter ───────────────────────────
+  // ── Étape 4 : Génération avec validation jurisprudence si nécessaire ─────
+  const hasJuri = juriContext.available && juriContext.decisions.length > 0
+
   try {
+    if (hasJuri) {
+      // Quand la jurisprudence est injectée : appel non-streaming pour valider
+      // la présence de la section 2️⃣ avant d'envoyer la réponse
+      let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
+
+      const hasCitation = /Cass\.|Cour d'appel|Cour de cassation|n° \d{2}[-\/]/.test(responseText)
+
+      if (!hasCitation) {
+        console.warn('[chat] Jurisprudence absente de la réponse — correction forcée (2e appel)')
+        const correctionMessages: OpenRouterMessage[] = [
+          ...messages,
+          { role: 'assistant', content: responseText },
+          {
+            role: 'user',
+            content:
+              'CORRECTION REQUISE : ta réponse ne contient pas la section "2️⃣ Jurisprudence applicable" alors que des arrêts sont fournis dans le prompt (section JURISPRUDENCES DE RÉFÉRENCE). Réécris ta réponse complète en incluant impérativement cette section avec au moins un arrêt cité, son numéro, sa date et l\'enseignement qu\'il apporte.',
+          },
+        ]
+        responseText = await openRouterChat(correctionMessages, model ?? MODELS.MAIN, maxTokens ?? 2000)
+        console.info('[chat] 2e appel — correction jurisprudence appliquée')
+      }
+
+      return staticSseResponse(responseText, {
+        'X-DILA-Available': dilaContext.available ? 'true' : 'false',
+        'X-Judilibre-Available': 'true',
+      })
+    }
+
+    // Pas de jurisprudence : streaming normal
     const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
 
     return new Response(llmStream, {
@@ -212,7 +243,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'X-DILA-Available': dilaContext.available ? 'true' : 'false',
-        'X-Judilibre-Available': juriContext.available && juriContext.decisions.length > 0 ? 'true' : 'false',
+        'X-Judilibre-Available': 'false',
       },
     })
   } catch (err) {
