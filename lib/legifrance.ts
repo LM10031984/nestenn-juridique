@@ -559,6 +559,7 @@ export async function fetchLegalContext(
   userQuery: string,
   _openRouterChat?: unknown, // conservé pour compatibilité route.ts
   visaRefs?: VisaRef[],
+  forcedArticles?: Array<{ law: string; artNums: string[] }>,
 ): Promise<DilaContext> {
   if (!process.env.PISTE_CLIENT_ID || !process.env.PISTE_CLIENT_SECRET) {
     return { texts: [], available: false, fallbackMessage: 'PISTE_CLIENT_ID / PISTE_CLIENT_SECRET manquants.' }
@@ -594,6 +595,29 @@ export async function fetchLegalContext(
       console.info(
         `[legifrance] visaRefs=[${refsToFetch.map(r => `${r.law}/art.${r.artNum}`).join(', ')}]` +
         ` → legiPart+getArticle → ${texts.length} article(s) OK`
+      )
+    }
+
+    // ── Voie 1bis : forcedArticles — toujours fetchés, jamais conditionnels ────
+    if (forcedArticles && forcedArticles.length > 0) {
+      const existingTitles = new Set(texts.map(t => t.title))
+      for (const forced of forcedArticles) {
+        const legitext = await resolveLegitext(forced.law, token)
+        if (!legitext || !(await isTextInForce(legitext, token, todayDate))) continue
+        const results = await Promise.all(
+          forced.artNums.slice(0, 4).map(artNum =>
+            fetchArticleViaLegiPart(legitext, artNum, forced.law, token, todayDate)
+          )
+        )
+        for (const r of results) {
+          if (r && !existingTitles.has(r.title)) {
+            texts.push(r)
+            existingTitles.add(r.title)
+          }
+        }
+      }
+      console.info(
+        `[legifrance] forcedArticles=[${forcedArticles.map(f => `${f.law}/${f.artNums.join(',')}`).join('; ')}] → ${texts.length} article(s) total`
       )
     }
 

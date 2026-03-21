@@ -124,6 +124,10 @@ function isTheoreticalQuestion(message: string): boolean {
     'quels sont les délais', 'quelles sont les mentions', 'comment calculer',
     'est-ce obligatoire', 'est-il obligatoire', 'dois-je', 'faut-il',
     'citez-moi', 'donnez-moi', 'expliquez', 'quelle jurisprudence',
+    'peut-il invoquer', 'peut-elle invoquer', 'peut-on invoquer',
+    'perd-il automatiquement', 'perd-elle automatiquement',
+    'est-il automatiquement', 'est-elle automatiquement',
+    'quel délai s\'applique', 'quel est le délai applicable',
   ]
   // Marqueurs de cas réel (première personne, situation vécue)
   const realCaseMarkers = [
@@ -279,7 +283,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   const dilaContext = await fetchLegalContext(
     trimmedMessage,
     openRouterChat,
-    juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined
+    juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined,
+    juriContext.forcedArticles && juriContext.forcedArticles.length > 0 ? juriContext.forcedArticles : undefined,
   )
 
   // ── Étape 3 : Qualification des faits (cas premium + cas réel seulement) ─
@@ -293,7 +298,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const mode: 'flash' | 'stratégique' = juriContext.isPremium ? 'stratégique' : 'flash'
-  const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text, mode)
+  const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text, mode, juriContext.expectedLexicon)
 
   const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(

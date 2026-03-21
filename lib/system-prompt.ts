@@ -100,6 +100,7 @@ export function getSystemPrompt(
   dilaContext?: DilaContext,
   jurisprudenceText?: string,
   mode: 'flash' | 'stratégique' = 'flash',
+  expectedLexicon?: string[],
 ): string {
   const today = new Date().toLocaleDateString('fr-FR', {
     day: 'numeric',
@@ -117,11 +118,15 @@ export function getSystemPrompt(
     ? `\n\n## ⚖️ JURISPRUDENCES DE RÉFÉRENCE (source : JUDILIBRE)\n\n${jurisprudenceText}\n\nRÈGLE — CITATION JURISPRUDENTIELLE :\n- Arrêt CC : "La Cour de cassation a jugé (Cass. [chambre], [date], n° [numéro]) que [enseignement en 1 phrase]" — autorité maximale\n- Arrêt CA : "La Cour d'appel a retenu (CA [date], n° [numéro]) que [enseignement en 1 phrase]" — jurisprudence récente\n- En mode STRATÉGIQUE : préciser l'utilité concrète de chaque arrêt (soutient / nuance / contredit la position)\n- Si arrêt cité hors contexte : *(cité de mémoire — vérifier sur Judilibre)*\n- Si note DPE présente dans le contexte : la reproduire telle quelle\n\n`
     : ''
 
+  const lexiconSection = expectedLexicon && expectedLexicon.length > 0
+    ? `\n\nLEXIQUE JURIDIQUE ATTENDU — Utilise obligatoirement ces termes dans ta réponse (ils correspondent aux concepts décisifs de ce sous-thème) : ${expectedLexicon.join(', ')}.\n`
+    : ''
+
   const modeSpec = mode === 'stratégique' ? MODE_STRATEGIQUE_SPEC : MODE_FLASH_SPEC
 
   return `Tu es l'assistant juridique officiel de Nestenn, réseau immobilier français. Nous sommes le ${today}.
 Tu fournis des informations juridiques générales, sourcées et structurées — pas de conseil personnalisé. Tu n'es ni avocat, ni notaire.
-${dilaSection}${juriSection}
+${dilaSection}${juriSection}${lexiconSection}
 ## DOMAINES
 
 Droit immobilier français exclusivement :

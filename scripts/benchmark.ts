@@ -355,7 +355,11 @@ function printReport(results: BenchmarkResult[], totalCost: number, label: strin
 }
 
 async function main() {
-  const questionsPath = resolve(__dirname, 'test-questions.json')
+  const fileArg = process.argv.indexOf('--file')
+  const questionsFile = fileArg !== -1 && process.argv[fileArg + 1]
+    ? process.argv[fileArg + 1]
+    : 'test-questions.json'
+  const questionsPath = resolve(__dirname, questionsFile)
   let questions: TestQuestion[] = JSON.parse(readFileSync(questionsPath, 'utf-8'))
 
   // Support --ids 57,60,62,69 (liste d'IDs séparés par virgule)

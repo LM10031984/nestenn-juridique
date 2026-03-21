@@ -1,5 +1,6 @@
 // lib/judilibre.ts
 // Client PISTE — API JUDILIBRE
+import { openRouterChat, MODELS } from '@/lib/openrouter'
 // Pipeline double-piste CC+CA :
 //   Piste CC → /search (publication=['b','r'], theme, operator='or', field=['summary','motivations']) → /decision top-2
 //   Piste CA → /search (jurisdiction='ca', operator='and', field=['summary','motivations']) → summary direct
@@ -90,6 +91,9 @@ export interface JudilibreContext {
   visaRefs: VisaRef[]
   isPremium: boolean
   requiredFacts: RequiredFact[]
+  subTheme?: string
+  expectedLexicon: string[]
+  forcedArticles?: Array<{ law: string; artNums: string[] }>
 }
 
 // ---------------------------------------------------------------------------
@@ -153,13 +157,16 @@ const THEME_MAP: ThemeEntry[] = [
 interface DetectedTheme {
   theme: string
   chamber: string
-  ccQuery?: string       // query CC affinée (défaut = question brute)
-  caQuery?: string       // query CA affinée (défaut = question brute)
+  ccQuery?: string
+  caQuery?: string
   noDateFilter?: boolean
   publications?: string[]
-  dpeSignal?: boolean    // true = pas de jurisprudence CC, CA uniquement date>=2022
-  isPremium?: boolean    // true = mode stratégique requis
-  requiredFacts?: RequiredFact[] // faits à collecter avant avis stratégique
+  dpeSignal?: boolean
+  isPremium?: boolean
+  requiredFacts?: RequiredFact[]
+  subTheme?: string
+  expectedLexicon?: string[]
+  forcedArticles?: Array<{ law: string; artNums: string[] }>
 }
 
 // ---------------------------------------------------------------------------
@@ -207,8 +214,344 @@ const FACTS_CONDITIONS_SUSPENSIVES: RequiredFact[] = [
   },
 ]
 
+// ---------------------------------------------------------------------------
+// Tableaux de faits — sous-thèmes fins
+// ---------------------------------------------------------------------------
+
+const FACTS_COMMISSION_PARTAGE: RequiredFact[] = [
+  {
+    id: 'primo_visiteur',
+    label: "Quelle agence a présenté le bien à l'acheteur en premier (primo-visiteur) ?",
+    keywords: ['primo-visiteur', 'première visite', 'premier contact', 'présenté en premier', 'agence a', 'agence b'],
+  },
+  {
+    id: 'accord_inter_agences',
+    label: 'Y a-t-il un accord de partage de commission entre les deux agences ?',
+    keywords: ['accord', 'partage', 'inter-agences', 'convention de partage', 'rémunération partagée'],
+  },
+  {
+    id: 'source_client',
+    label: "Par quel canal l'acheteur a-t-il finalement signé le compromis ?",
+    keywords: ['compromis signé', 'acte signé', 'via quelle agence', 'chez quel agent', 'signé avec', 'signé via', 'compromis via', 'via l\'agence', 'via agence'],
+  },
+]
+
+const FACTS_CONDITION_PRET: RequiredFact[] = [
+  {
+    id: 'nb_banques',
+    label: "Combien d'établissements bancaires l'acheteur a-t-il sollicités pour son prêt ?",
+    keywords: ['une banque', 'plusieurs banques', 'deux banques', 'trois banques', 'plusieurs établissements', 'une seule banque', 'établissements', 'aucune demande', 'aucun établissement', 'pas sollicité', 'n\'a sollicité'],
+  },
+  {
+    id: 'delai_respecte',
+    label: "L'acheteur a-t-il déposé sa demande de prêt dans le délai prévu au compromis ?",
+    keywords: ['dans le délai', 'avant la date limite', 'déposé à temps', 'demande déposée', 'aucune demande', "n'a pas déposé", 'délai respecté'],
+  },
+  {
+    id: 'preuves_refus',
+    label: "L'acheteur peut-il justifier ses demandes (attestations de refus, courriers bancaires) ?",
+    keywords: ['justificatif', 'attestation', 'refus écrit', 'courrier bancaire', 'preuve de refus', 'absence de preuve', 'lettre de refus'],
+  },
+]
+
+const FACTS_CONDITION_PERMIS: RequiredFact[] = [
+  {
+    id: 'clause_permis',
+    label: 'La clause de condition suspensive de permis est-elle précisément rédigée dans le compromis ?',
+    keywords: ['clause permis', 'condition suspensive de permis', "condition suspensive d'obtention", "d'obtention de permis", 'compromis mentionne', 'rédaction de la clause', 'précisément rédigée'],
+  },
+  {
+    id: 'depot_demande',
+    label: 'La demande de permis de construire a-t-elle été déposée en mairie ?',
+    keywords: ['déposé', 'dépôt', 'demande déposée', 'en mairie', 'récépissé', 'pas encore déposé', 'aucun dépôt'],
+  },
+  {
+    id: 'delai_permis',
+    label: "Un délai de réalisation est-il précisé dans la clause ou le compromis ?",
+    keywords: ['délai', 'date limite', 'échéance', 'aucun délai', 'délai non précisé', 'délai fixé'],
+  },
+]
+
+const FACTS_COMPROMIS_CADUCITE: RequiredFact[] = [
+  {
+    id: 'clause_caducite',
+    label: "Le compromis contient-il une clause prévoyant la caducité automatique à la date de réitération ?",
+    keywords: ['clause expresse', 'caducité automatique', 'caduc de plein droit', 'mention expresse', 'prévu dans le compromis', 'clause caducité', 'automatiquement caduc', 'est-il caduc', 'caduc automatiquement'],
+  },
+  {
+    id: 'nature_delai',
+    label: "La date de réitération était-elle une date butoir ferme ou indicative ?",
+    keywords: ['date ferme', 'date butoir', 'date indicative', 'au plus tard', 'délai impératif', 'délai de rigueur'],
+  },
+  {
+    id: 'mise_en_demeure',
+    label: "L'une des parties a-t-elle envoyé une mise en demeure de signer ?",
+    keywords: ['mise en demeure', 'sommation', 'assignation', 'huissier', 'demande formelle', 'courrier recommandé', "aucune des parties n'a réagi", 'aucune réaction', 'sans mise en demeure', "n'a pas réagi", 'refuse de signer chez le notaire', 'refuse de se présenter', 'refuse de réitérer'],
+  },
+]
+
+const FACTS_RESPONSABILITE_AGENT: RequiredFact[] = [
+  {
+    id: 'info_connue',
+    label: "L'agent avait-il connaissance de l'information non divulguée (servitude, projet d'urbanisme, sinistre) ?",
+    keywords: ['agent savait', 'agent connaissait', 'informé', 'connaissance de', 'était au courant', 'avait accès', "n'a pas informé", 'pas informé'],
+  },
+  {
+    id: 'caractere_essentiel',
+    label: "Cette information était-elle déterminante pour le consentement de l'acheteur ?",
+    keywords: ['déterminant', 'essentiel', "n'aurait pas acheté", 'impacte la valeur', 'aurait refusé', 'information clé',
+               'servitude', 'servitude de passage', 'tramway', 'projet d\'urbanisme', 'sinistre', 'nuisance'],
+  },
+  {
+    id: 'preuve_connaissance',
+    label: "Dispose-t-on d'une preuve que l'agent avait accès à cette information ?",
+    keywords: ['preuve', 'document', 'titre de propriété', 'plu', 'email', 'contrat', 'actes', 'attestation'],
+  },
+]
+
+const FACTS_DEPOT_DEGRADATION: RequiredFact[] = [
+  {
+    id: 'edl_contradictoire',
+    label: "L'état des lieux de sortie a-t-il été réalisé en présence des deux parties ou de leurs représentants ?",
+    keywords: ['contradictoire', 'en présence', 'locataire présent', 'convoqué', 'signé par les deux', 'état des lieux signé', 'état des lieux réalisé'],
+  },
+  {
+    id: 'desordres_precis',
+    label: "Les désordres imputés sont-ils listés avec précision dans l'état des lieux de sortie ?",
+    keywords: ['listé', 'détaillé', 'état des lieux de sortie', 'désordres constatés', 'dégradations précisées', 'relevé'],
+  },
+  {
+    id: 'devis_travaux',
+    label: "Le propriétaire dispose-t-il de devis ou factures justifiant les retenues ?",
+    keywords: ['devis', 'facture', 'justificatif', 'estimation', 'montant justifié', 'devis fourni'],
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Taxonomie juridique métier — sous-thèmes fins
+// ---------------------------------------------------------------------------
+
+interface LegalSubTheme {
+  id: string
+  triggerPatterns: string[]
+  excludePatterns?: string[]
+  requiredFacts: RequiredFact[]
+  answerMode: 'direct' | 'premium'
+  expectedLexicon: string[]
+  ccQuery?: string
+  caQuery?: string
+  forcedArticles?: Array<{ law: string; artNums: string[] }>
+  // Classification → DetectedTheme
+  theme: string
+  chamber: string
+  noDateFilter?: boolean
+  publications?: string[]
+}
+
+const LEGAL_SUBTEME_MAP: LegalSubTheme[] = [
+  {
+    id: 'mandat_expire',
+    triggerPatterns: [
+      'mandat expiré', 'mandat a expiré', 'expiré depuis', 'mandat de vente expiré',
+      "après l'expiration du mandat", "après l'expiration", "mandat n'est plus valide",
+      'expiration de son mandat', 'mandat arrivé à expiration',
+    ],
+    requiredFacts: [],
+    answerMode: 'direct',
+    expectedLexicon: ['mandat expiré', 'commission non due', 'sans mandat valide', "pas d'habilitation", 'loi Hoguet', 'registre des mandats'],
+    ccQuery: 'commission agent immobilier mandat expiré absence mandat validité',
+    caQuery: 'commission agent immobilier mandat expiré honoraires',
+    theme: 'agent immobilier', chamber: 'civ1', noDateFilter: true, publications: ['b', 'r', 'l'],
+  },
+  {
+    id: 'commission_acheteur_defaillant',
+    triggerPatterns: [
+      'renoncé sans motif', 'renonce après la levée', 'abandonne après les conditions',
+      'refuse malgré la levée', 'renoncé alors que', 'renoncé après levée',
+      'acheteur a renoncé', 'acheteur renonce',
+    ],
+    requiredFacts: [],
+    answerMode: 'direct',
+    expectedLexicon: ['commission due', 'acheteur fautif', 'vente parfaite', 'conditions suspensives levées', 'inexécution fautive', 'loi 70-9'],
+    ccQuery: 'commission agent immobilier acheteur défaillant conditions suspensives levées',
+    caQuery: 'commission agent immobilier acheteur renonciation fautive',
+    theme: 'agent immobilier', chamber: 'civ1', noDateFilter: true, publications: ['b', 'r', 'l'],
+  },
+  {
+    id: 'commission_vs_vice',
+    triggerPatterns: [
+      'refuser de payer les honoraires en invoquant',
+      'invoquer ce défaut',
+      'peut-il refuser de payer les honoraires',
+      'refus de payer les honoraires',
+      'invoquer un défaut non signalé',
+      'honoraires en invoquant',
+    ],
+    requiredFacts: [],
+    answerMode: 'direct',
+    expectedLexicon: ['honoraires indépendants', 'vice caché', 'action distincte', 'vendeur', 'garantie des vices cachés', 'obligation séparée', 'non'],
+    ccQuery: 'commission agent immobilier honoraires garantie vices cachés indépendance',
+    caQuery: 'honoraires agent immobilier vice caché refus paiement',
+    theme: 'agent immobilier', chamber: 'civ1', noDateFilter: true, publications: ['b', 'r', 'l'],
+  },
+  {
+    id: 'commission_vendeur_defaillant',
+    triggerPatterns: [
+      "vendeur s'est rétracté", 'rétractation du vendeur',
+      'vendeur a refusé de signer', 'le vendeur se rétracte', 'vendeur défaillant',
+    ],
+    excludePatterns: ['réitération', 'condition suspensive'],
+    requiredFacts: [],
+    answerMode: 'direct',
+    expectedLexicon: ['réitération', 'acte authentique', 'commission non due', 'vente non conclue', 'dommages et intérêts', 'faute du vendeur', 'loi 70-9'],
+    ccQuery: 'commission agent immobilier vendeur défaillant rétractation acte authentique non signé',
+    caQuery: 'commission honoraires agent immobilier vendeur refus signature acte authentique',
+    theme: 'agent immobilier', chamber: 'civ1', noDateFilter: true, publications: ['b', 'r', 'l'],
+  },
+  {
+    id: 'commission_partage',
+    triggerPatterns: [
+      'deux agences', 'agence a ', 'agence b ',
+      'inter-agences', 'primo-visiteur',
+      'mandat simple sur le même bien', 'deux mandats simples', 'chacune un mandat',
+    ],
+    requiredFacts: FACTS_COMMISSION_PARTAGE,
+    answerMode: 'premium',
+    expectedLexicon: ['primo-visiteur', 'cause efficiente', 'accord inter-agences', 'partage de commission', 'source du client'],
+    ccQuery: 'partage commission deux agences mandat simple primo-visiteur cause efficiente',
+    caQuery: 'partage commission agent immobilier deux agences mandat',
+    theme: 'agent immobilier', chamber: 'civ1', noDateFilter: true, publications: ['b', 'r', 'l'],
+  },
+  {
+    id: 'compromis_caducite',
+    triggerPatterns: [
+      'compromis est-il caduc', 'caducité du compromis', 'réitération dépassée',
+      'date de réitération', 'compromis caduc', "aucune des parties n'a réagi",
+      'dépassée depuis', 'date de réitération prévue',
+      'refuse de signer chez le notaire', 'réitération au plus tard', 'vendeur refuse de réitérer',
+    ],
+    requiredFacts: FACTS_COMPROMIS_CADUCITE,
+    answerMode: 'premium',
+    expectedLexicon: ['non automatiquement', 'clause expresse de caducité', 'mise en demeure', 'délai indicatif', 'exécution forcée', 'résolution judiciaire'],
+    ccQuery: 'compromis vente caducité réitération mise en demeure inexécution',
+    caQuery: 'compromis vente date réitération caducité inexécution',
+    forcedArticles: [{ law: 'code-civil', artNums: ['1589', '1104'] }],
+    theme: 'vente immobilière', chamber: 'civ3',
+  },
+  {
+    id: 'responsabilite_agent_info',
+    triggerPatterns: [
+      "n'a pas informé l'acheteur", "pas informé l'acheteur", "agent a omis",
+      "n'a pas signalé", 'agent savait', 'agent connaissait',
+      "information non divulguée", "non mentionné dans l'annonce",
+      "n'a pas dit à l'acheteur",
+    ],
+    requiredFacts: FACTS_RESPONSABILITE_AGENT,
+    answerMode: 'premium',
+    expectedLexicon: ["obligation d'information", 'devoir de conseil', 'réticence dolosive', 'dol par réticence', 'information essentielle', 'responsabilité délictuelle'],
+    ccQuery: 'agent immobilier obligation information conseil réticence dolosive responsabilité',
+    caQuery: 'agent immobilier information essentielle réticence dol responsabilité',
+    theme: 'agent immobilier', chamber: 'civ1', noDateFilter: true, publications: ['b', 'r', 'l'],
+  },
+  {
+    id: 'depot_garantie_vetuste',
+    triggerPatterns: [
+      'vétusté', 'grille de vétusté', 'usure normale', 'durée de vie',
+      'retenue pour vétusté', 'sans grille', 'coefficient de vétusté',
+    ],
+    excludePatterns: ["n'était pas présent", 'état des lieux unilatéral', 'non convoqué'],
+    requiredFacts: [],
+    answerMode: 'direct',
+    expectedLexicon: ['grille de vétusté', 'décret 2016-382', 'durée de vie', 'appréciation souveraine', 'juge', 'usure normale', 'loi 89-462', 'article 22'],
+    ccQuery: 'dépôt de garantie vétusté retenue grille durée de vie bail habitation',
+    caQuery: 'dépôt de garantie vétusté retenue bail habitation locataire',
+    theme: "bail d'habitation", chamber: 'civ3',
+  },
+  {
+    id: 'depot_garantie_degradation',
+    triggerPatterns: [
+      "n'était pas présent à l'état des lieux",
+      "n'a pas été convoqué",
+      "état des lieux réalisé sans le locataire",
+      "état des lieux unilatéral",
+    ],
+    requiredFacts: FACTS_DEPOT_DEGRADATION,
+    answerMode: 'premium',
+    expectedLexicon: ['état des lieux contradictoire', 'non opposable', 'constat unilatéral', 'convocation', '2 mois', 'délai impératif', 'décompte justifié'],
+    ccQuery: 'dépôt de garantie dégradation état des lieux locataire bail',
+    caQuery: 'dépôt de garantie état des lieux sortie dégradation locataire',
+    theme: "bail d'habitation", chamber: 'civ3',
+  },
+  {
+    id: 'condition_suspensive_permis',
+    triggerPatterns: [
+      "condition suspensive d'obtention de permis",
+      'condition suspensive de permis de construire',
+      "condition suspensive obtention permis",
+    ],
+    excludePatterns: ['prêt', 'financement', 'bancaire', 'refus de prêt'],
+    requiredFacts: FACTS_CONDITION_PERMIS,
+    answerMode: 'premium',
+    expectedLexicon: ['article 1304', 'délai raisonnable', 'dépôt de la demande', 'décision administrative', 'caducité', 'diligence du demandeur', 'instruction'],
+    ccQuery: 'condition suspensive permis de construire délai compromis caducité',
+    caQuery: 'condition suspensive permis construire compromis vente',
+    forcedArticles: [{ law: 'code-civil', artNums: ['1304', '1304-2'] }],
+    theme: 'vente immobilière', chamber: 'civ3',
+  },
+  {
+    id: 'condition_suspensive_pret',
+    triggerPatterns: [
+      'refus de prêt', "obtention du prêt", "demande de prêt",
+      "n'a pas obtenu son prêt", 'refus de financement', 'une seule banque',
+      'plusieurs banques', "déposé aucune demande de prêt", "n'a pas déposé",
+      "aucune demande de prêt", 'bonne foi du prêt',
+    ],
+    excludePatterns: ['permis de construire'],
+    requiredFacts: FACTS_CONDITION_PRET,
+    answerMode: 'premium',
+    expectedLexicon: ['bonne foi', 'diligences sérieuses', 'plusieurs établissements', 'condition réputée accomplie', 'délai conventionnel', 'défaillance imputable', 'L313-41'],
+    ccQuery: 'condition suspensive prêt immobilier bonne foi diligences établissements refus',
+    caQuery: 'condition suspensive prêt immobilier acheteur bonne foi refus',
+    theme: 'vente immobilière', chamber: 'civ3',
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Conversion LegalSubTheme → DetectedTheme (partagé keyword + LLM classifier)
+// ---------------------------------------------------------------------------
+
+function buildDetectedThemeFromSubTheme(st: LegalSubTheme): DetectedTheme {
+  return {
+    theme: st.theme,
+    chamber: st.chamber,
+    ccQuery: st.ccQuery,
+    caQuery: st.caQuery,
+    noDateFilter: st.noDateFilter,
+    publications: st.publications,
+    isPremium: st.answerMode === 'premium',
+    requiredFacts: st.requiredFacts,
+    subTheme: st.id,
+    expectedLexicon: st.expectedLexicon,
+    forcedArticles: st.forcedArticles,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Détection du sous-thème juridique fin (avant détection thème générique)
+// ---------------------------------------------------------------------------
+
+function detectSubTheme(question: string): LegalSubTheme | null {
+  const lower = question.toLowerCase()
+  for (const st of LEGAL_SUBTEME_MAP) {
+    const excluded = st.excludePatterns?.some(p => lower.includes(p.toLowerCase()))
+    if (excluded) continue
+    const matched = st.triggerPatterns.some(p => lower.includes(p.toLowerCase()))
+    if (matched) return st
+  }
+  return null
+}
+
 function detectTheme(question: string): DetectedTheme | null {
-  // Seuil réduit 8→5 mots pour déclencher la recherche
   if (question.trim().split(/\s+/).length < 5) return null
   const lower = question.toLowerCase()
 
@@ -218,19 +561,17 @@ function detectTheme(question: string): DetectedTheme | null {
     lower.includes('diagnostiqueur') || lower.includes('diagnostic immobilier') ||
     lower.includes('opposable')
   ) {
-    return {
-      theme: 'vente immobilière',
-      chamber: 'civ3',
-      caQuery: 'responsabilité diagnostiqueur DPE',
-      dpeSignal: true,
-    }
+    return { theme: 'vente immobilière', chamber: 'civ3', caQuery: 'responsabilité diagnostiqueur DPE', dpeSignal: true }
   }
 
-  // Validité du mandat / mentions honoraires — sous-cas PRIORITAIRE avant commission contestée
-  // Déclenché quand la question porte sur la conformité du mandat, pas sur l'exigibilité
+  // Détection sous-thème fin — priorité sur tout le reste
+  const subTheme = detectSubTheme(question)
+  if (subTheme) return buildDetectedThemeFromSubTheme(subTheme)
+
+  // Validité du mandat / mentions honoraires
   if (
     lower.includes('mandat sans honoraires') ||
-    lower.includes('à la charge de l\'acquéreur') ||
+    lower.includes("à la charge de l'acquéreur") ||
     lower.includes('à la charge du vendeur') ||
     lower.includes('mentions obligatoires') ||
     lower.includes('validité du mandat') ||
@@ -240,46 +581,39 @@ function detectTheme(question: string): DetectedTheme | null {
     ((lower.includes('loi alur') || lower.includes('alur')) && lower.includes('honoraires') && !lower.includes('conteste') && !lower.includes('contesté') && !lower.includes('compromis'))
   ) {
     return {
-      theme: 'agent immobilier',
-      chamber: 'civ1',
+      theme: 'agent immobilier', chamber: 'civ1',
       ccQuery: 'validité mandat honoraires répartition vendeur acquéreur loi Hoguet ALUR',
       caQuery: 'mandat honoraires acquéreur validité mentions obligatoires loi ALUR',
-      noDateFilter: true,
-      publications: ['b', 'r', 'l'],
-      isPremium: false, // mode Flash — pas de qualification de faits
+      noDateFilter: true, publications: ['b', 'r', 'l'],
+      isPremium: false,
     }
   }
 
-  // Commission agent / honoraires contestés — sous-cas prioritaire avant le thème générique
+  // Commission agent — générique (exigibilité, contestation principe)
   if (
     (lower.includes('commission') || lower.includes('honoraires')) &&
     (lower.includes('agent') || lower.includes('mandat') || lower.includes('compromis') ||
      lower.includes('conteste') || lower.includes('contester') || lower.includes('vente'))
   ) {
     return {
-      theme: 'agent immobilier',
-      chamber: 'civ1',
+      theme: 'agent immobilier', chamber: 'civ1',
       ccQuery: 'commission agent immobilier exigibilité mandat vente réalisation définitive',
       caQuery: 'commission agent immobilier honoraires contestation mandat compromis',
-      noDateFilter: true,
-      publications: ['b', 'r', 'l'],
-      isPremium: true,
-      requiredFacts: FACTS_COMMISSION,
+      noDateFilter: true, publications: ['b', 'r', 'l'],
+      isPremium: true, requiredFacts: FACTS_COMMISSION,
     }
   }
 
-  // Agent immobilier — arrêts de principe dès 1997, publications étendues
+  // Agent immobilier — devoir de conseil générique
   if (
     lower.includes('agent immobilier') || lower.includes('devoir de conseil') ||
     lower.includes('responsabilité agent') || lower.includes('conseil agent')
   ) {
     return {
-      theme: 'agent immobilier',
-      chamber: 'civ1',
+      theme: 'agent immobilier', chamber: 'civ1',
       ccQuery: 'agent immobilier obligation information conseil responsabilité',
       caQuery: 'agent immobilier obligation information conseil',
-      noDateFilter: true,
-      publications: ['b', 'r', 'l'],
+      noDateFilter: true, publications: ['b', 'r', 'l'],
       isPremium: true,
     }
   }
@@ -297,8 +631,7 @@ function detectTheme(question: string): DetectedTheme | null {
       theme: 'vente immobilière', chamber: 'civ3',
       ccQuery: 'condition suspensive prêt immobilier refus',
       caQuery: 'condition suspensive prêt immobilier',
-      isPremium: true,
-      requiredFacts: FACTS_CONDITIONS_SUSPENSIVES,
+      isPremium: true, requiredFacts: FACTS_CONDITIONS_SUSPENSIVES,
     }
   }
   if (lower.includes('rétractation') || lower.includes('délai de réflexion')) {
@@ -666,20 +999,93 @@ function buildNormalizedCAFromSearch(result: any): NormalizedCase {
 }
 
 // ---------------------------------------------------------------------------
+// Classifieur LLM — fallback quand le keyword matching ne détecte pas de sous-thème
+// Retourne top-2 candidats pour détecter les collisions (delta < 0.15 → fallback générique)
+// ---------------------------------------------------------------------------
+
+const SUBTEME_CLASSIFIER_SYSTEM = `Tu es un classificateur de questions juridiques en droit immobilier français.
+Identifie les 2 sous-thèmes les plus probables parmi la liste ci-dessous.
+Réponds UNIQUEMENT avec ce JSON (sans markdown) :
+{"first":{"id":"<id>","score":<0.0-1.0>},"second":{"id":"<id>","score":<0.0-1.0>}}
+Si aucun sous-thème ne correspond, utilise null comme id et 0.0 comme score.
+
+SOUS-THÈMES :
+- mandat_expire : agent réclame sa commission mais son mandat était expiré au moment de la vente
+- commission_acheteur_defaillant : acheteur renonce à la vente après levée des conditions suspensives, commission réclamée
+- commission_vs_vice : acheteur refuse de payer les honoraires de l'agent en invoquant un vice caché
+- commission_vendeur_defaillant : vendeur se rétracte ou refuse de signer l'acte authentique, commission réclamée
+- commission_partage : deux agences sur le même bien, conflit de partage ou attribution de commission
+- compromis_caducite : caducité ou validité d'un compromis dont la date de réitération est dépassée
+- responsabilite_agent_info : agent n'a pas informé l'acheteur d'une information importante (servitude, urbanisme, sinistre)
+- depot_garantie_vetuste : litige sur la vétusté lors de restitution du dépôt de garantie locatif
+- depot_garantie_degradation : état des lieux unilatéral ou locataire absent à l'état des lieux de sortie, contestation des retenues
+- condition_suspensive_permis : condition suspensive d'obtention de permis de construire dans un compromis de vente
+- condition_suspensive_pret : condition suspensive de prêt immobilier, refus de financement, bonne foi de l'acheteur`
+
+async function classifySubThemeLLM(question: string): Promise<LegalSubTheme | null> {
+  try {
+    const result = await openRouterChat(
+      [
+        { role: 'system', content: SUBTEME_CLASSIFIER_SYSTEM },
+        { role: 'user', content: question.slice(0, 600) },
+      ],
+      MODELS.FILTER,
+      60,
+    )
+    const parsed = JSON.parse(result.trim()) as {
+      first: { id: string | null; score: number }
+      second: { id: string | null; score: number }
+    }
+    const { first, second } = parsed
+    if (!first.id || first.score < 0.7) return null
+
+    const delta = first.score - (second.score ?? 0)
+    if (delta < 0.15) {
+      // Collision : deux sous-thèmes trop proches — fallback thème générique
+      console.info(
+        `[judilibre] LLM classifier — collision: ${first.id}(${first.score.toFixed(2)}) vs ${second.id ?? 'none'}(${(second.score ?? 0).toFixed(2)}) Δ=${delta.toFixed(2)} → fallback générique`
+      )
+      return null
+    }
+
+    console.info(
+      `[judilibre] LLM classifier → ${first.id} (score=${first.score.toFixed(2)}, Δ=${delta.toFixed(2)})`
+    )
+    return LEGAL_SUBTEME_MAP.find(st => st.id === first.id) ?? null
+  } catch {
+    return null // fail-open
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Point d'entrée public
 // ---------------------------------------------------------------------------
 
 export async function fetchJurisprudence(question: string): Promise<JudilibreContext> {
-  const token = await getJudilibreToken()
-  if (!token) return { available: false, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [] }
+  // Fast-path synchrone : keyword matching (0ms, couvre ~85% des cas)
+  const fastDetected = detectTheme(question)
 
-  const detected = detectTheme(question)
+  // Si le keyword matching n'a pas trouvé de sous-thème fin, lancer le classifieur LLM
+  // en parallèle du token fetch pour ne pas ajouter de latence (~100-150ms < ~200-400ms token)
+  const needsLLM = !fastDetected?.subTheme
+  const [token, llmSubTheme] = await Promise.all([
+    getJudilibreToken(),
+    needsLLM ? classifySubThemeLLM(question) : Promise.resolve(null),
+  ])
+
+  if (!token) return { available: false, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [], expectedLexicon: [] }
+
+  // Préférer le sous-thème LLM quand le keyword matching n'en a pas trouvé
+  const detected = (llmSubTheme && !fastDetected?.subTheme)
+    ? buildDetectedThemeFromSubTheme(llmSubTheme)
+    : fastDetected
+
   if (!detected) {
     console.info('[judilibre] Aucun thème détecté — pas de jurisprudence')
-    return { available: true, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [] }
+    return { available: true, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [], expectedLexicon: [] }
   }
 
-  const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal, isPremium, requiredFacts } = detected
+  const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal, isPremium, requiredFacts, subTheme, expectedLexicon, forcedArticles } = detected
   const ccSearchQuery = ccQuery ?? question
   const caSearchQuery = caQuery ?? question
   const pubs = publications ?? ['b', 'r']
@@ -706,7 +1112,7 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
     }
 
     if (ccHits.length === 0 && caHits.length === 0) {
-      return { available: true, text: '', cases: [], decisions: [], visaRefs: [], isPremium: isPremium ?? false, requiredFacts: requiredFacts ?? [] }
+      return { available: true, text: '', cases: [], decisions: [], visaRefs: [], isPremium: isPremium ?? false, requiredFacts: requiredFacts ?? [], subTheme, expectedLexicon: expectedLexicon ?? [], forcedArticles }
     }
 
     // /decision pour top 2 CC + top 1 CA en parallèle (zones complètes pour tous)
@@ -792,9 +1198,12 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
       visaRefs: allVisaRefs,
       isPremium: isPremium ?? false,
       requiredFacts: requiredFacts ?? [],
+      subTheme,
+      expectedLexicon: expectedLexicon ?? [],
+      forcedArticles,
     }
   } catch (err) {
     console.error('[judilibre] fetchJurisprudence — exception :', err)
-    return { available: false, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [] }
+    return { available: false, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [], expectedLexicon: [] }
   }
 }
