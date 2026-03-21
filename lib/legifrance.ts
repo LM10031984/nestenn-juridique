@@ -152,6 +152,7 @@ export interface LegiTextResult {
   modifiedRecently?: boolean
   opposable?: boolean
   sourceType?: 'loi' | 'code' | 'circulaire'
+  isForced?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -611,7 +612,8 @@ export async function fetchLegalContext(
         )
         for (const r of results) {
           if (r && !existingTitles.has(r.title)) {
-            texts.push(r)
+            r.isForced = true
+            texts.unshift(r)
             existingTitles.add(r.title)
           }
         }

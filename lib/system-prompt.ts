@@ -19,7 +19,10 @@ function formatDilaContext(context: DilaContext): string {
   ]
 
   for (const text of context.texts) {
-    lines.push(`### ${text.title || text.textId}`)
+    lines.push(text.isForced
+      ? `### ⚠️ TEXTE FONDAMENTAL — ${text.title || text.textId}`
+      : `### ${text.title || text.textId}`
+    )
     if (text.sectionPath) lines.push(`Section : ${text.sectionPath}`)
     if (text.dateVersion) lines.push(`*Version consolidée au : ${text.dateVersion}*`)
     if (text.modifiedRecently) lines.push(`*Article récemment modifié — vérifier la version en vigueur*`)
