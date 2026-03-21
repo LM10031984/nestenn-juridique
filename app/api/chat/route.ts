@@ -51,6 +51,41 @@ interface ChatRequestBody {
  * Construit une Response SSE à partir d'un message texte statique.
  * Utilisé pour les refus et les erreurs renvoyées en streaming.
  */
+/**
+ * Simule le streaming SSE en émettant le texte par groupes de mots.
+ * Utilisé quand la réponse est pré-calculée (validation jurisprudence).
+ */
+function simulateStreamResponse(text: string, headers: Record<string, string> = {}): Response {
+  const encoder = new TextEncoder()
+  const words = text.split(' ')
+  const CHUNK_SIZE = 4   // mots par événement SSE
+  const DELAY_MS  = 12  // ms entre chaque chunk
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      for (let i = 0; i < words.length; i += CHUNK_SIZE) {
+        const chunk = words.slice(i, i + CHUNK_SIZE).join(' ') + (i + CHUNK_SIZE < words.length ? ' ' : '')
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk }, finish_reason: null }] })}\n\n`)
+        )
+        await new Promise(r => setTimeout(r, DELAY_MS))
+      }
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      ...headers,
+    },
+  })
+}
+
 function staticSseResponse(text: string, headers: Record<string, string> = {}): Response {
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
@@ -227,7 +262,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         console.info('[chat] 2e appel — correction jurisprudence appliquée')
       }
 
-      return staticSseResponse(responseText, {
+      return simulateStreamResponse(responseText, {
         'X-DILA-Available': dilaContext.available ? 'true' : 'false',
         'X-Judilibre-Available': 'true',
       })
