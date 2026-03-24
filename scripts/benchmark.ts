@@ -199,6 +199,7 @@ async function checkOpenRouterKey(): Promise<boolean> {
  * - supprime "n°" (ex: "loi n° 89-462" → "loi 89-462")
  * - normalise les apostrophes et guillemets
  * - réduit les espaces multiples
+ * - alias : "art. X" → "article X", abréviations codes (CMF, CCH, CGI, CSP)
  */
 function normalize(str: string): string {
   return str
@@ -206,6 +207,11 @@ function normalize(str: string): string {
     .replace(/[\u0300-\u036f]/g, '')   // supprime diacritiques
     .toLowerCase()
     .replace(/n°\s*/g, '')             // "n° 89-462" → "89-462"
+    .replace(/\bart\.\s*/g, 'article ') // "Art. 24" → "article 24"
+    .replace(/\bcmf\b/g, 'code monetaire et financier')
+    .replace(/\bcch\b/g, 'code de la construction et de l habitation')
+    .replace(/\bcgi\b/g, 'code general des impots')
+    .replace(/\bcsp\b/g, 'code de la sante publique')
     .replace(/[''`]/g, "'")            // normalise apostrophes
     .replace(/\s+/g, ' ')             // espaces multiples → un seul
     .trim()

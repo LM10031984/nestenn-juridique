@@ -350,22 +350,8 @@ async function handlePost(req: NextRequest): Promise<Response> {
   // IDs curated à charger : playbook en priorité, puis T2AI en fallback
   const activeCuratedIds = playbook?.curatedCaseIds ?? topicEntry?.curatedCaseIds ?? []
 
-  // ── Étape 2 : Judilibre + pgvector + curated en parallèle ───────────────
-  const [juriContext, pgvectorCtx, curatedCtx] = await Promise.all([
-    fetchJurisprudence(trimmedMessage),
-    searchLegalContext(trimmedMessage, 8),
-    activeCuratedIds.length > 0
-      ? searchCuratedCases(activeCuratedIds, trimmedMessage)
-      : Promise.resolve<PgVectorContext>({ articles: [], arretText: '' }),
-  ])
-
-  // Merger le contexte curated en tête du pgvector (priorité absolue)
-  const mergedPgvector: PgVectorContext = {
-    articles: [...curatedCtx.articles, ...pgvectorCtx.articles],
-    arretText: [curatedCtx.arretText, pgvectorCtx.arretText].filter(Boolean).join('\n\n===\n\n'),
-  }
-
-  // Fusion forcedArticles : juriContext + playbook + T2AI (dédupliqué)
+  // Articles forcés connus dès l'étape 2 (synchrone) — playbook + T2AI uniquement
+  // Légifrance peut démarrer avec eux sans attendre Judilibre
   const playbookForcedArticles = playbook?.forcedArticles.map(fa => ({
     law: fa.law,
     artNums: [fa.artNum],
@@ -374,18 +360,30 @@ async function handlePost(req: NextRequest): Promise<Response> {
     law: fa.law,
     artNums: [fa.artNum],
   })) ?? []
-  const mergedForcedArticles = [
-    ...(juriContext.forcedArticles ?? []),
-    ...playbookForcedArticles,
-    ...topicForcedArticles,
-  ]
+  const earlyForcedArticles = [...playbookForcedArticles, ...topicForcedArticles]
 
-  const dilaContextRaw = await fetchLegalContext(
-    trimmedMessage,
-    openRouterChat,
-    juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined,
-    mergedForcedArticles.length > 0 ? mergedForcedArticles : undefined,
-  )
+  // ── Étape 2 : tout en parallèle — Judilibre + pgvector + curated + Légifrance ──
+  // Légifrance démarre avec les articles forcés connus (playbook/T2AI).
+  // Les visa refs Judilibre sont ignorées ici (tradeoff ~5% de questions, gain ~300-800ms).
+  const [juriContext, pgvectorCtx, curatedCtx, dilaContextRaw] = await Promise.all([
+    fetchJurisprudence(trimmedMessage),
+    searchLegalContext(trimmedMessage, 8),
+    activeCuratedIds.length > 0
+      ? searchCuratedCases(activeCuratedIds, trimmedMessage)
+      : Promise.resolve<PgVectorContext>({ articles: [], arretText: '' }),
+    fetchLegalContext(
+      trimmedMessage,
+      openRouterChat,
+      undefined,
+      earlyForcedArticles.length > 0 ? earlyForcedArticles : undefined,
+    ),
+  ])
+
+  // Merger le contexte curated en tête du pgvector (priorité absolue)
+  const mergedPgvector: PgVectorContext = {
+    articles: [...curatedCtx.articles, ...pgvectorCtx.articles],
+    arretText: [curatedCtx.arretText, pgvectorCtx.arretText].filter(Boolean).join('\n\n===\n\n'),
+  }
 
   // Fusion articles : curated+pgvector en premier, live en complément (dédupliqué)
   const pgvectorTitles = new Set(mergedPgvector.articles.map(a => a.title))

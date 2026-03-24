@@ -64,13 +64,14 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
     triggers: [
       'amiante', 'diagnostic amiante', 'dta', 'dossier technique amiante',
       'construit avant 1997', 'construit avant 1998', 'avant juillet 1997',
+      'construit en 1998', 'construit en 1999', 'construit en 2000',
     ],
     forcedArticles: [
-      { law: 'code de la santé publique', artNum: 'R1334-14', label: 'Art. R1334-14 — repérage amiante avant travaux' },
-      { law: 'code de la santé publique', artNum: 'L1334-13', label: 'Art. L1334-13 — dossier technique amiante' },
-      { law: 'décret 96-97', artNum: '1', label: 'Décret 96-97 — amiante dans bâtiments' },
+      { law: 'code de la santé publique', artNum: 'L1334-13', label: 'Art. L1334-13 CSP — dossier technique amiante' },
+      { law: 'code de la santé publique', artNum: 'R1334-14', label: 'Art. R1334-14 CSP — repérage amiante avant travaux' },
     ],
     curatedCaseIds: ['curated-diagnostic-amiante-seuil-1997', 'curated-amiante-seuil-1997-v2'],
+    answerNote: 'Le diagnostic amiante (DAPP) n\'est obligatoire QUE pour les bâtiments dont le permis de construire a été délivré AVANT le 1er juillet 1997 (décret 96-97). Un appartement construit en 1998 ou après n\'est PAS concerné — répondre NON clairement. Le seuil est la date du permis de construire, pas la date d\'achèvement des travaux.',
   },
 
   // ── BAIL D'HABITATION ────────────────────────────────────────────────────

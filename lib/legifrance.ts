@@ -68,6 +68,8 @@ const LEGITEXT_MAP: Record<string, string> = {
   '2018-1021':  'LEGITEXT000037642121', // Loi ELAN 23 nov 2018
   '2021-1104':  'LEGITEXT000043957598', // Loi Climat-Résilience 22 août 2021
   '67-223':     'LEGITEXT000006061423', // Décret copropriété 17 mars 1967
+  'code de la santé publique': 'LEGITEXT000006072665', // Code de la santé publique
+  'csp':        'LEGITEXT000006072665', // alias court
 }
 
 const API_BASE = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'
