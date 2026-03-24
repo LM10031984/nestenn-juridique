@@ -26,7 +26,7 @@ function formatDilaContext(context: DilaContext): string {
     if (text.sectionPath) lines.push(`Section : ${text.sectionPath}`)
     if (text.dateVersion) lines.push(`*Version consolidée au : ${text.dateVersion}*`)
     if (text.modifiedRecently) lines.push(`*Article récemment modifié — vérifier la version en vigueur*`)
-    lines.push(`Source : ${text.url}`)
+    if (text.url) lines.push(`[Consulter sur Légifrance](${text.url})`)
     lines.push('')
     if (text.content) {
       const excerpt = text.content.length > 800
@@ -114,7 +114,7 @@ export function getSystemPrompt(
   const dilaBlock = dilaContext ? formatDilaContext(dilaContext) : ''
 
   const dilaSection = dilaBlock
-    ? `\n\n${dilaBlock}\nRÈGLE — CITATION LÉGALE : cite l'article exact fourni avec sa date de consolidation. Si lastModifs présent : mentionne obligatoirement la modification récente. Vérifie la numérotation actuelle (art. 1240, pas 1382).\n\n`
+    ? `\n\n${dilaBlock}\nRÈGLE — CITATION LÉGALE : cite l'article exact fourni. Quand un lien Légifrance est présent, l'inclure dans ta réponse sous la forme markdown [Art. X — Loi](url) pour que l'agent puisse consulter le texte en un clic. Si lastModifs présent : mentionne la modification récente. Vérifie la numérotation actuelle (art. 1240, pas 1382).\n\n`
     : ''
 
   const juriSection = jurisprudenceText
@@ -160,7 +160,7 @@ DPE — 3 périodes OBLIGATOIRES à distinguer :
 - Du 1er janv. 2018 au 30 juin 2021 → valide jusqu'au 31/12/2024 (expiré)
 - À partir du 1er juil. 2021 → valide 10 ans
 
-Commandement de payer : délai légal = 6 semaines (art. 24 loi 89-462) avant constat de clause résolutoire — jamais "15 jours".
+Commandement de payer : délai légal = 2 mois (art. 24 loi 89-462) avant constat de clause résolutoire — jamais "15 jours" ni "6 semaines".
 
 Citations légales : toujours loi + numéro + article précis. Si incertain : "l'article exact mériterait vérification sur Légifrance". Numérotation actuelle obligatoire (art. 1240, pas 1382).
 

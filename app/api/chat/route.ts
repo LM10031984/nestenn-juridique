@@ -3,9 +3,10 @@
 
 import { NextRequest } from 'next/server'
 import { openRouterChat, openRouterStream, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
-import { fetchLegalContext } from '@/lib/legifrance'
+import { fetchLegalContext, type DilaContext } from '@/lib/legifrance'
 import { fetchJurisprudence, type VisaRef, type RequiredFact } from '@/lib/judilibre'
 import { getSystemPrompt } from '@/lib/system-prompt'
+import { searchLegalContext } from '@/lib/pgvector'
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -233,7 +234,33 @@ async function isRelevantQuestion(message: string): Promise<boolean> {
 // POST /api/chat
 // ---------------------------------------------------------------------------
 
+// Timeout global du pipeline (benchmark timeout côté client = 60s → on rend la main avant)
+const PIPELINE_TIMEOUT_MS = 55_000
+
 export async function POST(req: NextRequest): Promise<Response> {
+  // ── Timeout global : évite que la route pende indéfiniment et tue le serveur dev ──
+  const timeoutResponse = new Promise<Response>((resolve) =>
+    setTimeout(
+      () => resolve(new Response(JSON.stringify({ error: 'Pipeline timeout (55s)' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      })),
+      PIPELINE_TIMEOUT_MS
+    )
+  )
+
+  try {
+    return await Promise.race([handlePost(req), timeoutResponse])
+  } catch (err) {
+    console.error('[chat] Erreur non catchée dans le pipeline :', err)
+    return new Response(JSON.stringify({ error: 'Erreur interne du serveur.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+}
+
+async function handlePost(req: NextRequest): Promise<Response> {
   // ── Validation de base ──────────────────────────────────────────────────
 
   let body: ChatRequestBody
@@ -278,14 +305,30 @@ export async function POST(req: NextRequest): Promise<Response> {
     return staticSseResponse(REFUSAL_MESSAGE)
   }
 
-  // ── Étape 2 : Judilibre en premier → visaRefs → Légifrance ─────────────
-  const juriContext = await fetchJurisprudence(trimmedMessage)
-  const dilaContext = await fetchLegalContext(
+  // ── Étape 2 : Judilibre + pgvector en parallèle → visaRefs → Légifrance ─
+  const [juriContext, pgvectorCtx] = await Promise.all([
+    fetchJurisprudence(trimmedMessage),
+    searchLegalContext(trimmedMessage, 8),
+  ])
+
+  const dilaContextRaw = await fetchLegalContext(
     trimmedMessage,
     openRouterChat,
     juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined,
     juriContext.forcedArticles && juriContext.forcedArticles.length > 0 ? juriContext.forcedArticles : undefined,
   )
+
+  // Fusion articles : pgvector en premier (pré-résumés + URLs), live en complément (dédupliqué)
+  const pgvectorTitles = new Set(pgvectorCtx.articles.map(a => a.title))
+  const liveArticlesDeduped = dilaContextRaw.texts.filter(t => !pgvectorTitles.has(t.title))
+  const dilaContext: DilaContext = {
+    ...dilaContextRaw,
+    available: dilaContextRaw.available || pgvectorCtx.articles.length > 0,
+    texts: [...pgvectorCtx.articles, ...liveArticlesDeduped],
+  }
+
+  // Fusion jurisprudence : arrêts pgvector (résumés indexés) + arrêts live Judilibre
+  const mergedJuriText = [pgvectorCtx.arretText, juriContext.text].filter(Boolean).join('\n\n===\n\n')
 
   // ── Étape 3 : Qualification des faits (cas premium + cas réel seulement) ─
   if (juriContext.isPremium && juriContext.requiredFacts.length > 0 && !isTheoreticalQuestion(trimmedMessage)) {
@@ -298,11 +341,11 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const mode: 'flash' | 'stratégique' = juriContext.isPremium ? 'stratégique' : 'flash'
-  const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text, mode, juriContext.expectedLexicon)
+  const systemPromptContent = getSystemPrompt(dilaContext, mergedJuriText || undefined, mode, juriContext.expectedLexicon)
 
   const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(
-    `[pipeline] mode=${mode} juri=${juriNumbers} (${juriContext.cases.length} arrêts: ${juriContext.cases.filter(c => c.court === 'cass').length}CC/${juriContext.cases.filter(c => c.court === 'ca').length}CA) visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
+    `[pipeline] mode=${mode} juri=${juriNumbers} (${juriContext.cases.length} arrêts live: ${juriContext.cases.filter(c => c.court === 'cass').length}CC/${juriContext.cases.filter(c => c.court === 'ca').length}CA) pgvector=[${pgvectorCtx.articles.length}art+${pgvectorCtx.arretText ? '?' : '0'}arr] visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
   )
 
   const history = sanitizeHistory(conversationHistory)
