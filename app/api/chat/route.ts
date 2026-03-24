@@ -6,7 +6,10 @@ import { openRouterChat, openRouterStream, MODELS, type OpenRouterMessage } from
 import { fetchLegalContext, type DilaContext } from '@/lib/legifrance'
 import { fetchJurisprudence, type VisaRef, type RequiredFact } from '@/lib/judilibre'
 import { getSystemPrompt } from '@/lib/system-prompt'
-import { searchLegalContext } from '@/lib/pgvector'
+import { searchLegalContext, searchCuratedCases, type PgVectorContext } from '@/lib/pgvector'
+import { detectPlaybook } from '@/lib/playbooks'
+import { detectTopicArticles } from '@/lib/topic-articles'
+import { validateResponse, buildFusedCorrectionPrompt } from '@/lib/live-validator'
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -129,6 +132,12 @@ function isTheoreticalQuestion(message: string): boolean {
     'perd-il automatiquement', 'perd-elle automatiquement',
     'est-il automatiquement', 'est-elle automatiquement',
     'quel délai s\'applique', 'quel est le délai applicable',
+    // Questions théoriques sur la responsabilité et la jurisprudence (évite le piège de clarification)
+    'est-il responsable', 'est-elle responsable',
+    'quelle est la responsabilité', 'quelle est la responsabilite',
+    'dans quel délai', 'dans quel delai',
+    'selon la jurisprudence', 'jusqu\'où s\'étend', 'jusqu\'ou s\'etend',
+    'se rétracter', 'se retracter',
   ]
   // Marqueurs de cas réel (première personne, situation vécue)
   const realCaseMarkers = [
@@ -205,8 +214,10 @@ Sont dans le périmètre : droit immobilier français, notamment :
 - baux d'habitation (loyer, locataire, bailleur, expulsion, congé, dépôt de garantie, clause résolutoire, commandement de payer)
 - copropriété (syndic, syndicat, assemblée générale, charges, règlement de copropriété)
 - transactions immobilières (compromis, promesse de vente, conditions suspensives, délai de prêt, obtention de financement, refus de prêt, prêt immobilier, droit de rétractation, vices cachés, notaire, VEFA, vente en état futur d'achèvement, garantie décennale, garantie biennale, garantie de parfait achèvement, constructeur, maîtrise d'ouvrage)
-- agent immobilier (loi Hoguet, mandat, commission, honoraires, devoir de conseil)
-- diagnostics immobiliers obligatoires (DPE, amiante, plomb, termites, électricité, gaz, ERP, assainissement)
+- agent immobilier (loi Hoguet, mandat, commission, honoraires, devoir de conseil, négociateur salarié, carte professionnelle T)
+- diagnostics immobiliers obligatoires (DPE, amiante, plomb, termites, électricité, gaz, ERP, assainissement, DPE collectif, audit énergétique)
+- fiscalité immobilière (plus-value immobilière, IFI, revenus fonciers, dispositif Denormandie, Pinel, LMNP, LMP, déficit foncier, régime fiscal location meublée)
+- lutte anti-blanchiment immobilier (LCB-FT, TRACFIN, obligations déclaration agents immobiliers, vigilance client)
 - urbanisme (permis de construire, PLU, loi ZAN, préemption, ALUR, ELAN)
 - SCI, viager, rente viagère, démembrement, usufruit, nue-propriété
 - servitudes, mitoyenneté, troubles de voisinage
@@ -305,30 +316,69 @@ async function handlePost(req: NextRequest): Promise<Response> {
     return staticSseResponse(REFUSAL_MESSAGE)
   }
 
-  // ── Étape 2 : Judilibre + pgvector en parallèle → visaRefs → Légifrance ─
-  const [juriContext, pgvectorCtx] = await Promise.all([
+  // ── Détection playbook (synchrone, 0ms) ─────────────────────────────────
+  const playbook = detectPlaybook(trimmedMessage)
+  if (playbook) {
+    console.info(`[pipeline] playbook=${playbook.id} (${playbook.curatedCaseIds.length} curated)`)
+  }
+
+  // ── Détection topic T2AI (fallback déterministe si pas de playbook) ──────
+  const topicEntry = !playbook ? detectTopicArticles(trimmedMessage) : null
+  if (topicEntry) {
+    console.info(`[pipeline] topic=${topicEntry.id} (${topicEntry.curatedCaseIds.length} curated)`)
+  }
+
+  // IDs curated à charger : playbook en priorité, puis T2AI en fallback
+  const activeCuratedIds = playbook?.curatedCaseIds ?? topicEntry?.curatedCaseIds ?? []
+
+  // ── Étape 2 : Judilibre + pgvector + curated en parallèle ───────────────
+  const [juriContext, pgvectorCtx, curatedCtx] = await Promise.all([
     fetchJurisprudence(trimmedMessage),
     searchLegalContext(trimmedMessage, 8),
+    activeCuratedIds.length > 0
+      ? searchCuratedCases(activeCuratedIds, trimmedMessage)
+      : Promise.resolve<PgVectorContext>({ articles: [], arretText: '' }),
   ])
+
+  // Merger le contexte curated en tête du pgvector (priorité absolue)
+  const mergedPgvector: PgVectorContext = {
+    articles: [...curatedCtx.articles, ...pgvectorCtx.articles],
+    arretText: [curatedCtx.arretText, pgvectorCtx.arretText].filter(Boolean).join('\n\n===\n\n'),
+  }
+
+  // Fusion forcedArticles : juriContext + playbook + T2AI (dédupliqué)
+  const playbookForcedArticles = playbook?.forcedArticles.map(fa => ({
+    law: fa.law,
+    artNums: [fa.artNum],
+  })) ?? []
+  const topicForcedArticles = topicEntry?.forcedArticles.map(fa => ({
+    law: fa.law,
+    artNums: [fa.artNum],
+  })) ?? []
+  const mergedForcedArticles = [
+    ...(juriContext.forcedArticles ?? []),
+    ...playbookForcedArticles,
+    ...topicForcedArticles,
+  ]
 
   const dilaContextRaw = await fetchLegalContext(
     trimmedMessage,
     openRouterChat,
     juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined,
-    juriContext.forcedArticles && juriContext.forcedArticles.length > 0 ? juriContext.forcedArticles : undefined,
+    mergedForcedArticles.length > 0 ? mergedForcedArticles : undefined,
   )
 
-  // Fusion articles : pgvector en premier (pré-résumés + URLs), live en complément (dédupliqué)
-  const pgvectorTitles = new Set(pgvectorCtx.articles.map(a => a.title))
+  // Fusion articles : curated+pgvector en premier, live en complément (dédupliqué)
+  const pgvectorTitles = new Set(mergedPgvector.articles.map(a => a.title))
   const liveArticlesDeduped = dilaContextRaw.texts.filter(t => !pgvectorTitles.has(t.title))
   const dilaContext: DilaContext = {
     ...dilaContextRaw,
-    available: dilaContextRaw.available || pgvectorCtx.articles.length > 0,
-    texts: [...pgvectorCtx.articles, ...liveArticlesDeduped],
+    available: dilaContextRaw.available || mergedPgvector.articles.length > 0,
+    texts: [...mergedPgvector.articles, ...liveArticlesDeduped],
   }
 
-  // Fusion jurisprudence : arrêts pgvector (résumés indexés) + arrêts live Judilibre
-  const mergedJuriText = [pgvectorCtx.arretText, juriContext.text].filter(Boolean).join('\n\n===\n\n')
+  // Fusion jurisprudence : curated+pgvector (résumés indexés) + arrêts live Judilibre
+  const mergedJuriText = [mergedPgvector.arretText, juriContext.text].filter(Boolean).join('\n\n===\n\n')
 
   // ── Étape 3 : Qualification des faits (cas premium + cas réel seulement) ─
   if (juriContext.isPremium && juriContext.requiredFacts.length > 0 && !isTheoreticalQuestion(trimmedMessage)) {
@@ -341,7 +391,40 @@ async function handlePost(req: NextRequest): Promise<Response> {
   }
 
   const mode: 'flash' | 'stratégique' = juriContext.isPremium ? 'stratégique' : 'flash'
-  const systemPromptContent = getSystemPrompt(dilaContext, mergedJuriText || undefined, mode, juriContext.expectedLexicon)
+
+  // Fusion lexique : judilibre expectedLexicon + playbook requiredKeywords
+  const mergedLexicon = [
+    ...(juriContext.expectedLexicon ?? []),
+    ...(playbook?.requiredKeywords ?? []),
+  ].filter((v, i, arr) => arr.indexOf(v) === i) // déduplique
+
+  // ── Option B : extraction des refs présentes dans le contexte ───────────
+  // Scanne les titres des articles récupérés pour extraire les refs légales
+  // → injectées explicitement dans le prompt pour forcer la citation
+  const contextRefs = dilaContext.texts
+    .map(t => t.title)
+    .filter(Boolean)
+    .flatMap(title => {
+      // Extrait "Art. X" ou "Article X" depuis les titres
+      const matches = title!.match(/(?:art(?:icle)?\.?\s*)([A-Z]?[0-9][-\w]*(?:-\d+)?)/gi)
+      return matches ?? []
+    })
+    .filter((v, i, arr) => arr.indexOf(v) === i) // déduplique
+    .slice(0, 8) // max 8 refs
+
+  const contextRefsNote = contextRefs.length > 0
+    ? `\n\n📌 RÉFÉRENCES PRÉSENTES DANS LE CONTEXTE (à citer obligatoirement dans votre réponse) : ${contextRefs.join(' | ')}`
+    : ''
+
+  // answerNote du playbook ou du topic T2AI ajoutée au system prompt si présente
+  const playbookNote = playbook
+    ? `\n\n[NOTE PLAYBOOK — ${playbook.name}] : ${playbook.answerNote}`
+    : ''
+  const topicNote = !playbook && topicEntry?.answerNote
+    ? `\n\n[NOTE THÈME — ${topicEntry.id}] : ${topicEntry.answerNote}`
+    : ''
+
+  const systemPromptContent = getSystemPrompt(dilaContext, mergedJuriText || undefined, mode, mergedLexicon.length > 0 ? mergedLexicon : undefined) + playbookNote + topicNote + contextRefsNote
 
   const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(
@@ -356,39 +439,48 @@ async function handlePost(req: NextRequest): Promise<Response> {
     { role: 'user', content: trimmedMessage },
   ]
 
-  // ── Étape 4 : Génération avec validation jurisprudence si nécessaire ─────
+  // ── Étape 4 : Génération avec validation déterministe ───────────────────
   const hasJuri = juriContext.available && juriContext.cases.length > 0
+  const needsValidation = hasJuri || !!playbook
 
   try {
-    if (hasJuri) {
-      // Quand la jurisprudence est injectée : appel non-streaming pour valider
-      // la présence de la section 2️⃣ avant d'envoyer la réponse
+    if (needsValidation) {
+      // Appel non-streaming pour pouvoir valider avant envoi
       let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
 
-      const hasCitation = /Cass\.|Cour d'appel|Cour de cassation|n° \d{2}[-\/]/.test(responseText)
+      // Validation jurisprudence (existant)
+      const hasCitation = !hasJuri || /Cass\.|Cour d'appel|Cour de cassation|n° \d{2}[-\/]/.test(responseText)
 
-      if (!hasCitation) {
-        console.warn('[chat] Jurisprudence absente de la réponse — correction forcée (2e appel)')
+      // Validation playbook (nouveau)
+      const playbookResult = playbook ? validateResponse(responseText, playbook) : null
+      const playbookValid = !playbookResult || playbookResult.valid
+
+      if (!hasCitation || !playbookValid) {
+        // Correction fusionnée en un seul appel
+        const juriMissing = !hasCitation
+        const correctionContent = buildFusedCorrectionPrompt(
+          playbookResult ?? { valid: true, criteriaRefs: true, criteriaKeywords: true, missingRefs: [], missingKeywords: [], foundKeywords: [], correctionPrompt: null },
+          juriMissing,
+        ) ?? 'CORRECTION REQUISE : ta réponse ne contient pas la section "2️⃣ Jurisprudence applicable" alors que des arrêts sont fournis dans le prompt. Réécris ta réponse complète en incluant impérativement cette section avec au moins un arrêt cité, son numéro, sa date et l\'enseignement qu\'il apporte.'
+
+        console.warn(`[chat] Correction fusionnée — juriMissing=${juriMissing} playbookValid=${playbookValid}`)
         const correctionMessages: OpenRouterMessage[] = [
           ...messages,
           { role: 'assistant', content: responseText },
-          {
-            role: 'user',
-            content:
-              'CORRECTION REQUISE : ta réponse ne contient pas la section "2️⃣ Jurisprudence applicable" alors que des arrêts sont fournis dans le prompt (section JURISPRUDENCES DE RÉFÉRENCE). Réécris ta réponse complète en incluant impérativement cette section avec au moins un arrêt cité, son numéro, sa date et l\'enseignement qu\'il apporte.',
-          },
+          { role: 'user', content: correctionContent },
         ]
         responseText = await openRouterChat(correctionMessages, model ?? MODELS.MAIN, maxTokens ?? 2000)
-        console.info('[chat] 2e appel — correction jurisprudence appliquée')
+        console.info('[chat] 2e appel — correction appliquée')
       }
 
       return simulateStreamResponse(responseText, {
         'X-DILA-Available': dilaContext.available ? 'true' : 'false',
-        'X-Judilibre-Available': 'true',
+        'X-Judilibre-Available': hasJuri ? 'true' : 'false',
+        'X-Playbook': playbook?.id ?? '',
       })
     }
 
-    // Pas de jurisprudence : streaming normal
+    // Pas de jurisprudence ni de playbook : streaming normal
     const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
 
     return new Response(llmStream, {

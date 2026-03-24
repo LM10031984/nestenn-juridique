@@ -634,7 +634,7 @@ function detectTheme(question: string): DetectedTheme | null {
       isPremium: true, requiredFacts: FACTS_CONDITIONS_SUSPENSIVES,
     }
   }
-  if (lower.includes('rétractation') || lower.includes('délai de réflexion')) {
+  if (lower.includes('rétractation') || lower.includes('délai de réflexion') || lower.includes('se rétracter') || lower.includes('se retracter')) {
     return {
       theme: 'vente immobilière', chamber: 'civ3',
       ccQuery: 'droit rétractation acquéreur vente immobilière délai',
