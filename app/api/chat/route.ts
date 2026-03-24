@@ -224,7 +224,26 @@ Sont dans le périmètre : droit immobilier français, notamment :
 Hors périmètre : cuisine, médecine, droit du travail (hors immobilier), politique, informatique générale.
 En cas de doute, réponds {"relevant":true}.`
 
+// Mots-clés qui garantissent la pertinence — bypass le filtre LLM pour éviter les faux négatifs.
+// GPT-4o-mini peut classer "diagnostic amiante + construit en 1998" comme hors-périmètre.
+const IN_SCOPE_KEYWORDS = [
+  'amiante', 'diagnostic', 'dpe', 'plomb', 'crep', 'termites', 'carrez', 'ddt',
+  'bail', 'loyer', 'locataire', 'bailleur', 'location', 'congé', 'expulsion',
+  'copropriété', 'copropriete', 'syndic', 'assemblée générale', 'charges',
+  'mandat', 'hoguet', 'commission', 'honoraires', 'carte t', 'carte professionnelle',
+  'compromis', 'promesse de vente', 'rétractation', 'retractation', 'notaire',
+  'vefa', 'garantie décennale', 'garantie decennale', 'vices cachés', 'vices caches',
+  'plus-value', 'plus value', 'ifi', 'lmnp', 'sci', 'viager', 'usufruit', 'démembrement',
+  'tracfin', 'blanchiment', 'permis de construire', 'plu', 'droit de préemption',
+  'dépôt de garantie', 'depot de garantie', 'état des lieux', 'etat des lieux',
+  'loi 89-462', 'loi alur', 'loi elan', 'loi hoguet', 'loi climat',
+]
+
 async function isRelevantQuestion(message: string): Promise<boolean> {
+  const lower = message.toLowerCase()
+  // Bypass rapide : si un mot-clé en-scope est présent, pas besoin d'appeler le filtre LLM
+  if (IN_SCOPE_KEYWORDS.some(kw => lower.includes(kw))) return true
+
   try {
     const result = await openRouterChat(
       [
