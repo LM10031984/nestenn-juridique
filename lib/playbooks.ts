@@ -236,8 +236,11 @@ const AG_COPROPRIETE_VOTES: Playbook = {
   subThemes: ['copropriete'],
   forcedArticles: [
     { law: 'loi 65-557', artNum: '17', label: 'Art. 17 loi 65-557 — tenue de l\'AG' },
+    { law: 'loi 65-557', artNum: '18', label: 'Art. 18 loi 65-557 — missions et contrat du syndic' },
+    { law: 'loi 65-557', artNum: '18-1 A', label: 'Art. 18-1 A loi 65-557 — contrat type et rémunération du syndic' },
     { law: 'loi 65-557', artNum: '24', label: 'Art. 24 loi 65-557 — majorité simple' },
     { law: 'loi 65-557', artNum: '25', label: 'Art. 25 loi 65-557 — majorité absolue' },
+    { law: 'loi 65-557', artNum: '42', label: 'Art. 42 loi 65-557 — délai de contestation 2 mois' },
   ],
   requiredKeywords: ['convocation', '21 jours', 'ordre du jour', 'majorité'],
   keywordSynonyms: {

@@ -666,7 +666,19 @@ function detectTheme(question: string): DetectedTheme | null {
     }
   }
 
-  // Bail — sub-queries spécialisées
+  // Bail commercial — AVANT bail habitation (sinon "bail" matche "bail d'habitation" en premier)
+  if (lower.includes('bail commercial') || lower.includes('fonds de commerce') || lower.includes('l145') ||
+      lower.includes('indemnité d\'éviction') || lower.includes('indemnite d\'eviction') ||
+      lower.includes('3-6-9') || lower.includes('droit au bail') || lower.includes('pas de porte')) {
+    return {
+      theme: 'bail commercial', chamber: 'comm',
+      ccQuery: 'bail commercial renouvellement indemnité éviction résiliation locataire preneur',
+      caQuery: 'bail commercial renouvellement indemnité éviction faute preneur',
+      isPremium: true,
+    }
+  }
+
+  // Bail habitation — sub-queries spécialisées
   if (lower.includes('vétusté') || lower.includes('dégradation') || lower.includes('état des lieux')) {
     return {
       theme: "bail d'habitation", chamber: 'civ3',
@@ -721,10 +733,28 @@ function parseVisaRefs(visaList: Array<{ title?: string }>): VisaRef[] {
 
 function extractZoneText(detail: any, zoneName: string, maxChars: number): string {
   const segments: Array<{ start: number; end: number }> | undefined = detail?.zones?.[zoneName]
-  if (!Array.isArray(segments) || segments.length === 0) return ''
   const fullText: string = detail?.text ?? ''
-  const combined = segments.map(seg => fullText.slice(seg.start, seg.end)).join('\n')
-  return combined.slice(0, maxChars)
+
+  // Cas 1 : zones structurées avec ranges {start, end}
+  if (Array.isArray(segments) && segments.length > 0) {
+    const combined = segments.map(seg => fullText.slice(seg.start, seg.end)).join('\n')
+    if (combined.length > 20) return combined.slice(0, maxChars)
+  }
+
+  // Cas 2 : pas de zones mais texte brut disponible — extraire une portion pertinente
+  if (zoneName === 'motivations' && fullText.length > 200) {
+    // Chercher "attendu que", "considérant que", "mais attendu" qui marquent les motivations
+    const markers = ['attendu que', 'considérant que', 'mais attendu', 'par ces motifs']
+    for (const marker of markers) {
+      const idx = fullText.toLowerCase().indexOf(marker)
+      if (idx > 0) return fullText.slice(idx, idx + maxChars)
+    }
+    // Sinon prendre la 2e moitié du texte (les motivations sont généralement après les faits)
+    const midpoint = Math.floor(fullText.length * 0.4)
+    return fullText.slice(midpoint, midpoint + maxChars)
+  }
+
+  return ''
 }
 
 // ---------------------------------------------------------------------------

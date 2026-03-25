@@ -135,9 +135,15 @@ export default function ChatPage() {
     }
   }, [])
 
+  // Scroll vers le bas uniquement quand un nouveau message apparaît (pas pendant le streaming)
+  const prevMsgCount = useRef(0)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+    const currentCount = messages.length
+    if (currentCount > prevMsgCount.current || (!isLoading && prevMsgCount.current > 0)) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevMsgCount.current = currentCount
+  }, [messages.length, isLoading])
 
   async function handleSubmit(question: string) {
     if (!question.trim() || isLoading) return
