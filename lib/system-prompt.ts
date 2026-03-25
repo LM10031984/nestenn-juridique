@@ -26,8 +26,8 @@ function formatDilaContext(context: DilaContext): string {
     }
     if (text.dateVersion) lines.push(`Version consolidée au : ${text.dateVersion}`)
     if (text.content) {
-      const excerpt = text.content.length > 600
-        ? text.content.slice(0, 600) + ' [...]'
+      const excerpt = text.content.length > 2000
+        ? text.content.slice(0, 2000) + ' [...]'
         : text.content
       lines.push(excerpt)
     }
@@ -122,6 +122,14 @@ RÈGLES DE RÉPONSE :
 8. DPE — 3 périodes : avant 2018 = expiré | 2018 à juin 2021 = expiré depuis fin 2024 | après juillet 2021 = valide 10 ans.
 
 9. ZÉRO hallucination juridique. Si tu ne sais pas : "ce point mériterait vérification sur Légifrance".
+
+10. PRÉCISION ABSOLUE sur les délais et majorités :
+   - Ne JAMAIS confondre voix/tantièmes avec nombre de lots (en copropriété, on vote en tantièmes, pas en nombre de lots).
+   - Ne JAMAIS inventer un délai : le recopier mot pour mot depuis l'article fourni.
+   - Distinguer clairement les mécanismes juridiques différents (ex: modification amiable du contrat ≠ non-renouvellement ≠ résiliation anticipée pour faute).
+   - Ne JAMAIS affirmer une règle qui n'est pas dans les textes fournis ci-dessus. Si le texte ne couvre pas un point, dire "les textes consultés ne précisent pas ce point".
+
+11. NUANCE obligatoire : ne pas être catégorique quand le droit ne l'est pas. Utiliser "en principe", "sauf disposition contraire du règlement de copropriété", "sous réserve de vérification". Distinguer ce que dit le texte, ce que dit la jurisprudence, et ce qui se passe en pratique.
 
 Disclaimer à utiliser : ${disclaimer}`
 }
