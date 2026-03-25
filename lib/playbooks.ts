@@ -65,7 +65,7 @@ const COMMISSION_PARTAGE_INTER_AGENCES: Playbook = {
     'primo-visiteur': ['premier visiteur', 'premiere agence', 'premiere visite'],
     'cause efficiente': ['cause determinante', 'ayant apporté l\'acquereur'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-commission-acte-authentique', 'curated-mandat-ecrit-obligatoire'],
   answerNote: 'La commission revient à l\'agence primo-visiteur (cause efficiente de la vente). Un accord de partage entre agences peut modifier la répartition. En l\'absence d\'accord, la commission revient à l\'agence qui a présenté en premier l\'acquéreur.',
 }
 
@@ -162,7 +162,7 @@ const TREVE_HIVERNALE: Playbook = {
     '1er novembre': ['premier novembre', '1 novembre'],
     '31 mars': ['trente et un mars'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-treve-hivernale-expulsion-urgente'],
   answerNote: 'Interdiction d\'expulser un locataire du 1er novembre au 31 mars (trêve hivernale, CASF art. L412-6). Exceptions : logement de remplacement fourni, violence domestique, relogement. La décision de justice reste valable et s\'exécute après la trêve.',
 }
 
@@ -200,7 +200,7 @@ const CONGE_LOCATAIRE_BAILLEUR: Playbook = {
     '6 mois': ['six mois'],
     'motif légitime': ['motif legitime', 'motif serieux', 'motif reel et serieux'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-droit-preference-locataire-vente'],
   answerNote: 'Congé bailleur : délai 6 mois avant l\'échéance du bail, motif légitime obligatoire (reprise pour habiter, vente, motif sérieux). Congé locataire : 3 mois en zone non tendue, 1 mois en zone tendue ou cas particuliers. Forme écrite obligatoire (LRAR ou acte d\'huissier).',
 }
 
@@ -221,7 +221,7 @@ const BAIL_MEUBLE_MOBILITE: Playbook = {
     '10 mois': ['dix mois'],
     'non renouvelable': ['non reconductible', 'ne peut pas etre renouvele'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-contrat-meuble-mentions-obligatoires'],
   answerNote: 'Bail meublé classique : durée 1 an (9 mois si étudiant), reconductible tacitement. Bail mobilité (loi ELAN) : 1 à 10 mois, strictement non renouvelable et non reconductible, réservé aux personnes en formation/mobilité professionnelle.',
 }
 
@@ -301,7 +301,7 @@ const SYNDIC_COPROPRIETE: Playbook = {
     'pas d\'obligation': ['pas d obligation', 'aucune obligation', 'n\'est pas obligatoire', 'n est pas obligatoire', 'pas obligatoire'],
     'syndic': ['le syndic', 'un syndic'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-elan-coproprietes-difficulte'],
   answerNote: 'Il n\'y a pas d\'obligation légale générale de recourir à un syndic professionnel (art. 17 loi 65-557). La copropriété peut opter pour un syndicat coopératif autogéré (art. 17-1) : le président du conseil syndical fait alors office de syndic bénévole. Le syndic professionnel est recommandé pour les copropriétés de plus de 15 lots mais reste optionnel. Seule la carence (absence de candidat syndic) impose une désignation judiciaire. Le syndic professionnel doit être titulaire de la carte professionnelle G (gestion) et justifier d\'une assurance RC professionnelle (art. 18 loi 65-557).',
 }
 
@@ -325,8 +325,8 @@ const RETRACTATION_SRU: Playbook = {
     'L271-1': ['l 271-1', 'l.271-1', 'l271-1', 'cch art. l271', 'l271'],
     'lettre recommandée': ['lrar', 'lettre recommandee', 'courrier recommande', 'recommandé avec accusé'],
   },
-  curatedCaseIds: [],
-  answerNote: '📌 Référence : Art. L271-1 CCH (loi SRU). L\'acquéreur dispose de 10 jours pour se rétracter après signature du compromis ou de la promesse. Ce délai est incompressible, aucune clause ne peut le réduire. Rétractation par lettre recommandée (LRAR) ou remise en main propre, sans motif ni pénalité. Le délai court à partir du lendemain de la première présentation de la notification.',
+  curatedCaseIds: ['curated-retractation-acquereur-compromis-sru'],
+  answerNote: 'Référence : Art. L271-1 CCH (loi SRU). L\'acquéreur dispose de 10 jours pour se rétracter après signature du compromis ou de la promesse. Ce délai est incompressible, aucune clause ne peut le réduire. Rétractation par lettre recommandée (LRAR) ou remise en main propre, sans motif ni pénalité. Le délai court à partir du lendemain de la première présentation de la notification.',
 }
 
 const CONDITION_SUSPENSIVE_PRET: Playbook = {
@@ -362,7 +362,7 @@ const CONDITION_SUSPENSIVE_PERMIS: Playbook = {
     'délai raisonnable': ['delai raisonnable', 'dans un delai suffisant'],
     'dépôt demande': ['depot de la demande', 'depose la demande', 'depot en mairie'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-condition-suspensive-bonne-foi'],
   answerNote: 'L\'acquéreur doit déposer la demande de permis dans un délai raisonnable après la signature (art. 1304 C. civ.). L\'inaction ou le dépôt tardif peut être assimilé à une renonciation à la condition, rendant la vente définitive malgré le refus de permis.',
 }
 
@@ -399,7 +399,7 @@ const CADUCITE_COMPROMIS: Playbook = {
     'clause expresse': ['clause de caducite', 'clause expresse de caducite'],
     'non automatiquement': ['pas automatiquement', 'n\'est pas automatique'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-annulation-vente-vendeur-apres-compromis'],
   answerNote: 'La caducité d\'un compromis n\'est pas automatique au dépassement de la date de réitération. Elle doit être prévue par une clause expresse, et une mise en demeure restée sans effet est généralement requise (art. 1304-2 C. civ.). En l\'absence de clause, la vente peut être poursuivie.',
 }
 
@@ -468,7 +468,7 @@ const DIAGNOSTICS_DDT: Playbook = {
     'DDT': ['ddt', 'dossier technique'],
     'dossier de diagnostic technique': ['dossier de diagnostics techniques'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-diagnostic-amiante-seuil-1997', 'curated-erp-etat-risques-pollutions', 'curated-dpe-opposabilite-diagnostiqueur'],
   answerNote: 'Le DDT (dossier de diagnostics techniques) doit être annexé au compromis. Diagnostics selon l\'ancienneté et la localisation : amiante (avant 1997), plomb CREP (avant 1949), termites (zones concernées), électricité/gaz (> 15 ans), DPE, Carrez (copropriété). Absence = défaut d\'information du vendeur.',
 }
 
@@ -553,7 +553,7 @@ const LMNP_BIC_FISCAL: Playbook = {
     'régime micro': ['micro-bic', 'micro bic', 'regime micro'],
     'abattement': ['abattement forfaitaire', 'abattement de 50%'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-plus-value-residence-secondaire', 'curated-dispositif-denormandie'],
   answerNote: 'Location meublée = BIC (pas revenus fonciers). LMNP : micro-BIC (abattement 50%, plafond 77 700€) ou réel (amortissement possible). Location nue = revenus fonciers (micro-foncier 30% si < 15 000€ ou réel). SCI à l\'IR : revenus fonciers. SCI à l\'IS : impôt société.',
 }
 
@@ -619,7 +619,7 @@ const VIAGER_RENTE_VIAGERE: Playbook = {
     'espérance de vie': ['esperance de vie', 'tables de mortalite', 'statistiques insee'],
     'paiement à vie': ['paiement a vie', 'jusqu\'au deces', 'jusqu\'a son deces'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-rente-viagere-calcul-obligations'],
   answerNote: 'Le viager comporte un bouquet (versé comptant) et une rente viagère jusqu\'au décès du crédirentier. La rente est calculée sur l\'espérance de vie (tables INSEE) et la valeur du bien. En cas de défaut de paiement, la clause résolutoire permet au crédirentier de récupérer le bien (art. 1983 C. civ.).',
 }
 
@@ -660,12 +660,39 @@ const ZAN_URBANISME_RECENTS: Playbook = {
     '2050': ['en 2050', 'horizon 2050'],
     'PLU': ['plan local d\'urbanisme', 'scot'],
   },
-  curatedCaseIds: [],
+  curatedCaseIds: ['curated-bail-reel-solidaire-brs'],
   answerNote: 'Objectif ZAN (loi Climat-Résilience, art. L141-8) : réduction de 50% de l\'artificialisation à horizon 2031 par rapport à 2011-2021, puis zéro nette en 2050. Les PLU et SCOT doivent intégrer ces objectifs. Le BRS (bail réel solidaire) est un outil de dissociation foncier/bâti pour l\'accession sociale.',
 }
 
 // ---------------------------------------------------------------------------
-// Registre complet des 30 playbooks
+// CLUSTER 11 — BAIL COMMERCIAL (1 playbook)
+// ---------------------------------------------------------------------------
+
+const BAIL_COMMERCIAL_3_6_9: Playbook = {
+  id: 'bail_commercial_3_6_9',
+  name: 'Bail commercial — statut 3-6-9 et renouvellement',
+  triggers: ['bail commercial', 'bail 3-6-9', '3 6 9', 'renouvellement bail commercial', 'indemnité d\'éviction', 'indemnite d eviction', 'révision loyer commercial', 'revision loyer commercial', 'droit au bail', 'pas de porte', 'résiliation bail commercial', 'resiliation bail commercial', 'déspécialisation', 'despecialisation', 'cession bail commercial'],
+  excludeTriggers: ['bail habitation', 'loi 89-462', 'dépôt de garantie locataire'],
+  subThemes: ['bail_commercial'],
+  forcedArticles: [
+    { law: 'code de commerce', artNum: 'L145-1', label: 'Art. L145-1 C. com. — champ d\'application' },
+    { law: 'code de commerce', artNum: 'L145-4', label: 'Art. L145-4 C. com. — durée minimale 9 ans' },
+    { law: 'code de commerce', artNum: 'L145-14', label: 'Art. L145-14 C. com. — droit au renouvellement' },
+    { law: 'code de commerce', artNum: 'L145-33', label: 'Art. L145-33 C. com. — fixation loyer renouvelé' },
+  ],
+  requiredKeywords: ['bail commercial', '9 ans', 'renouvellement', 'indemnité d\'éviction'],
+  keywordSynonyms: {
+    'bail commercial': ['bail professionnel', 'statut des baux commerciaux'],
+    '9 ans': ['neuf ans', 'durée minimale'],
+    'renouvellement': ['droit au renouvellement', 'renouvellement du bail'],
+    'indemnité d\'éviction': ['indemnite d eviction', 'indemnite eviction'],
+  },
+  curatedCaseIds: ['curated-bail-commercial-renouvellement'],
+  answerNote: 'Le bail commercial (statut des baux commerciaux, art. L145-1 et s. C. com.) a une durée minimale de 9 ans (art. L145-4), résiliable par le preneur tous les 3 ans. Le locataire bénéficie d\'un droit au renouvellement (art. L145-14). En cas de refus, le bailleur doit une indemnité d\'éviction. Le loyer du bail renouvelé est plafonné à l\'ILC (art. L145-33).',
+}
+
+// ---------------------------------------------------------------------------
+// Registre complet des 31 playbooks
 // ---------------------------------------------------------------------------
 
 export const PLAYBOOKS: Playbook[] = [
@@ -710,6 +737,8 @@ export const PLAYBOOKS: Playbook[] = [
   // ALUR & Textes récents
   ALUR_GARANTIES_LOCATIVES,
   ZAN_URBANISME_RECENTS,
+  // Bail commercial
+  BAIL_COMMERCIAL_3_6_9,
 ]
 
 // ---------------------------------------------------------------------------

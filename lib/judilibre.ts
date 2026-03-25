@@ -81,6 +81,7 @@ export interface NormalizedCase {
   holding: string        // premier principe dégagé (1 phrase max)
   authorityRank: number  // 1 = CC publiée, 2 = CC non-publiée, 3 = CA
   formattedText: string  // bloc texte complet pour injection narrative
+  url?: string           // lien Judilibre vers la décision
 }
 
 export interface JudilibreContext {
@@ -906,7 +907,9 @@ function formatDecision(detail: any): string {
     .filter(Boolean)
   const visaLine = visaTitles.length ? `Textes appliqués : ${visaTitles.join(' ; ')}` : null
 
-  return [header, themesLine, body, dispositif || null, visaLine]
+  const urlLine = detail.id ? `Lien : ${judilibreUrl(detail.id)}` : null
+
+  return [header, themesLine, body, dispositif || null, visaLine, urlLine]
     .filter(Boolean)
     .join('\n')
 }
@@ -938,7 +941,9 @@ function formatCAResult(result: any): string {
     body = `Sommaire : ${String(result.summary).slice(0, 400)}`
   }
 
-  return [header, body].filter(Boolean).join('\n')
+  const urlLine = result.id ? `Lien : ${judilibreUrl(result.id)}` : null
+
+  return [header, body, urlLine].filter(Boolean).join('\n')
 }
 
 // ---------------------------------------------------------------------------
@@ -956,6 +961,10 @@ function extractHolding(detail: any): string {
   return detail.summary ? String(detail.summary).slice(0, 200) : ''
 }
 
+function judilibreUrl(id: string): string {
+  return `https://www.courdecassation.fr/decision/${id}`
+}
+
 function buildNormalizedCC(detail: any, publications: string[]): NormalizedCase {
   const rank = publications.includes('b') || publications.includes('r') ? 1 : 2
   return {
@@ -966,6 +975,7 @@ function buildNormalizedCC(detail: any, publications: string[]): NormalizedCase 
     holding: extractHolding(detail),
     authorityRank: rank,
     formattedText: formatDecision(detail),
+    url: detail.id ? judilibreUrl(detail.id) : undefined,
   }
 }
 
@@ -978,6 +988,7 @@ function buildNormalizedCAFromDecision(detail: any): NormalizedCase {
     holding: extractHolding(detail),
     authorityRank: 3,
     formattedText: formatDecision(detail),
+    url: detail.id ? judilibreUrl(detail.id) : undefined,
   }
 }
 
@@ -995,6 +1006,7 @@ function buildNormalizedCAFromSearch(result: any): NormalizedCase {
     holding: snippet,
     authorityRank: 3,
     formattedText: formatCAResult(result),
+    url: result.id ? judilibreUrl(result.id) : undefined,
   }
 }
 

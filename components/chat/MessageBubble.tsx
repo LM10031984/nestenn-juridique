@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { ThumbsUp, ThumbsDown, AlertCircle } from 'lucide-react'
 
 interface MessageBubbleProps {
@@ -11,29 +12,6 @@ interface MessageBubbleProps {
   onFeedback?: (value: 1 | -1) => void
   feedbackGiven?: 1 | -1 | null
   timestamp?: Date
-}
-
-/** Convert **bold** and newlines to React nodes */
-function renderContent(text: string): React.ReactNode {
-  const paragraphs = text.split('\n\n')
-  return paragraphs.map((para, pi) => {
-    const lines = para.split('\n')
-    const rendered = lines.map((line, li) => {
-      const parts = line.split(/(\*\*[^*]+\*\*)/)
-      const nodes = parts.map((part, i) =>
-        part.startsWith('**') && part.endsWith('**')
-          ? <strong key={i}>{part.slice(2, -2)}</strong>
-          : part
-      )
-      return (
-        <span key={li}>
-          {nodes}
-          {li < lines.length - 1 && <br />}
-        </span>
-      )
-    })
-    return <p key={pi} style={{ margin: pi < paragraphs.length - 1 ? '0 0 0.65em' : '0' }}>{rendered}</p>
-  })
 }
 
 export default function MessageBubble({
@@ -103,7 +81,19 @@ export default function MessageBubble({
 
           {/* Content */}
           <div className={`prose-legal${isStreaming ? ' typing-cursor' : ''}`}>
-            {renderContent(content)}
+            <ReactMarkdown
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer"
+                    style={{ color: '#00AEBC', textDecoration: 'underline' }}>
+                    {children}
+                  </a>
+                ),
+                p: ({ children }) => <p style={{ margin: '0 0 0.65em' }}>{children}</p>,
+              }}
+            >
+              {content}
+            </ReactMarkdown>
           </div>
         </div>
 

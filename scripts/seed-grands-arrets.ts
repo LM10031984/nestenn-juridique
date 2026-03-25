@@ -8,7 +8,7 @@
  * Règles :
  *   - number = numéro certifié uniquement (sinon NULL + note dans consequence)
  *   - source_id = 'curated-<slug>' pour éviter toute collision avec Judilibre
- *   - Embedding via nomic-embed-text (Ollama local)
+ *   - Embedding via nomic-embed-text (Nomic cloud API)
  *   - Upsert idempotent sur source_id
  *
  * Usage :
@@ -25,8 +25,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -516,6 +514,23 @@ const GRANDS_ARRETS: GrandArret[] = [
 
   // -------------------------------------------------------------------------
   // Fiscalité : Dispositif Denormandie
+  // Cible Q41 du benchmark — DURÉE MANDAT EXCLUSIF
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-duree-mandat-exclusif',
+    court:       'cc',
+    chamber:     null,
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un agent immobilier ou un vendeur veut savoir quelle est la durée maximale d'un mandat exclusif de vente, et quand il peut y mettre fin.",
+    principle:   "L'article 78 du décret n° 72-678 du 20 juillet 1972 (pris en application de la loi Hoguet) fixe le régime du mandat exclusif de vente : (1) la durée initiale est librement fixée entre les parties, mais elle ne peut pas être indéterminée ; (2) pendant une première période irrévocable de 3 mois, ni le mandant ni l'agent ne peuvent mettre fin au mandat unilatéralement ; (3) passé ce délai, si le mandat n'a pas été dénoncé, il se renouvelle par tacite reconduction par périodes successives — et devient alors révocable à tout moment par le mandant, avec un préavis de 15 jours calendaires, par lettre recommandée avec accusé de réception. La durée maximale légale de la période irrévocable est donc de 3 mois. Il n'existe pas de durée maximale absolue pour le mandat total, mais la période irrévocable est limitée à 3 mois.",
+    consequence: "Conséquence pratique : pendant les 3 premiers mois du mandat exclusif, le vendeur ne peut pas confier la vente à un autre agent ni vendre directement sans devoir des honoraires. Après 3 mois, il peut résilier à tout moment avec un préavis de 15 jours. Un mandat exclusif dont la période irrévocable dépasserait 3 mois serait nul en cette partie. À distinguer du mandat simple qui est révocable à tout moment.",
+    visa_refs:   ['Art. 78 décret n° 72-678 du 20 juillet 1972', 'Loi n° 70-9 du 2 janvier 1970 (loi Hoguet)'],
+    domain:      'agent_immobilier',
+    sub_themes:  ['mandat_exclusif', 'duree_mandat', '3_mois_irrevocable', 'tacite_reconduction', 'revocable', 'loi_hoguet', 'decret_72-678', 'art_78'],
+  },
+
   // Cible Q44 du benchmark
   // -------------------------------------------------------------------------
   {
@@ -1012,23 +1027,31 @@ const GRANDS_ARRETS: GrandArret[] = [
 // Embedding
 // ---------------------------------------------------------------------------
 
+const NOMIC_API_KEY = process.env.NOMIC_API_KEY ?? ''
+
 async function embedText(text: string): Promise<number[] | null> {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 10_000)
-    const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
+    const res = await fetch('https://api-atlas.nomic.ai/v1/embedding/text', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'nomic-embed-text', prompt: text }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${NOMIC_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'nomic-embed-text-v1.5',
+        texts: [text],
+      }),
       signal: controller.signal,
     }).finally(() => clearTimeout(timer))
 
     if (!res.ok) {
-      console.error(`[embed] HTTP ${res.status}`)
+      console.error(`[embed] Nomic API HTTP ${res.status}`)
       return null
     }
-    const data = await res.json() as { embedding: number[] }
-    return data.embedding?.length ? data.embedding : null
+    const data = await res.json() as { embeddings: number[][] }
+    return data.embeddings?.[0]?.length ? data.embeddings[0] : null
   } catch (err) {
     console.error('[embed] erreur:', err)
     return null

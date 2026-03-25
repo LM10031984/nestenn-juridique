@@ -1,6 +1,6 @@
 // lib/pgvector.ts
 // Recherche sémantique dans Supabase pgvector (legal_articles + jurisprudence)
-// Pipeline : query → nomic-embed-text → search_all_legal_context() → { articles, arretText }
+// Pipeline : query → nomic-embed-text → search_hybrid_legal_context() → { articles, arretText }
 //
 // Utilisé par chat/route.ts en parallèle du pipeline Légifrance live + Judilibre live.
 // Avantage : résumés pré-calculés (situation/principe/consequence) + URLs directes.
@@ -20,27 +20,38 @@ function getSupabase() {
 }
 
 // ---------------------------------------------------------------------------
-// Embedding — nomic-embed-text via Ollama (local dev)
-// Fallback : retourne null si Ollama indisponible (pipeline continue sans pgvector)
+// Embedding — nomic-embed-text via Nomic cloud API
+// Fallback : retourne null si API indisponible (pipeline continue sans pgvector)
 // ---------------------------------------------------------------------------
 
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434'
+const NOMIC_API_KEY = process.env.NOMIC_API_KEY ?? ''
 
 async function embedQuery(text: string): Promise<number[] | null> {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 5000)
 
-    const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
+    const res = await fetch('https://api-atlas.nomic.ai/v1/embedding/text', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'nomic-embed-text', prompt: text }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${NOMIC_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'nomic-embed-text-v1.5',
+        texts: [text],
+        // Pas de task_type : les vecteurs en base ont été indexés sans préfixe (Ollama local)
+        // Ajouter task_type modifierait l'espace vectoriel et casserait la similarité
+      }),
       signal: controller.signal,
     }).finally(() => clearTimeout(timer))
 
-    if (!res.ok) return null
-    const data = await res.json() as { embedding: number[] }
-    return data.embedding?.length ? data.embedding : null
+    if (!res.ok) {
+      console.warn('[pgvector] Nomic API error:', res.status)
+      return null
+    }
+    const data = await res.json() as { embeddings: number[][] }
+    return data.embeddings?.[0]?.length ? data.embeddings[0] : null
   } catch {
     return null
   }
@@ -151,12 +162,12 @@ function rowToArretText(row: PgVectorRow): string {
  *
  * @param query    La question de l'agent immobilier
  * @param count    Nombre total de documents à retourner (défaut : 8)
- * @param minScore Score cosinus minimum pour filtrer le bruit (défaut : 0.55)
+ * @param minScore Score cosinus minimum pour filtrer le bruit (défaut : 0.50)
  */
 export async function searchLegalContext(
   query: string,
-  count = 8,
-  minScore = 0.55,
+  count = 12,
+  minScore = 0.50,
 ): Promise<PgVectorContext> {
   const empty: PgVectorContext = { articles: [], arretText: '' }
 
@@ -167,7 +178,7 @@ export async function searchLegalContext(
   ])
 
   if (!embedding) {
-    console.warn('[pgvector] Ollama indisponible — skip pgvector search')
+    console.warn('[pgvector] Embedding indisponible — skip pgvector search')
     return empty
   }
 
@@ -175,14 +186,34 @@ export async function searchLegalContext(
     console.info(`[pgvector] domaines détectés : ${domains.join(', ')} (boost ×1.15 via migration 008)`)
   }
 
-  // 2. Requête Supabase RPC (articles + arrêts combinés, boost domaine ×1.15 corrigé)
+  // 2. Requête Supabase RPC hybride (vecteur + full-text, boost curated)
   try {
     const supabase = getSupabase()
-    const { data, error } = await supabase.rpc('search_all_legal_context', {
+
+    // Tenter la recherche hybride (migration 011), fallback sur l'ancienne RPC
+    let data: PgVectorRow[] | null = null
+    let error: { message: string } | null = null
+
+    const hybridResult = await supabase.rpc('search_hybrid_legal_context', {
       query_embedding: embedding,
+      query_text: query,
       match_count: count + 3,
       boost_domains: domains.length > 0 ? domains : null,
     })
+
+    if (hybridResult.error) {
+      console.warn('[pgvector] Hybride indisponible, fallback search_all_legal_context:', hybridResult.error.message)
+      const fallback = await supabase.rpc('search_all_legal_context', {
+        query_embedding: embedding,
+        match_count: count + 3,
+        boost_domains: domains.length > 0 ? domains : null,
+      })
+      data = fallback.data
+      error = fallback.error
+    } else {
+      data = hybridResult.data
+      error = null
+    }
 
     if (error) {
       console.error('[pgvector] RPC error:', error.message)
@@ -238,7 +269,7 @@ export async function searchCuratedCases(
   try {
     const embedding = await embedQuery(query)
     if (!embedding) {
-      console.warn('[pgvector] Ollama indisponible — skip searchCuratedCases')
+      console.warn('[pgvector] Embedding indisponible — skip searchCuratedCases')
       return empty
     }
 

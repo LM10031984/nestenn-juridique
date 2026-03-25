@@ -137,6 +137,25 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
   },
 
   {
+    id: 'mandat_exclusif_duree',
+    triggers: [
+      'durée mandat exclusif', 'durée maximale mandat exclusif', 'durée d un mandat exclusif',
+      'durée du mandat exclusif', 'mandat exclusif durée', 'mandat exclusif combien',
+      'durée maximale d un mandat', 'irrévocable 3 mois', 'irrevocable 3 mois',
+      'mandat exclusif révocable', 'mandat exclusif revocable',
+      'mandat exclusif tacite', 'tacite reconduction mandat exclusif',
+      'durée maximale de vente', 'mandat de vente durée', 'durée d exclusivité',
+      'mandat exclusif de vente', 'durée maximale',
+    ],
+    forcedArticles: [
+      { law: 'décret 72-678', artNum: '78', label: 'Art. 78 décret 72-678 — durée max mandat exclusif 3 mois' },
+      { law: 'loi 70-9', artNum: '6', label: 'Art. 6 loi Hoguet — conditions du mandat' },
+    ],
+    answerNote: 'Durée maximale du mandat exclusif : 3 mois IRRÉVOCABLE (ni le mandant ni l\'agent ne peut y mettre fin). Après 3 mois : tacite reconduction possible, MAIS révocable à tout moment par le mandant avec préavis de 15 jours. Art. 78 du décret 72-678 est la référence réglementaire précise — à citer obligatoirement. La loi Hoguet (loi 70-9) encadre les conditions générales du mandat.',
+    curatedCaseIds: ['curated-duree-mandat-exclusif'],
+  },
+
+  {
     id: 'mandat_honoraires_alur',
     triggers: [
       'mandat sans honoraires acquéreur', 'mandat sans honoraires acquereur',
@@ -262,7 +281,7 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       { law: 'loi 65-557', artNum: '18', label: 'Art. 18 — pouvoirs du syndic' },
       { law: 'décret 67-223', artNum: '37', label: 'Décret 67-223 Art. 37 — travaux urgents' },
     ],
-    curatedCaseIds: [],
+    curatedCaseIds: ['curated-elan-coproprietes-difficulte'],
     answerNote: 'Le syndic peut engager des travaux sans vote AG uniquement en cas d\'urgence (travaux conservatoires indispensables à la sauvegarde de l\'immeuble), dans la limite du plafond fixé par l\'assemblée générale ou le règlement de copropriété (art. 18 loi 65-557 + décret 67-223 art. 37). Il doit en informer immédiatement le conseil syndical et convoquer une AG pour ratification a posteriori. Hors urgence, tout travaux nécessite un vote en AG.',
   },
 
@@ -311,7 +330,7 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       { law: 'loi 65-557', artNum: '17', label: 'Art. 17 — administration de la copropriété' },
       { law: 'loi 65-557', artNum: '17-1', label: 'Art. 17-1 — syndicat coopératif' },
     ],
-    curatedCaseIds: [],
+    curatedCaseIds: ['curated-elan-coproprietes-difficulte'],
     answerNote: 'Il n\'y a pas d\'obligation légale générale de recourir à un syndic professionnel (art. 17 loi 65-557). Le syndicat peut opter pour un syndicat coopératif autogéré (art. 17-1), où le président du conseil syndical fait office de syndic. Le syndic professionnel est recommandé pour les copropriétés de plus de 15 lots mais reste optionnel. Seuls les cas de carence de syndic (absence de candidature) imposent une désignation judiciaire.',
   },
 
@@ -324,10 +343,14 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       'dpe périmé', 'dpe expire', 'durée de validité diagnostic énergétique',
       'durée de validité', 'durée du dpe', 'validité d un dpe', 'valide pour une location',
       'combien de temps le dpe', 'combien de temps un dpe', 'dpe valable',
+      'encore valable', 'dpe réalisé', 'valable pour une mise en vente',
+      'dpe de 2018', 'dpe de 2019', 'dpe de 2020', 'dpe 2018', 'dpe 2019', 'dpe 2020',
+      'toujours valable', 'dpe expiré', 'dpe expire',
     ],
     forcedArticles: [
+      { law: 'ordonnance 2020-71', artNum: '1', label: 'Ordonnance 2020-71 — réforme DPE opposable' },
+      { law: 'loi 2021-1104', artNum: '158', label: 'Art. 158 loi Climat et Résilience — DPE opposable et durée' },
       { law: 'décret 2021-872', artNum: '1', label: 'Décret 2021-872 — durée validité DPE 10 ans' },
-      { law: 'loi 2021-1104', artNum: '158', label: 'Art. 158 — DPE opposable et durée' },
     ],
     curatedCaseIds: ['curated-dpe-transitoire-expiration-2024', 'curated-dpe-opposabilite-diagnostiqueur'],
   },
@@ -362,6 +385,72 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
     ],
     curatedCaseIds: ['curated-condition-suspensive-bonne-foi'],
     answerNote: 'Le compromis de vente (promesse synallagmatique) vaut vente dès la signature (art. 1589 C. civ.). Conditions suspensives habituelles : (1) obtention du prêt bancaire (délai 45-60 jours, L313-41 code conso) ; (2) obtention du permis de construire si projet de construction ; (3) absence de préemption par la commune (DPU). Délai de rétractation acheteur : 10 jours (art. L271-1 CCH).',
+  },
+
+  // ── ERP — DÉFINITION ET OBLIGATION ──────────────────────────────────────────
+  {
+    id: 'erp_obligation',
+    triggers: [
+      'état des risques', 'etat des risques', 'état des risques et pollutions',
+      'erp obligatoire', 'erp est-il obligatoire', 'quand erp', 'qu est-ce que l erp',
+      "qu'est-ce que l'erp", "qu'est-ce que l'état des risques",
+      'état des servitudes', 'risques naturels vente', 'risques technologiques vente',
+    ],
+    forcedArticles: [
+      { law: 'code de l\'environnement', artNum: 'L125-5', label: 'Art. L125-5 — ERP obligatoire lors de toute vente ou location' },
+      { law: 'code de l\'environnement', artNum: 'L125-6', label: 'Art. L125-6 — information sur les sols pollués' },
+    ],
+    curatedCaseIds: ['curated-erp-etat-risques-pollutions'],
+    answerNote: "L'état des risques et pollutions (ERP) est obligatoire lors de toute vente ou location d'un bien situé dans une zone couverte par un plan de prévention des risques (PPR) naturels, miniers ou technologiques, ou dans une zone de sismicité. Fondement : art. L125-5 code de l'environnement. Le vendeur/bailleur doit le remettre dès la promesse ou le bail. En cas d'omission : l'acquéreur peut demander la résolution ou une diminution du prix.",
+  },
+
+  // ── TRÊVE HIVERNALE ──────────────────────────────────────────────────────────
+  {
+    id: 'treve_hivernale',
+    triggers: [
+      'trêve hivernale', 'treve hivernale', 'période hivernale expulsion',
+      'expulsion hiver', 'suspension expulsion hiver', 'L412-6',
+      'novembre avril expulsion', '1er novembre', '31 mars expulsion',
+    ],
+    forcedArticles: [
+      { law: 'cpce', artNum: 'L412-6', label: 'Art. L412-6 CPCE — trêve hivernale (1er nov.–31 mars)' },
+      { law: 'loi 89-462', artNum: '24', label: 'Art. 24 loi 89-462 — commandement de payer' },
+    ],
+    curatedCaseIds: ['curated-treve-hivernale-expulsion-urgente', 'curated-clause-resolutoire-commandement'],
+    answerNote: "La trêve hivernale suspend les expulsions du 1er novembre au 31 mars (art. L412-6 CPCE). Elle ne suspend pas la procédure judiciaire ni le commandement de payer. Exceptions : squatteurs, relogement décent proposé, violences conjugales. Si la trêve se termine dans 3 jours : vérifier que le jugement d'expulsion est exécutoire et le commandement de quitter les lieux signifié.",
+  },
+
+  // ── FRAIS DE NOTAIRE ─────────────────────────────────────────────────────────
+  {
+    id: 'frais_notaire',
+    triggers: [
+      'frais de notaire', 'frais notaire', 'droits de mutation', 'coût notaire',
+      'émoluments notaire', 'taxe publicité foncière', 'frais acquisition',
+      'combien coûte le notaire', 'frais achat immobilier',
+    ],
+    forcedArticles: [
+      { law: 'cgi', artNum: '1594 A', label: 'Art. 1594 A CGI — droits de mutation à titre onéreux' },
+      { law: 'cgi', artNum: '683', label: 'Art. 683 CGI — taxe de publicité foncière' },
+    ],
+    curatedCaseIds: [],
+    answerNote: "Les frais de notaire représentent 7 à 8 % du prix dans l'ancien et 2 à 3 % dans le neuf (VEFA). Composés de : droits de mutation (5,81 % dans la plupart des départements, art. 1594 A CGI), émoluments du notaire (réglementés), débours et contribution de sécurité immobilière. Dans le neuf : TVA (20 %) + droits réduits.",
+  },
+
+  // ── AUDIT ÉNERGÉTIQUE (logements F/G en vente) ──────────────────────────────
+  {
+    id: 'audit_energetique_vente',
+    triggers: [
+      'audit énergétique obligatoire', 'audit energetique obligatoire',
+      'audit énergétique vente', 'audit energetique vente',
+      'logement f audit', 'logement g audit', 'passoire thermique audit',
+      'pour quels logements audit', 'quand audit énergétique', 'quand audit energetique',
+    ],
+    forcedArticles: [
+      { law: 'cch', artNum: 'L126-28-1', label: 'Art. L126-28-1 CCH — audit énergétique obligatoire logements F/G' },
+      { law: 'loi 2021-1104', artNum: '158', label: 'Art. 158 loi Climat 2021 — calendrier obligation audit' },
+    ],
+    curatedCaseIds: ['curated-audit-energetique-passoire-thermique'],
+    answerNote: "L'audit énergétique est obligatoire lors de la vente de logements classés F ou G (passoires thermiques) depuis le 1er avril 2023 pour les maisons individuelles, et depuis le 1er janvier 2025 pour les logements en monopropriété. Fondement : art. L126-28-1 CCH (loi Climat 2021). Il est distinct du DPE et doit proposer des scénarios de rénovation.",
   },
 
   {
@@ -443,7 +532,7 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       { law: 'loi 65-557', artNum: '25', label: 'Art. 25 loi 65-557 — majorité absolue travaux parties communes' },
       { law: 'loi 65-557', artNum: '24', label: 'Art. 24 loi 65-557 — majorité simple' },
     ],
-    curatedCaseIds: [],
+    curatedCaseIds: ['curated-ag-copropriete-contestation-2mois'],
     answerNote: 'Les travaux sur les parties communes nécessitent un vote en assemblée générale à la majorité absolue de l\'article 25 (voix de tous les membres du syndicat, présents ou absents). La maîtrise d\'ouvrage des travaux revient au syndic, mandaté par l\'AG. Sans vote AG : les travaux sont irréguliers et peuvent être remis en état aux frais du copropriétaire fautif. Exceptions : travaux urgents engagés par le syndic seul (art. 18 loi 65-557).',
   },
 
@@ -461,7 +550,7 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       { law: 'CGI', artNum: '150 UB', label: 'Art. 150 UB CGI — plus-values cession parts sociétés à prépondérance immobilière' },
       { law: 'CGI', artNum: '726', label: 'Art. 726 CGI — droits d\'enregistrement cession parts sociales' },
     ],
-    curatedCaseIds: [],
+    curatedCaseIds: ['curated-sci-responsabilite-associes'],
     answerNote: 'Différence fiscale entre cession de parts de SCI et vente directe du bien : (1) Droits d\'enregistrement : cession de parts sociales = 5% du prix (art. 726 CGI) sur la valeur des parts ; vente directe bien immobilier = env. 7-8% frais de notaire (dont DMTO 5,8%) ; (2) Plus-value : cession de parts SCI à l\'IR = régime des plus-values immobilières (abattement pour durée de détention, art. 150 UB CGI), appliqué au niveau de l\'associé sur la quote-part de la plus-value ; vente directe = même régime, mais taxe directement sur le bien. La cession de parts permet d\'éviter les droits de mutation normaux mais génère des droits d\'enregistrement à 5%.',
   },
 
@@ -497,7 +586,7 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       { law: 'code civil', artNum: '1240', label: 'Art. 1240 code civil — responsabilité civile' },
     ],
     curatedCaseIds: [],
-    answerNote: '⚡ URGENT — Dès réception d\'une assignation en justice : (1) lire attentivement la date d\'audience et le tribunal désigné ; (2) constituer avocat immédiatement (obligatoire devant TJ si enjeu > 10 000 €) — délai de constitution variable mais souvent 15 jours avant audience ; (3) préparer les conclusions : délai fixé par le juge de la mise en état ou indiqué dans l\'assignation. Ne pas ignorer une assignation sous peine de jugement par défaut. En matière civile, l\'article 1240 du code civil peut fonder une action en responsabilité délictuelle.',
+    answerNote: 'URGENT — Dès réception d\'une assignation en justice : (1) lire attentivement la date d\'audience et le tribunal désigné ; (2) constituer avocat immédiatement (obligatoire devant TJ si enjeu > 10 000 €) — délai de constitution variable mais souvent 15 jours avant audience ; (3) préparer les conclusions : délai fixé par le juge de la mise en état ou indiqué dans l\'assignation. Ne pas ignorer une assignation sous peine de jugement par défaut. En matière civile, l\'article 1240 du code civil peut fonder une action en responsabilité délictuelle.',
   },
 
   // ── ANTI-BLANCHIMENT ────────────────────────────────────────────────────
@@ -517,6 +606,88 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       { law: 'loi 70-9', artNum: '1', label: 'Art. 1 loi Hoguet — agents immobiliers assujettis' },
     ],
     curatedCaseIds: ['curated-anti-blanchiment-agent-immobilier'],
+  },
+
+  // ── BAIL COMMERCIAL ──────────────────────────────────────────────────────
+
+  {
+    id: 'bail_commercial_general',
+    triggers: [
+      'bail commercial', 'bail 3-6-9', 'bail professionnel', 'renouvellement bail commercial',
+      'indemnité d\'éviction', 'indemnite d eviction', 'révision loyer commercial',
+      'revision loyer commercial', 'droit au bail', 'pas de porte', 'loyer commercial',
+      'renouvellement commercial', 'résiliation bail commercial', 'resiliation bail commercial',
+      'déspécialisation', 'despecialisation', 'cession bail commercial',
+    ],
+    excludeTriggers: ['bail habitation', 'loi 89-462', 'dépôt de garantie locataire'],
+    forcedArticles: [
+      { law: 'code de commerce', artNum: 'L145-1', label: 'Art. L145-1 C. com. — champ d\'application du statut des baux commerciaux' },
+      { law: 'code de commerce', artNum: 'L145-4', label: 'Art. L145-4 C. com. — durée minimale 9 ans' },
+      { law: 'code de commerce', artNum: 'L145-14', label: 'Art. L145-14 C. com. — droit au renouvellement' },
+      { law: 'code de commerce', artNum: 'L145-33', label: 'Art. L145-33 C. com. — fixation du loyer renouvelé' },
+    ],
+    curatedCaseIds: ['curated-bail-commercial-renouvellement'],
+    answerNote: 'Le bail commercial (statut des baux commerciaux, art. L145-1 et s. C. com.) a une durée minimale de 9 ans (art. L145-4), résiliable par le preneur tous les 3 ans (bail 3-6-9). Le locataire bénéficie d\'un droit au renouvellement (art. L145-14) sauf motif grave et légitime. En cas de refus de renouvellement, le bailleur doit une indemnité d\'éviction (art. L145-14). Le loyer du bail renouvelé est plafonné à la variation de l\'ILC (art. L145-33), sauf déplafonnement justifié.',
+  },
+
+  // ── DÉMEMBREMENT / USUFRUIT ────────────────────────────────────────────
+
+  {
+    id: 'demembrement_usufruit',
+    triggers: [
+      'démembrement', 'demembrement', 'usufruit', 'nue-propriété', 'nue propriete',
+      'nu-propriétaire', 'nu proprietaire', 'usufruitier', 'démembrement de propriété',
+      'demembrement de propriete', 'usufruit temporaire', 'usufruit viager',
+      'quasi-usufruit', 'quasi usufruit', 'réunion de propriété',
+    ],
+    excludeTriggers: ['viager occupé', 'rente viagère'],
+    forcedArticles: [
+      { law: 'code civil', artNum: '578', label: 'Art. 578 C. civ. — définition de l\'usufruit' },
+      { law: 'code civil', artNum: '595', label: 'Art. 595 C. civ. — droits de l\'usufruitier (bail)' },
+      { law: 'code civil', artNum: '605', label: 'Art. 605 C. civ. — réparations d\'entretien à charge de l\'usufruitier' },
+      { law: 'code civil', artNum: '606', label: 'Art. 606 C. civ. — grosses réparations à charge du nu-propriétaire' },
+    ],
+    curatedCaseIds: ['curated-demembrement-usufruitier-bail'],
+    answerNote: 'Le démembrement sépare l\'usufruit (jouissance) de la nue-propriété. L\'usufruitier peut louer le bien (art. 595 C. civ.) mais les baux de plus de 9 ans nécessitent l\'accord du nu-propriétaire. Les réparations d\'entretien incombent à l\'usufruitier (art. 605), les grosses réparations au nu-propriétaire (art. 606). Le démembrement a un intérêt fiscal (donation avec réserve d\'usufruit = assiette réduite).',
+  },
+
+  // ── PRÊT IMMOBILIER / HYPOTHÈQUE ──────────────────────────────────────
+
+  {
+    id: 'pret_immobilier_hypotheque',
+    triggers: [
+      'prêt immobilier', 'pret immobilier', 'crédit immobilier', 'credit immobilier',
+      'hypothèque', 'hypotheque', 'assurance emprunteur', 'taux immobilier',
+      'remboursement anticipé', 'remboursement anticipe', 'loi lemoine',
+      'délégation assurance', 'delegation assurance', 'TAEG', 'taux effectif',
+      'offre de prêt', 'offre de pret', 'délai réflexion prêt', 'delai reflexion pret',
+    ],
+    forcedArticles: [
+      { law: 'code de la consommation', artNum: 'L313-25', label: 'Art. L313-25 C. conso — offre de prêt et délai de réflexion 10 jours' },
+      { law: 'code de la consommation', artNum: 'L313-30', label: 'Art. L313-30 C. conso — remboursement anticipé' },
+      { law: 'code civil', artNum: '2393', label: 'Art. 2393 C. civ. — hypothèque conventionnelle' },
+    ],
+    curatedCaseIds: ['curated-condition-suspensive-pret-scrivener'],
+    answerNote: 'L\'offre de prêt immobilier est soumise à un délai de réflexion de 10 jours minimum (art. L313-25 C. conso). L\'emprunteur peut rembourser par anticipation (art. L313-30) avec IRA plafonnées à 6 mois d\'intérêts ou 3% du capital restant. Loi Lemoine (2022) : résiliation assurance emprunteur à tout moment sans frais. L\'hypothèque conventionnelle (art. 2393 C. civ.) garantit le prêt sur le bien financé.',
+  },
+
+  // ── SERVITUDES ────────────────────────────────────────────────────────
+
+  {
+    id: 'servitudes_mitoyennete',
+    triggers: [
+      'servitude', 'droit de passage', 'servitude de passage', 'enclave',
+      'mitoyenneté', 'mitoyennete', 'mur mitoyen', 'clôture mitoyenne',
+      'servitude de vue', 'servitude légale', 'servitude legale',
+      'passage enclavé', 'passage enclave', 'terrain enclavé', 'terrain enclave',
+    ],
+    forcedArticles: [
+      { law: 'code civil', artNum: '682', label: 'Art. 682 C. civ. — droit de passage en cas d\'enclave' },
+      { law: 'code civil', artNum: '653', label: 'Art. 653 C. civ. — présomption de mitoyenneté' },
+      { law: 'code civil', artNum: '678', label: 'Art. 678 C. civ. — distance des vues droites (1,90 m)' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'Le propriétaire d\'un fonds enclavé a droit à un passage sur les fonds voisins (art. 682 C. civ.) moyennant indemnité. La mitoyenneté d\'un mur se présume (art. 653) et implique un entretien partagé. Les vues droites nécessitent 1,90 m de distance (art. 678) et les vues obliques 0,60 m (art. 679). Les servitudes conventionnelles s\'éteignent par non-usage pendant 30 ans (art. 706).',
   },
 
 ]
