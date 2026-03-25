@@ -18,9 +18,13 @@ function formatDilaContext(context: DilaContext): string {
 
   for (const text of context.texts) {
     const label = text.isForced ? '[ARTICLE CLÉ]' : ''
-    lines.push(`### ${label} ${text.title || text.textId}`.trim())
+    const titleText = text.title || text.textId
+    if (text.url) {
+      lines.push(`### ${label} [${titleText}](${text.url})`.trim())
+    } else {
+      lines.push(`### ${label} ${titleText}`.trim())
+    }
     if (text.dateVersion) lines.push(`Version consolidée au : ${text.dateVersion}`)
-    if (text.url) lines.push(`Lien : ${text.url}`)
     if (text.content) {
       const excerpt = text.content.length > 600
         ? text.content.slice(0, 600) + ' [...]'
@@ -95,9 +99,10 @@ RÈGLES DE RÉPONSE :
    - Bon : "art. 25 de la loi n° 65-557 du 10 juillet 1965"
    - Mauvais : "article 25"
 
-2. LIENS CLIQUABLES : quand un lien Légifrance ou Judilibre est fourni dans les sources ci-dessus, l'inclure en markdown.
-   - Articles : [Art. 25 loi 65-557](url)
-   - Arrêts : [Cass. civ. 3e, date, n° XX](url)
+2. LIENS CLIQUABLES — RÈGLE ABSOLUE : RECOPIER EXACTEMENT les URLs qui apparaissent dans les sources ci-dessus. NE JAMAIS inventer ni deviner une URL Légifrance.
+   - Les articles dans les sources ont un lien markdown [Titre](url) — COPIER cette URL exacte.
+   - Les arrêts ont un "Lien : url" — COPIER cette URL exacte : [Cass. civ. 3e, date, n° XX](url)
+   - Si aucun lien n'est fourni pour un article, citer le nom de l'article SANS lien. Ne jamais construire une URL legifrance.gouv.fr de mémoire.
 
 3. JURISPRUDENCE : citer UNIQUEMENT les arrêts présents dans la section JURISPRUDENCE ci-dessus. Jamais d'arrêt inventé ou de mémoire. Si aucun arrêt pertinent n'est fourni, ne pas en inventer — dire que la jurisprudence disponible ne couvre pas ce point précis.
 

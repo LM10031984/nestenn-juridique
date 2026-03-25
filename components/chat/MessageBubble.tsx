@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { ThumbsUp, ThumbsDown, AlertCircle } from 'lucide-react'
 
 interface MessageBubbleProps {
@@ -82,14 +83,28 @@ export default function MessageBubble({
           {/* Content */}
           <div className={`prose-legal${isStreaming ? ' typing-cursor' : ''}`}>
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 a: ({ href, children }) => (
                   <a href={href} target="_blank" rel="noopener noreferrer"
-                    style={{ color: '#00AEBC', textDecoration: 'underline' }}>
+                    style={{ color: '#00AEBC', textDecoration: 'underline', fontWeight: 500 }}>
                     {children}
                   </a>
                 ),
                 p: ({ children }) => <p style={{ margin: '0 0 0.65em' }}>{children}</p>,
+                h3: ({ children }) => <h3 style={{ fontSize: 14, fontWeight: 700, margin: '1em 0 0.4em', color: '#1F2937' }}>{children}</h3>,
+                h4: ({ children }) => <h4 style={{ fontSize: 13, fontWeight: 600, margin: '0.8em 0 0.3em', color: '#374151' }}>{children}</h4>,
+                strong: ({ children }) => <strong style={{ fontWeight: 700, color: '#111827' }}>{children}</strong>,
+                table: ({ children }) => (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, margin: '0.5em 0' }}>{children}</table>
+                ),
+                th: ({ children }) => (
+                  <th style={{ border: '1px solid #E5E7EB', padding: '6px 8px', background: '#F9FAFB', fontWeight: 600, textAlign: 'left', fontSize: 11 }}>{children}</th>
+                ),
+                td: ({ children }) => (
+                  <td style={{ border: '1px solid #E5E7EB', padding: '6px 8px', fontSize: 12 }}>{children}</td>
+                ),
+                hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E5E7EB', margin: '0.8em 0' }} />,
               }}
             >
               {content}

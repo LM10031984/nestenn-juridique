@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Send, Scale, AlertTriangle, Mic } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import { SuggestionCard } from '@/components/SuggestionCard'
 import { LegalDisclaimer } from '@/components/LegalDisclaimer'
 import { LetterModal } from '@/components/LetterModal'
@@ -316,10 +319,38 @@ export default function ChatPage() {
                     {msg.isStreaming && !msg.content ? (
                       <ThinkingBar />
                     ) : (
-                      <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap font-serif-legal">
-                        {stripBold(msg.content)}
+                      <div className="text-sm text-foreground/85 leading-relaxed font-serif-legal prose-legal-md">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeRaw]}
+                          components={{
+                            a: ({ href, children }) => (
+                              <a href={href} target="_blank" rel="noopener noreferrer"
+                                style={{ color: '#00AEBC', textDecoration: 'underline', fontWeight: 500 }}>
+                                {children}
+                              </a>
+                            ),
+                            h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 700, margin: '1em 0 0.4em', color: '#1F2937' }}>{children}</h3>,
+                            h4: ({ children }) => <h4 style={{ fontSize: 14, fontWeight: 600, margin: '0.8em 0 0.3em', color: '#374151' }}>{children}</h4>,
+                            table: ({ children }) => (
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, margin: '0.5em 0' }}>{children}</table>
+                            ),
+                            th: ({ children }) => (
+                              <th style={{ border: '1px solid #E5E7EB', padding: '6px 8px', background: '#F9FAFB', fontWeight: 600, textAlign: 'left', fontSize: 11 }}>{children}</th>
+                            ),
+                            td: ({ children }) => (
+                              <td style={{ border: '1px solid #E5E7EB', padding: '6px 8px', fontSize: 12 }}>{children}</td>
+                            ),
+                            hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E5E7EB', margin: '0.8em 0' }} />,
+                            blockquote: ({ children }) => (
+                              <blockquote style={{ borderLeft: '3px solid #00AEBC', paddingLeft: 12, margin: '0.5em 0', color: '#4B5563', fontStyle: 'italic' }}>{children}</blockquote>
+                            ),
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
                         {msg.isStreaming && <span className="inline-block w-0.5 h-[1em] bg-primary ml-0.5 align-middle animate-pulse" />}
-                      </p>
+                      </div>
                     )}
                     {!msg.isStreaming && msg.content && (
                       <div className="flex items-center gap-2 mt-3">
