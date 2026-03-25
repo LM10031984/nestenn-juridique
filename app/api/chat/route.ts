@@ -481,7 +481,7 @@ async function handlePost(req: NextRequest): Promise<Response> {
   try {
     if (needsValidation) {
       // Appel non-streaming pour pouvoir valider avant envoi
-      let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
+      let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 4000)
 
       // Validation jurisprudence (existant)
       const hasCitation = !hasJuri || /Cass\.|Cour d'appel|Cour de cassation|n° \d{2}[-\/]/.test(responseText)
@@ -504,7 +504,7 @@ async function handlePost(req: NextRequest): Promise<Response> {
           { role: 'assistant', content: responseText },
           { role: 'user', content: correctionContent },
         ]
-        responseText = await openRouterChat(correctionMessages, model ?? MODELS.MAIN, maxTokens ?? 2000)
+        responseText = await openRouterChat(correctionMessages, model ?? MODELS.MAIN, maxTokens ?? 4000)
         console.info('[chat] 2e appel — correction appliquée')
       }
 
@@ -516,7 +516,7 @@ async function handlePost(req: NextRequest): Promise<Response> {
     }
 
     // Pas de jurisprudence ni de playbook : streaming normal
-    const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
+    const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 4000)
 
     return new Response(llmStream, {
       status: 200,

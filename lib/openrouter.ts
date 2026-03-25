@@ -37,7 +37,7 @@ function buildHeaders(): HeadersInit {
 export async function openRouterChat(
   messages: OpenRouterMessage[],
   model: string = MODELS.FILTER,
-  maxTokens: number = 200
+  maxTokens: number = 4000
 ): Promise<string> {
   const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -68,7 +68,7 @@ export async function openRouterChat(
 export async function openRouterStream(
   messages: OpenRouterMessage[],
   model: string = MODELS.MAIN,
-  maxTokens: number = 2000
+  maxTokens: number = 4000
 ): Promise<ReadableStream<Uint8Array>> {
   const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
