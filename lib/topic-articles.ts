@@ -146,12 +146,17 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       'mandat exclusif tacite', 'tacite reconduction mandat exclusif',
       'durée maximale de vente', 'mandat de vente durée', 'durée d exclusivité',
       'mandat exclusif de vente', 'durée maximale',
+      'mandat de vente valable', 'mandat valable', 'jusqu\'a quand mandat',
+      'jusqu\'a quand est il valable', 'quand expire le mandat', 'validité du mandat',
+      'validite du mandat', 'fin du mandat', 'mandat de vente signé',
+      'signé un mandat de vente', 'signe un mandat de vente',
+      'combien de temps mandat', 'durée mandat de vente',
     ],
     forcedArticles: [
       { law: 'décret 72-678', artNum: '78', label: 'Art. 78 décret 72-678 — durée max mandat exclusif 3 mois' },
       { law: 'loi 70-9', artNum: '6', label: 'Art. 6 loi Hoguet — conditions du mandat' },
     ],
-    answerNote: 'Durée maximale du mandat exclusif : 3 mois IRRÉVOCABLE (ni le mandant ni l\'agent ne peut y mettre fin). Après 3 mois : tacite reconduction possible, MAIS révocable à tout moment par le mandant avec préavis de 15 jours. Art. 78 du décret 72-678 est la référence réglementaire précise — à citer obligatoirement. La loi Hoguet (loi 70-9) encadre les conditions générales du mandat.',
+    answerNote: 'Durée maximale du mandat exclusif : 3 mois IRRÉVOCABLE (ni le mandant ni l\'agent ne peut y mettre fin). Après 3 mois : tacite reconduction possible, MAIS révocable à tout moment par le mandant avec préavis de 15 jours. Art. 78 du décret 72-678 est la référence réglementaire précise — à citer obligatoirement. La loi Hoguet (loi 70-9) encadre les conditions générales du mandat. IMPORTANT : si une date de signature est mentionnée, CALCULER la date de fin (date + 3 mois) et la donner explicitement. Exemple : signé le 15 janvier → irrévocable jusqu\'au 15 avril, puis reconduction tacite révocable avec 15 jours de préavis. Le mandat simple (non exclusif) n\'a pas de durée irrévocable imposée par décret mais doit avoir une durée limitée (art. 7 loi Hoguet).',
     curatedCaseIds: ['curated-duree-mandat-exclusif'],
   },
 

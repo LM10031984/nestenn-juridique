@@ -9,6 +9,8 @@ import { getSystemPrompt } from '@/lib/system-prompt'
 import { searchLegalContext, searchCuratedCases, type PgVectorContext } from '@/lib/pgvector'
 import { detectPlaybook } from '@/lib/playbooks'
 import { detectTopicArticles } from '@/lib/topic-articles'
+import { extractArticleRefs } from '@/lib/extract-refs'
+import { reformulateQuery } from '@/lib/query-reformulator'
 import { validateResponse, buildFusedCorrectionPrompt } from '@/lib/live-validator'
 
 // ---------------------------------------------------------------------------
@@ -329,8 +331,11 @@ async function handlePost(req: NextRequest): Promise<Response> {
   const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
   console.info(`[chat] Requête reçue — ip=${clientIp} sessionId=${sessionId ?? 'none'} msgLength=${trimmedMessage.length}`)
 
-  // ── Étape 1 : Filtre hors-sujet ─────────────────────────────────────────
-  const relevant = await isRelevantQuestion(trimmedMessage)
+  // ── Étape 1 : Filtre hors-sujet + reformulation juridique (en parallèle) ─
+  const [relevant, reformulated] = await Promise.all([
+    isRelevantQuestion(trimmedMessage),
+    reformulateQuery(trimmedMessage),
+  ])
   if (!relevant) {
     return staticSseResponse(REFUSAL_MESSAGE)
   }
@@ -360,16 +365,25 @@ async function handlePost(req: NextRequest): Promise<Response> {
     law: fa.law,
     artNums: [fa.artNum],
   })) ?? []
-  const earlyForcedArticles = [...playbookForcedArticles, ...topicForcedArticles]
+  const regexRefs = extractArticleRefs(trimmedMessage)
+  // Articles identifiés par le reformulateur LLM (plus précis que regex)
+  const reformulatedRefs = reformulated?.articlesToFetch ?? []
+  const earlyForcedArticles = [...playbookForcedArticles, ...topicForcedArticles, ...regexRefs, ...reformulatedRefs]
 
-  // ── Étape 2 : tout en parallèle — Judilibre + pgvector + curated + Légifrance ──
-  // Légifrance démarre avec les articles forcés connus (playbook/T2AI).
-  // Les visa refs Judilibre sont ignorées ici (tradeoff ~5% de questions, gain ~300-800ms).
+  // Query optimisée pour Judilibre : reformulation LLM > question brute
+  const judilibreQuery = reformulated?.judilibreQuery ?? trimmedMessage
+
+  // ── Étape 2 : tout en parallèle — Judilibre + curated + Légifrance ──
+  // - Judilibre : question brute pour la détection de thème (keywords naturels)
+  //               mais ccQuery/caQuery enrichis par le reformulateur si dispo
+  // - pgvector : recherche sémantique avec la query reformulée (meilleur match)
+  // - Légifrance : articles forcés (playbook + topic + reformulateur)
+  const searchQuery = reformulated?.legalSummary ?? trimmedMessage
   const [juriContext, pgvectorCtx, curatedCtx, dilaContextRaw] = await Promise.all([
-    fetchJurisprudence(trimmedMessage),
-    searchLegalContext(trimmedMessage, 8),
+    fetchJurisprudence(trimmedMessage, reformulated?.judilibreQuery),  // question brute pour détection thème, reformulée pour recherche API
+    searchLegalContext(searchQuery, 8),   // query reformulée = meilleur match sémantique
     activeCuratedIds.length > 0
-      ? searchCuratedCases(activeCuratedIds, trimmedMessage)
+      ? searchCuratedCases(activeCuratedIds, searchQuery)
       : Promise.resolve<PgVectorContext>({ articles: [], arretText: '' }),
     fetchLegalContext(
       trimmedMessage,
@@ -407,7 +421,8 @@ async function handlePost(req: NextRequest): Promise<Response> {
     }
   }
 
-  const mode: 'flash' | 'stratégique' = juriContext.isPremium ? 'stratégique' : 'flash'
+  // Mode unique — le LLM adapte la longueur selon la complexité de la question
+  const mode: 'flash' | 'stratégique' = 'stratégique'
 
   // Fusion lexique : judilibre expectedLexicon + playbook requiredKeywords
   const mergedLexicon = [
@@ -430,18 +445,21 @@ async function handlePost(req: NextRequest): Promise<Response> {
     .slice(0, 8) // max 8 refs
 
   const contextRefsNote = contextRefs.length > 0
-    ? `\n\n📌 RÉFÉRENCES PRÉSENTES DANS LE CONTEXTE (à citer obligatoirement dans votre réponse) : ${contextRefs.join(' | ')}`
+    ? `\n\n[RÉFÉRENCES À CITER OBLIGATOIREMENT] : ${contextRefs.join(' | ')}`
     : ''
 
   // answerNote du playbook ou du topic T2AI ajoutée au system prompt si présente
   const playbookNote = playbook
-    ? `\n\n[NOTE PLAYBOOK — ${playbook.name}] : ${playbook.answerNote}`
+    ? `\n\n[CONTEXTE THÉMATIQUE] : ${playbook.answerNote}`
     : ''
   const topicNote = !playbook && topicEntry?.answerNote
-    ? `\n\n[NOTE THÈME — ${topicEntry.id}] : ${topicEntry.answerNote}`
+    ? `\n\n[CONTEXTE THÉMATIQUE] : ${topicEntry.answerNote}`
     : ''
 
-  const systemPromptContent = getSystemPrompt(dilaContext, mergedJuriText || undefined, mode, mergedLexicon.length > 0 ? mergedLexicon : undefined) + playbookNote + topicNote + contextRefsNote
+  // En mode FLASH : injecter la jurisprudence en format condensé (références seulement)
+  // En mode STRATÉGIQUE : injecter le texte complet des arrêts
+  const juriTextForPrompt = mergedJuriText || undefined
+  const systemPromptContent = getSystemPrompt(dilaContext, juriTextForPrompt, mode, mergedLexicon.length > 0 ? mergedLexicon : undefined) + playbookNote + topicNote + contextRefsNote
 
   const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(

@@ -190,30 +190,15 @@ export async function searchLegalContext(
   try {
     const supabase = getSupabase()
 
-    // Tenter la recherche hybride (migration 011), fallback sur l'ancienne RPC
-    let data: PgVectorRow[] | null = null
-    let error: { message: string } | null = null
-
-    const hybridResult = await supabase.rpc('search_hybrid_legal_context', {
+    // Recherche vectorielle standard (migration 009) — rapide grâce à l'index HNSW
+    // La recherche hybride (migration 011) est disponible mais désactivée par défaut
+    // car le full scan CTE est trop lent sans index partiel sur fts.
+    // TODO: optimiser la RPC hybride avec un pré-filtre vectoriel + re-rank FTS
+    const { data, error } = await supabase.rpc('search_all_legal_context', {
       query_embedding: embedding,
-      query_text: query,
       match_count: count + 3,
       boost_domains: domains.length > 0 ? domains : null,
     })
-
-    if (hybridResult.error) {
-      console.warn('[pgvector] Hybride indisponible, fallback search_all_legal_context:', hybridResult.error.message)
-      const fallback = await supabase.rpc('search_all_legal_context', {
-        query_embedding: embedding,
-        match_count: count + 3,
-        boost_domains: domains.length > 0 ? domains : null,
-      })
-      data = fallback.data
-      error = fallback.error
-    } else {
-      data = hybridResult.data
-      error = null
-    }
 
     if (error) {
       console.error('[pgvector] RPC error:', error.message)

@@ -515,6 +515,22 @@ const LEGAL_SUBTEME_MAP: LegalSubTheme[] = [
     caQuery: 'condition suspensive prêt immobilier acheteur bonne foi refus',
     theme: 'vente immobilière', chamber: 'civ3',
   },
+  {
+    id: 'copropriete_syndic_contrat',
+    triggerPatterns: [
+      'contrat du syndic', 'contrat syndic', 'renégocier le contrat',
+      'renégociation contrat syndic', 'révoquer le syndic', 'changement de syndic',
+      'mise en concurrence syndic', 'résiliation contrat syndic',
+      'mandat du syndic', 'renouvellement syndic', 'syndic avant son terme',
+      'révoquer syndic', 'revoquer syndic', 'nouveau syndic',
+    ],
+    requiredFacts: [],
+    answerMode: 'premium',
+    expectedLexicon: ['article 18', 'loi 65-557', 'assemblée générale', 'majorité absolue', 'mise en concurrence', 'ordre du jour'],
+    ccQuery: 'copropriété syndic contrat révocation renouvellement mise en concurrence assemblée générale',
+    caQuery: 'syndic copropriété contrat révocation renégociation assemblée générale majorité',
+    theme: 'copropriété', chamber: 'civ3',
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -1073,7 +1089,7 @@ async function classifySubThemeLLM(question: string): Promise<LegalSubTheme | nu
 // Point d'entrée public
 // ---------------------------------------------------------------------------
 
-export async function fetchJurisprudence(question: string): Promise<JudilibreContext> {
+export async function fetchJurisprudence(question: string, reformulatedQuery?: string): Promise<JudilibreContext> {
   // Fast-path synchrone : keyword matching (0ms, couvre ~85% des cas)
   const fastDetected = detectTheme(question)
 
@@ -1098,8 +1114,9 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
   }
 
   const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal, isPremium, requiredFacts, subTheme, expectedLexicon, forcedArticles } = detected
-  const ccSearchQuery = ccQuery ?? question
-  const caSearchQuery = caQuery ?? question
+  // Priorité : ccQuery du sub-theme > query reformulée > question brute
+  const ccSearchQuery = ccQuery ?? reformulatedQuery ?? question
+  const caSearchQuery = caQuery ?? reformulatedQuery ?? question
   const pubs = publications ?? ['b', 'r']
 
   try {
