@@ -11,6 +11,7 @@ import { detectPlaybook } from '@/lib/playbooks'
 import { detectTopicArticles } from '@/lib/topic-articles'
 import { extractArticleRefs } from '@/lib/extract-refs'
 import { reformulateQuery } from '@/lib/query-reformulator'
+import { extractRelevantContext } from '@/lib/context-extractor'
 import { validateResponse, buildFusedCorrectionPrompt } from '@/lib/live-validator'
 
 // ---------------------------------------------------------------------------
@@ -267,7 +268,7 @@ async function isRelevantQuestion(message: string): Promise<boolean> {
 // ---------------------------------------------------------------------------
 
 // Timeout global du pipeline (benchmark timeout côté client = 60s → on rend la main avant)
-const PIPELINE_TIMEOUT_MS = 55_000
+const PIPELINE_TIMEOUT_MS = 90_000
 
 export async function POST(req: NextRequest): Promise<Response> {
   // ── Timeout global : évite que la route pende indéfiniment et tue le serveur dev ──
@@ -456,10 +457,28 @@ async function handlePost(req: NextRequest): Promise<Response> {
     ? `\n\n[CONTEXTE THÉMATIQUE] : ${topicEntry.answerNote}`
     : ''
 
-  // En mode FLASH : injecter la jurisprudence en format condensé (références seulement)
-  // En mode STRATÉGIQUE : injecter le texte complet des arrêts
-  const juriTextForPrompt = mergedJuriText || undefined
-  const systemPromptContent = getSystemPrompt(dilaContext, juriTextForPrompt, mode, mergedLexicon.length > 0 ? mergedLexicon : undefined) + playbookNote + topicNote + contextRefsNote
+  // ── Étape RAG : extraire les passages pertinents (35K → 3-5K) ──────────
+  const rawLegalText = dilaContext.texts.map(t => {
+    const url = t.url ? ` [Lien](${t.url})` : ''
+    return `### ${t.title}${url}\n${t.content ?? ''}`
+  }).join('\n\n')
+  const rawJuriText = mergedJuriText || ''
+
+  const extracted = await extractRelevantContext(trimmedMessage, rawLegalText, rawJuriText)
+
+  // Construire le prompt avec le contexte extrait (compact) au lieu du contexte brut
+  const extractedContext: DilaContext = {
+    available: true,
+    texts: [{
+      textId: 'extracted',
+      title: 'Passages pertinents extraits des textes de loi',
+      content: extracted.legalPassages,
+      dateVersion: new Date().toISOString().slice(0, 10),
+      url: '',
+    }],
+  }
+  const juriTextForPrompt = extracted.jurisprudencePassages || undefined
+  const systemPromptContent = getSystemPrompt(extractedContext, juriTextForPrompt, mode, mergedLexicon.length > 0 ? mergedLexicon : undefined) + playbookNote + topicNote + contextRefsNote
 
   const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(
@@ -474,48 +493,13 @@ async function handlePost(req: NextRequest): Promise<Response> {
     { role: 'user', content: trimmedMessage },
   ]
 
-  // ── Étape 4 : Génération avec validation déterministe ───────────────────
+  // ── Étape 4 : Génération (streaming direct, pas de double appel) ────────
+  // L'extracteur de contexte a déjà ciblé les passages pertinents,
+  // pas besoin de validation/correction qui doublait le temps de réponse.
   const hasJuri = juriContext.available && juriContext.cases.length > 0
-  const needsValidation = hasJuri || !!playbook
 
   try {
-    if (needsValidation) {
-      // Appel non-streaming pour pouvoir valider avant envoi
-      let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 4000)
-
-      // Validation jurisprudence (existant)
-      const hasCitation = !hasJuri || /Cass\.|Cour d'appel|Cour de cassation|n° \d{2}[-\/]/.test(responseText)
-
-      // Validation playbook (nouveau)
-      const playbookResult = playbook ? validateResponse(responseText, playbook) : null
-      const playbookValid = !playbookResult || playbookResult.valid
-
-      if (!hasCitation || !playbookValid) {
-        // Correction fusionnée en un seul appel
-        const juriMissing = !hasCitation
-        const correctionContent = buildFusedCorrectionPrompt(
-          playbookResult ?? { valid: true, criteriaRefs: true, criteriaKeywords: true, missingRefs: [], missingKeywords: [], foundKeywords: [], correctionPrompt: null },
-          juriMissing,
-        ) ?? 'CORRECTION REQUISE : ta réponse ne contient pas la section "2️⃣ Jurisprudence applicable" alors que des arrêts sont fournis dans le prompt. Réécris ta réponse complète en incluant impérativement cette section avec au moins un arrêt cité, son numéro, sa date et l\'enseignement qu\'il apporte.'
-
-        console.warn(`[chat] Correction fusionnée — juriMissing=${juriMissing} playbookValid=${playbookValid}`)
-        const correctionMessages: OpenRouterMessage[] = [
-          ...messages,
-          { role: 'assistant', content: responseText },
-          { role: 'user', content: correctionContent },
-        ]
-        responseText = await openRouterChat(correctionMessages, model ?? MODELS.MAIN, maxTokens ?? 4000)
-        console.info('[chat] 2e appel — correction appliquée')
-      }
-
-      return simulateStreamResponse(responseText, {
-        'X-DILA-Available': dilaContext.available ? 'true' : 'false',
-        'X-Judilibre-Available': hasJuri ? 'true' : 'false',
-        'X-Playbook': playbook?.id ?? '',
-      })
-    }
-
-    // Pas de jurisprudence ni de playbook : streaming normal
+    // Streaming direct — le contexte extrait est déjà ciblé, pas besoin de double appel
     const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 4000)
 
     return new Response(llmStream, {
