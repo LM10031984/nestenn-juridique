@@ -423,8 +423,9 @@ async function handlePost(req: NextRequest): Promise<Response> {
     texts: [...mergedPgvector.articles, ...liveArticlesDeduped],
   }
 
-  // Fusion jurisprudence : curated+pgvector (résumés indexés) + arrêts live Judilibre
-  const mergedJuriText = [mergedPgvector.arretText, juriContext.text].filter(Boolean).join('\n\n===\n\n')
+  // Fusion jurisprudence : pgvector sémantique + arrêts live Judilibre (SANS curated — curated bypass extracteur)
+  // NB : curatedCtx.arretText est injecté directement plus bas, sans passer par extractRelevantContext()
+  const mergedJuriText = [pgvectorCtx.arretText, juriContext.text].filter(Boolean).join('\n\n===\n\n')
 
   // ── Articles forcés du sub-thème Judilibre (disponibles APRÈS fetchJurisprudence) ──
   // Ces articles n'étaient pas connus avant le Promise.all — les récupérer maintenant
@@ -500,7 +501,10 @@ async function handlePost(req: NextRequest): Promise<Response> {
   // Les articles forcés (playbook + reformulateur) sont les plus pertinents → pas d'extraction
   // Les articles complémentaires (pgvector, fallback) passent par l'extracteur pour compression
   const forcedTitles = new Set(earlyForcedArticles.flatMap(fa => fa.artNums.map(n => n)))
+  // Curated articles bypass l'extracteur : identifiés par leur titre, injectés complets
+  const curatedArticleTitles = new Set(curatedCtx.articles.map(a => a.title))
   const forcedTexts = dilaContext.texts.filter(t => {
+    if (t.title && curatedArticleTitles.has(t.title)) return true  // curated → direct
     const artNum = t.title?.match(/art(?:icle)?\.?\s*(\S+)/i)?.[1]
     return artNum && forcedTitles.has(artNum)
   })
@@ -530,7 +534,8 @@ async function handlePost(req: NextRequest): Promise<Response> {
     available: true,
     texts: finalTexts as any,
   }
-  const juriTextForPrompt = extracted.jurisprudencePassages || undefined
+  // Curated bypass extracteur : injecté en tête de la jurisprudence, intact, priorité absolue
+  const juriTextForPrompt = [curatedCtx.arretText, extracted.jurisprudencePassages].filter(Boolean).join('\n\n===\n\n') || undefined
   const systemPromptContent = getSystemPrompt(finalContext, juriTextForPrompt, mode, mergedLexicon.length > 0 ? mergedLexicon : undefined) + playbookNote + topicNote + contextRefsNote
 
   console.info(`[pipeline] ${forcedTexts.length} articles forcés (direct) + ${supplementaryTexts.length} complémentaires (extracteur)`)

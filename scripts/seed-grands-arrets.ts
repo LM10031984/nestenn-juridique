@@ -1005,6 +1005,158 @@ const GRANDS_ARRETS: GrandArret[] = [
   },
 
   // -------------------------------------------------------------------------
+  // Délai légal obtention prêt dans compromis — Art. L313-41 Code conso
+  // Cible Q60 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-delai-legal-pret-compromis',
+    court:       'cc',
+    chamber:     '1re civ.',
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un acquéreur signe un compromis de vente avec une condition suspensive d'obtention de prêt. Quel est le délai légal minimum pour obtenir le prêt ?",
+    principle:   "L'article L313-41 du Code de la consommation (anciennement L312-16) fixe un délai minimum d'un mois à compter de la signature du compromis pour que l'acquéreur puisse obtenir son prêt immobilier. Ce délai est d'ordre public : il ne peut pas être réduit par les parties. En pratique, les compromis prévoient généralement un délai de 45 à 60 jours (voire plus) pour tenir compte des délais réels d'instruction bancaire. Si le prêt est refusé dans le délai prévu, la condition suspensive n'est pas réalisée et l'acquéreur peut se désengager sans pénalité, avec restitution intégrale de son dépôt de garantie.",
+    consequence: "Le délai minimum légal est d'1 mois (30 jours), mais en pratique 45-60 jours sont recommandés. Si le compromis prévoit un délai inférieur à 1 mois, la clause est réputée non écrite et le délai légal d'1 mois s'applique. L'acquéreur doit justifier ses démarches de recherche de prêt (attestation de refus bancaire). Un acquéreur qui ne fait aucune démarche de recherche de financement peut perdre le bénéfice de la condition suspensive.",
+    visa_refs:   ['Art. L313-41 Code de la consommation', 'Art. 1589 Code civil'],
+    domain:      'consommation',
+    sub_themes:  ['condition_suspensive', 'pret_immobilier', 'delai_1_mois', 'refus_pret', 'depot_garantie', 'compromis'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Copropriété : Location Airbnb et règlement de copropriété
+  // Cible Q29 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-copro-airbnb-reglement',
+    court:       'cc',
+    chamber:     '3e civ.',
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un copropriétaire veut louer son appartement en location saisonnière (Airbnb) mais le règlement de copropriété contient une clause d'habitation bourgeoise ou résidentielle. Le syndic ou d'autres copropriétaires s'y opposent.",
+    principle:   "L'article 9 de la loi 65-557 du 10 juillet 1965 garantit le libre usage des parties privatives par chaque copropriétaire, sous réserve de ne pas porter atteinte aux droits des autres copropriétaires ni à la destination de l'immeuble. Un règlement de copropriété comportant une clause d'habitation bourgeoise exclusive interdit toute activité commerciale, y compris la location meublée touristique de type Airbnb. En revanche, une clause d'habitation bourgeoise simple (ou mixte) permet les activités libérales et peut tolérer la location saisonnière si elle ne cause pas de troubles anormaux de voisinage. La jurisprudence de la Cour de cassation (Cass. civ. 3e) est constante : la location saisonnière répétée dans un immeuble à destination exclusivement résidentielle constitue un changement de destination contraire au règlement.",
+    consequence: "Si le règlement prévoit une clause d'habitation bourgeoise exclusive, la location Airbnb est interdite. Le syndic peut agir en justice pour faire cesser l'activité et obtenir des dommages-intérêts. De plus, dans certaines villes (Paris, Lyon, Bordeaux…), la location saisonnière nécessite un changement d'usage administratif (autorisation de la mairie) et un numéro d'enregistrement. La limite de 120 jours/an pour les résidences principales s'applique aussi.",
+    visa_refs:   ['Art. 9 loi 65-557 du 10 juillet 1965', 'Art. 8 loi 65-557'],
+    domain:      'copropriete',
+    sub_themes:  ['airbnb', 'location_saisonniere', 'habitation_bourgeoise', 'reglement_copropriete', 'destination_immeuble', 'changement_usage'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Conditions suspensives légales obligatoires dans un compromis
+  // Cible Q37 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-conditions-suspensives-legales',
+    court:       'cc',
+    chamber:     null,
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un acquéreur signe un compromis de vente et veut connaître les conditions suspensives légales obligatoires, celles qui s'appliquent de plein droit.",
+    principle:   "La seule condition suspensive légale obligatoire dans un compromis de vente immobilier est la condition suspensive d'obtention de prêt (Art. L313-41 et suivants du Code de la consommation, ex-loi Scrivener). Elle s'applique de plein droit dès que l'acquéreur déclare recourir à un emprunt pour financer l'achat. L'acquéreur ne peut y renoncer que par une mention manuscrite spécifique. Les autres conditions suspensives courantes (obtention du permis de construire, absence de servitudes, purge du droit de préemption, obtention d'un certificat d'urbanisme…) sont conventionnelles : elles ne s'appliquent que si les parties les inscrivent au compromis. L'article 1304 du Code civil encadre les conditions suspensives en général.",
+    consequence: "La condition suspensive de prêt est la seule obligatoire par la loi. Si l'acquéreur finance sans emprunt (achat comptant), il doit le déclarer expressément par une mention manuscrite. Toutes les autres conditions suspensives sont négociables entre les parties. Il est fortement recommandé d'inclure : purge du droit de préemption urbain (DPU), absence de servitudes d'urbanisme, obtention d'un certificat d'urbanisme opérationnel.",
+    visa_refs:   ['Art. L313-41 Code de la consommation', 'Art. 1304 Code civil', 'Art. 1589 Code civil'],
+    domain:      'vente_immobiliere',
+    sub_themes:  ['condition_suspensive', 'pret_immobilier', 'scrivener', 'obligatoire', 'compromis', 'mention_manuscrite'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Mentions obligatoires du contrat de location — Art. 3 loi 89-462
+  // Cible Q46 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-mentions-obligatoires-bail',
+    court:       'cc',
+    chamber:     null,
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un bailleur ou un agent immobilier rédige un bail d'habitation et veut connaître les mentions obligatoires imposées par la loi.",
+    principle:   "L'article 3 de la loi 89-462 du 6 juillet 1989 fixe la liste exhaustive des mentions obligatoires du contrat de location à usage de résidence principale. Doivent figurer : l'identité du bailleur et du locataire, la date de prise d'effet et la durée du bail (3 ans minimum nu, 1 an meublé), la description du logement (adresse, type, surface habitable Boutin, nombre de pièces), la désignation des équipements et annexes, le montant du loyer et ses modalités de paiement, le montant du dernier loyer acquitté par le précédent locataire (si applicable), le montant du dépôt de garantie, les honoraires d'agence et leur répartition (bailleur/locataire), la liste des charges récupérables et leur mode de règlement (provisions ou forfait). Depuis la loi ALUR, un bail type est obligatoire (décret 2015-587).",
+    consequence: "L'absence d'une mention obligatoire n'entraîne pas automatiquement la nullité du bail, mais elle peut être invoquée par le locataire pour obtenir des dommages-intérêts ou faire requalifier certaines clauses. L'absence de mention de la surface habitable donne au locataire le droit de demander une diminution de loyer proportionnelle si la surface réelle est inférieure de plus de 5% à celle indiquée. Le bail doit être accompagné de documents annexes obligatoires : DPE, état des risques (ERP), diagnostics techniques, notice d'information, état des lieux.",
+    visa_refs:   ['Art. 3 loi 89-462 du 6 juillet 1989', 'Décret 2015-587 (bail type)', 'Loi ALUR 2014-366'],
+    domain:      'baux_habitation',
+    sub_themes:  ['mentions_obligatoires', 'bail', 'contrat_location', 'surface_habitable', 'loyer', 'depot_garantie', 'bail_type', 'alur'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Convocation AG copropriété — délai 21 jours
+  // Cible Q1 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-convocation-ag-copro-21-jours',
+    court:       'cc',
+    chamber:     '3e civ.',
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un syndic convoque une assemblée générale de copropriété. Quels sont les délais et les modalités de convocation ?",
+    principle:   "L'article 9 du décret 67-223 du 17 mars 1967 fixe le délai de convocation d'une assemblée générale de copropriété à 21 jours minimum avant la date de la réunion. Ce délai court à compter de la première présentation de la lettre recommandée ou de la signification par huissier. La convocation doit être envoyée par le syndic à chaque copropriétaire (ou à son mandataire) et doit contenir : l'ordre du jour détaillé, le lieu et la date de la réunion, les projets de résolution, les documents justificatifs nécessaires (devis, contrats, comptes). Depuis la loi ELAN (2018-1021), la notification par voie électronique est possible si le copropriétaire y a expressément consenti.",
+    consequence: "Si le délai de 21 jours n'est pas respecté, l'assemblée générale est irrégulière et ses décisions peuvent être annulées par le tribunal judiciaire dans un délai de 2 mois suivant la notification du PV. Le syndic peut raccourcir le délai uniquement en cas d'urgence (art. 9 al. 2 du décret). L'agent immobilier syndic doit veiller au strict respect de ce délai sous peine de voir toutes les décisions votées annulées.",
+    visa_refs:   ['Art. 9 décret 67-223 du 17 mars 1967', 'Art. 42 loi 65-557 du 10 juillet 1965'],
+    domain:      'copropriete',
+    sub_themes:  ['assemblee_generale', 'convocation', '21_jours', 'syndic', 'ordre_du_jour', 'lettre_recommandee', 'annulation'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Révision annuelle du loyer — formule IRL
+  // Cible Q2 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-revision-loyer-irl-formule',
+    court:       'cc',
+    chamber:     null,
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un bailleur veut réviser le loyer de son locataire à la date anniversaire du bail. Comment calculer la révision annuelle du loyer avec l'IRL ?",
+    principle:   "L'article 17-1 de la loi 89-462 du 6 juillet 1989 encadre la révision annuelle du loyer en bail d'habitation. La révision ne peut intervenir qu'une fois par an, à la date prévue dans le bail ou à défaut à la date anniversaire. La formule de calcul est : Nouveau loyer = Loyer en cours × (IRL du trimestre de référence / IRL du même trimestre de l'année précédente). L'IRL (Indice de Référence des Loyers) est publié chaque trimestre par l'INSEE. Le trimestre de référence est celui mentionné dans le bail ; à défaut, c'est le dernier IRL publié à la date de révision.",
+    consequence: "La révision n'est pas automatique : le bailleur doit en faire la demande (clause au bail + notification). Si le bailleur oublie de réviser pendant 1 an, il ne peut pas rattraper rétroactivement (prescription annuelle depuis la loi ALUR). La révision ne peut jamais dépasser la variation de l'IRL — pas de majoration libre. En zone d'encadrement des loyers, le loyer révisé ne peut pas non plus dépasser le loyer de référence majoré. Le locataire peut contester une révision irrégulière devant la commission départementale de conciliation.",
+    visa_refs:   ['Art. 17-1 loi 89-462 du 6 juillet 1989', 'Loi ALUR 2014-366'],
+    domain:      'baux_habitation',
+    sub_themes:  ['revision_loyer', 'irl', 'indice_reference_loyers', 'formule_calcul', 'insee', 'date_anniversaire', 'bail_vide'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Délai d'instruction du permis de construire
+  // Cible Q28 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-delai-permis-construire',
+    court:       'cc',
+    chamber:     null,
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un acquéreur ou un propriétaire dépose une demande de permis de construire. Dans quel délai la mairie doit-elle instruire la demande ?",
+    principle:   "Les délais d'instruction du permis de construire sont fixés par l'article R423-23 du Code de l'urbanisme. Le délai de droit commun est de 2 mois pour les maisons individuelles et leurs annexes, et de 3 mois pour les autres constructions (immeubles collectifs, commerces, etc.). Ce délai court à compter de la réception du dossier complet en mairie. Si le dossier est incomplet, la mairie dispose d'1 mois pour demander les pièces manquantes, et le délai d'instruction ne commence qu'à la réception des pièces complètes. Des délais majorés s'appliquent dans certains cas : secteur protégé (ABF — Architecte des Bâtiments de France), ERP (Établissement Recevant du Public), ou projet soumis à étude d'impact.",
+    consequence: "Si la mairie ne répond pas dans le délai, le silence vaut acceptation tacite du permis de construire (sauf exceptions listées à l'article R424-2 du Code de l'urbanisme : secteurs protégés, ERP, ICPE). L'agent immobilier doit informer l'acquéreur que les délais réels sont souvent plus longs (demandes de pièces complémentaires). Une condition suspensive d'obtention du permis dans le compromis doit prévoir un délai réaliste (4 à 6 mois minimum).",
+    visa_refs:   ['Art. R423-23 Code de l\'urbanisme', 'Art. R424-1 Code de l\'urbanisme (silence vaut acceptation)'],
+    domain:      'urbanisme',
+    sub_themes:  ['permis_construire', 'delai_instruction', '2_mois', '3_mois', 'silence_vaut_acceptation', 'dossier_complet', 'mairie'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Promesse unilatérale de vente vs compromis de vente
+  // Cible Q30 du benchmark
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-promesse-vs-compromis',
+    court:       'cc',
+    chamber:     '3e civ.',
+    date:        null,
+    number:      null,
+    solution:    null,
+    situation:   "Un agent immobilier doit expliquer à ses clients la différence entre une promesse unilatérale de vente et un compromis de vente (promesse synallagmatique).",
+    principle:   "Le compromis de vente (promesse synallagmatique, art. 1589 Code civil) engage les deux parties : vendeur ET acquéreur. 'La promesse de vente vaut vente' dès qu'il y a accord sur la chose et sur le prix. Les deux sont engagés. La promesse unilatérale de vente (art. 1124 Code civil, réformé en 2016) n'engage que le vendeur (le promettant) pendant une durée déterminée. L'acquéreur (bénéficiaire) dispose d'une option : il peut lever l'option pour acheter ou y renoncer. Le vendeur ne peut pas se rétracter pendant la durée de la promesse. Depuis la réforme de 2016, la révocation de la promesse unilatérale pendant le délai d'option n'empêche plus la formation de la vente si le bénéficiaire lève l'option.",
+    consequence: "Différences clés : (1) Engagement : compromis = bilatéral, promesse unilatérale = vendeur seul ; (2) Fiscalité : la promesse unilatérale doit être enregistrée dans les 10 jours auprès du service de la publicité foncière (droit fixe de 125€), sous peine de nullité ; le compromis n'a pas cette obligation ; (3) Indemnité d'immobilisation : la promesse unilatérale prévoit souvent une indemnité d'immobilisation (5-10% du prix) versée par le bénéficiaire au promettant en échange de l'exclusivité ; (4) Droit de rétractation SRU de 10 jours : s'applique dans les deux cas pour l'acquéreur non professionnel.",
+    visa_refs:   ['Art. 1124 Code civil (promesse unilatérale)', 'Art. 1589 Code civil (compromis)', 'Art. L271-1 CCH (rétractation 10 jours)'],
+    domain:      'vente_immobiliere',
+    sub_themes:  ['promesse_unilaterale', 'compromis', 'promesse_synallagmatique', 'difference', 'option', 'indemnite_immobilisation', 'enregistrement'],
+  },
+
+  // -------------------------------------------------------------------------
   // Thème 15 : Réticence dolosive — obligation d'information du vendeur
   // -------------------------------------------------------------------------
   {
