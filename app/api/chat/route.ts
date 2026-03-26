@@ -11,6 +11,7 @@ import { detectPlaybook } from '@/lib/playbooks'
 import { detectTopicArticles } from '@/lib/topic-articles'
 import { extractArticleRefs } from '@/lib/extract-refs'
 import { reformulateQuery } from '@/lib/query-reformulator'
+import { qualifyQuestion, formatQualificationResponse } from '@/lib/qualification'
 import { extractRelevantContext } from '@/lib/context-extractor'
 import { validateResponse, buildFusedCorrectionPrompt } from '@/lib/live-validator'
 
@@ -332,13 +333,21 @@ async function handlePost(req: NextRequest): Promise<Response> {
   const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
   console.info(`[chat] Requête reçue — ip=${clientIp} sessionId=${sessionId ?? 'none'} msgLength=${trimmedMessage.length}`)
 
-  // ── Étape 1 : Filtre hors-sujet + reformulation juridique (en parallèle) ─
-  const [relevant, reformulated] = await Promise.all([
+  // ── Étape 1 : Filtre + qualification + reformulation (en parallèle) ─────
+  const isFirstMessage = !conversationHistory || conversationHistory.length === 0
+  const [relevant, reformulated, qualification] = await Promise.all([
     isRelevantQuestion(trimmedMessage),
     reformulateQuery(trimmedMessage),
+    isFirstMessage ? qualifyQuestion(trimmedMessage) : Promise.resolve(null),
   ])
   if (!relevant) {
     return staticSseResponse(REFUSAL_MESSAGE)
+  }
+
+  // Si la question est ambiguë et c'est le premier message → demander des clarifications
+  if (qualification && !qualification.canAnswerDirectly && qualification.clarificationQuestions.length > 0) {
+    console.info(`[pipeline] qualification requise — ${qualification.clarificationQuestions.length} questions`)
+    return staticSseResponse(formatQualificationResponse(qualification))
   }
 
   // ── Détection playbook (synchrone, 0ms) ─────────────────────────────────
@@ -499,18 +508,38 @@ async function handlePost(req: NextRequest): Promise<Response> {
   const hasJuri = juriContext.available && juriContext.cases.length > 0
 
   try {
-    // Streaming direct — le contexte extrait est déjà ciblé, pas besoin de double appel
-    const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 4000)
+    // Non-streaming : permet d'ajouter les sources à la fin de la réponse
+    let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 4000)
 
-    return new Response(llmStream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-DILA-Available': dilaContext.available ? 'true' : 'false',
-        'X-Judilibre-Available': 'false',
-      },
+    // ── Injection automatique des sources depuis les articles ORIGINAUX (pas l'extrait) ──
+    const sourceLinks: string[] = []
+    const originalTexts = [...(mergedPgvector?.articles ?? []), ...(dilaContextRaw?.texts ?? [])]
+    const seenTitles = new Set<string>()
+    for (const text of originalTexts) {
+      if (text.url && text.title && !seenTitles.has(text.title)) {
+        seenTitles.add(text.title)
+        sourceLinks.push(`- [${text.title}](${text.url})`)
+      }
+    }
+    // Ajouter les URLs des arrêts Judilibre
+    for (const c of juriContext.cases) {
+      const label = c.court === 'cass'
+        ? `Cass. ${c.date}, n° ${c.number}`
+        : `CA ${c.date}, n° ${c.number}`
+      if (c.url) sourceLinks.push(`- [${label}](${c.url})`)
+    }
+    if (sourceLinks.length > 0) {
+      responseText += `\n\n---\n**Sources :**\n${sourceLinks.join('\n')}`
+    }
+
+    // Proposition d'action si pas déjà présente
+    if (!responseText.includes('rédiger') && !responseText.includes('courrier') && !responseText.includes('préparer')) {
+      responseText += '\n\n---\nJe peux vous aider à rédiger une résolution type pour l\'AG ou un courrier si nécessaire.'
+    }
+
+    return simulateStreamResponse(responseText, {
+      'X-DILA-Available': dilaContext.available ? 'true' : 'false',
+      'X-Judilibre-Available': hasJuri ? 'true' : 'false',
     })
   } catch (err) {
     console.error('[chat] Erreur pipeline LLM :', err)

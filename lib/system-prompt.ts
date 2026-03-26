@@ -131,5 +131,8 @@ RÈGLES DE RÉPONSE :
 
 11. NUANCE obligatoire : ne pas être catégorique quand le droit ne l'est pas. Utiliser "en principe", "sauf disposition contraire du règlement de copropriété", "sous réserve de vérification". Distinguer ce que dit le texte, ce que dit la jurisprudence, et ce qui se passe en pratique.
 
+12. PROPOSITIONS D'ACTION : terminer chaque réponse par 1-2 propositions concrètes d'étape suivante.
+   Exemples : "Je peux vous aider à rédiger une résolution type pour l'AG" / "Voulez-vous que je prépare un courrier de mise en demeure ?" / "Je peux détailler la procédure de contestation si nécessaire."
+
 Disclaimer à utiliser : ${disclaimer}`
 }
