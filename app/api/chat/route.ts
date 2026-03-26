@@ -12,6 +12,7 @@ import { detectTopicArticles } from '@/lib/topic-articles'
 import { extractArticleRefs } from '@/lib/extract-refs'
 import { reformulateQuery } from '@/lib/query-reformulator'
 import { qualifyQuestion, formatQualificationResponse } from '@/lib/qualification'
+import { validateResponseQuality, buildCorrectionPrompt } from '@/lib/response-validator'
 import { extractRelevantContext } from '@/lib/context-extractor'
 import { validateResponse, buildFusedCorrectionPrompt } from '@/lib/live-validator'
 
@@ -496,11 +497,31 @@ async function handlePost(req: NextRequest): Promise<Response> {
 
   const history = sanitizeHistory(conversationHistory)
 
+  // ── Option 1 : Rappel des sources juste avant la question (effet de récence) ──
+  const allOriginalTexts = [...(mergedPgvector?.articles ?? []), ...(dilaContextRaw?.texts ?? [])]
+  const articleNames = allOriginalTexts
+    .filter(t => t.title)
+    .map(t => t.title)
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .slice(0, 8)
+  const arretNames = juriContext.cases
+    .map(c => `${c.court === 'cass' ? 'Cass.' : 'CA'} ${c.date} n° ${c.number}`)
+  const reminderParts: string[] = []
+  if (articleNames.length > 0) reminderParts.push(`Articles disponibles : ${articleNames.join(' | ')}`)
+  if (arretNames.length > 0) reminderParts.push(`Arrêts disponibles : ${arretNames.join(' | ')}`)
+  const sourceReminder = reminderParts.length > 0
+    ? `[SOURCES À UTILISER DANS TA RÉPONSE]\n${reminderParts.join('\n')}\nRappel : chaque affirmation juridique doit être rattachée à l'une de ces sources. Ne réponds pas de mémoire. Cite le texte exact de l'article quand c'est possible.`
+    : ''
+
   const messages: OpenRouterMessage[] = [
     { role: 'system', content: systemPromptContent },
     ...history,
-    { role: 'user', content: trimmedMessage },
   ]
+  // Injecter le rappel des sources juste avant la question (récence maximale)
+  if (sourceReminder) {
+    messages.push({ role: 'system', content: sourceReminder })
+  }
+  messages.push({ role: 'user', content: trimmedMessage })
 
   // ── Étape 4 : Génération (streaming direct, pas de double appel) ────────
   // L'extracteur de contexte a déjà ciblé les passages pertinents,
@@ -508,8 +529,35 @@ async function handlePost(req: NextRequest): Promise<Response> {
   const hasJuri = juriContext.available && juriContext.cases.length > 0
 
   try {
-    // Non-streaming : permet d'ajouter les sources à la fin de la réponse
+    // Non-streaming : permet validation + injection des sources
     let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 4000)
+
+    // ── Validation niveau 1 (mécanique, gratuit) ──
+    const quality = validateResponseQuality(
+      responseText,
+      allOriginalTexts,
+      juriContext.cases,
+      mergedLexicon.length > 0 ? mergedLexicon : undefined,
+    )
+    console.info(`[quality] Score ${quality.score}/100 — flags: ${quality.flags.length > 0 ? quality.flags.join(', ') : 'aucun'} — pass=${quality.pass}`)
+
+    // ── Circuit-breaker niveau 3 : régénération si score critique ──
+    if (!quality.pass && (quality.flags.includes('LEGI_NON_CITEE') || quality.flags.includes('JURI_NON_CITEE'))) {
+      const sourceNames = [
+        ...allOriginalTexts.filter(t => t.title).map(t => t.title!),
+        ...juriContext.cases.map(c => `${c.court === 'cass' ? 'Cass.' : 'CA'} ${c.date} n° ${c.number}`),
+      ]
+      const correction = buildCorrectionPrompt(quality, sourceNames)
+      console.warn(`[quality] Régénération — ${correction.slice(0, 100)}...`)
+
+      const correctionMessages: OpenRouterMessage[] = [
+        ...messages,
+        { role: 'assistant', content: responseText },
+        { role: 'user', content: correction },
+      ]
+      responseText = await openRouterChat(correctionMessages, model ?? MODELS.MAIN, maxTokens ?? 4000)
+      console.info('[quality] 2e appel — correction appliquée')
+    }
 
     // ── Injection automatique des sources depuis les articles ORIGINAUX (pas l'extrait) ──
     const sourceLinks: string[] = []
