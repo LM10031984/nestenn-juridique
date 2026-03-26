@@ -108,6 +108,8 @@ const LEGITEXT_MAP: Record<string, string> = {
   'commerce':                'LEGITEXT000005634379',
   'code du tourisme':        'LEGITEXT000006074073', // Code du tourisme (meublé tourisme)
   'code rural':              'LEGITEXT000006071367', // Code rural (SAFER, préemption)
+  'code-urbanisme':          'LEGITEXT000006074075', // alias avec tiret
+  'code-construction':       'LEGITEXT000006074096', // alias CCH
 }
 
 const API_BASE = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'

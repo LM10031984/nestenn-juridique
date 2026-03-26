@@ -345,10 +345,14 @@ async function handlePost(req: NextRequest): Promise<Response> {
     return staticSseResponse(REFUSAL_MESSAGE)
   }
 
-  // Si la question est ambiguë et c'est le premier message → demander des clarifications
-  if (qualification && !qualification.canAnswerDirectly && qualification.clarificationQuestions.length > 0) {
+  // Si la question est ambiguë, c'est le premier message, ET ce n'est PAS une question théorique → clarifier
+  const isTheoretical = isTheoreticalQuestion(trimmedMessage)
+  if (qualification && !qualification.canAnswerDirectly && qualification.clarificationQuestions.length > 0 && !isTheoretical) {
     console.info(`[pipeline] qualification requise — ${qualification.clarificationQuestions.length} questions`)
     return staticSseResponse(formatQualificationResponse(qualification))
+  }
+  if (isTheoretical) {
+    console.info('[pipeline] question théorique détectée → réponse directe (pas de qualification)')
   }
 
   // ── Détection playbook (synchrone, 0ms) ─────────────────────────────────

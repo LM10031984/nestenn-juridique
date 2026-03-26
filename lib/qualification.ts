@@ -33,6 +33,13 @@ Analyse la question et détermine :
      (ex: "peut-on renégocier le contrat du syndic" → modifier ? résilier ? ne pas renouveler ? → 3 mécanismes DIFFÉRENTS avec des règles DIFFÉRENTES)
    - En cas de doute → canAnswerDirectly = true (mieux répondre largement que de poser des questions inutiles)
 
+RÈGLE ABSOLUE : si la question ne contient AUCUNE référence à un cas réel
+(pas de "mon client", "j'ai reçu", "nous avons signé", pas de noms propres,
+pas de dates spécifiques), alors canAnswerDirectly = true.
+Une question qui commence par "Un locataire peut-il...", "Un agent immobilier
+est-il...", "Comment procéder à...", "Quels sont les..." est THÉORIQUE → canAnswerDirectly = true.
+La bonne réponse est de lister TOUS les cas de figure, pas de demander lequel.
+
 2. Y a-t-il PLUSIEURS mécanismes juridiques distincts possibles ?
    Exemples :
    - "renégocier un contrat de syndic" peut signifier : (a) modifier par avenant accepté, (b) ne pas renouveler à l'échéance, (c) résilier pour faute
