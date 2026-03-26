@@ -26,8 +26,9 @@ function formatDilaContext(context: DilaContext): string {
     }
     if (text.dateVersion) lines.push(`Version consolidée au : ${text.dateVersion}`)
     if (text.content) {
-      const excerpt = text.content.length > 2000
-        ? text.content.slice(0, 2000) + ' [...]'
+      const maxChars = text.isForced ? 5000 : 2000
+      const excerpt = text.content.length > maxChars
+        ? text.content.slice(0, maxChars) + ' [...]'
         : text.content
       lines.push(excerpt)
     }
