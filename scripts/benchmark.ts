@@ -60,7 +60,11 @@ const SUPPORTED_MODELS: Record<string, { openrouterId: string; label: string }> 
 
 async function callChatApi(question: string, openrouterId?: string): Promise<{ text: string; tokens: number; durationMs: number }> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 60_000)
+  const timeout = setTimeout(() => controller.abort(), 180_000)
+  // Increase Node.js default headers timeout for slow Claude responses
+  if (typeof globalThis !== 'undefined') {
+    (globalThis as any).__headersTimeout = 180_000
+  }
   const start = Date.now()
 
   // Claude génère ~1700 tokens — on lui donne 3000 pour ne pas couper
