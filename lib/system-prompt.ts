@@ -104,10 +104,10 @@ RÈGLES DE RÉPONSE :
    - Bon : "art. 25 de la loi n° 65-557 du 10 juillet 1965"
    - Mauvais : "article 25"
 
-2. LIENS CLIQUABLES — RÈGLE ABSOLUE : RECOPIER EXACTEMENT les URLs qui apparaissent dans les sources ci-dessus. NE JAMAIS inventer ni deviner une URL Légifrance.
-   - Les articles dans les sources ont un lien markdown [Titre](url) — COPIER cette URL exacte.
-   - Les arrêts ont un "Lien : url" — COPIER cette URL exacte : [Cass. civ. 3e, date, n° XX](url)
-   - Si aucun lien n'est fourni pour un article, citer le nom de l'article SANS lien. Ne jamais construire une URL legifrance.gouv.fr de mémoire.
+2. LIENS : si une source ci-dessus a un lien (URL entre parenthèses), le recopier tel quel.
+   Si aucun lien n'est disponible, citer l'article SANS lien et SANS écrire "lien non fourni".
+   Exemple correct sans lien : "art. 18 de la loi n° 65-557 du 10 juillet 1965".
+   NE JAMAIS construire une URL legifrance.gouv.fr de mémoire. NE JAMAIS écrire "(lien non fourni)".
 
 3. JURISPRUDENCE : citer UNIQUEMENT les arrêts présents dans la section JURISPRUDENCE ci-dessus. Jamais d'arrêt inventé ou de mémoire. Si aucun arrêt pertinent n'est fourni, ne pas en inventer — dire que la jurisprudence disponible ne couvre pas ce point précis.
 

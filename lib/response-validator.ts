@@ -71,6 +71,45 @@ export function validateResponseQuality(
 }
 
 /**
+ * Juge LLM async — évalue la qualité juridique de la réponse (fire-and-forget).
+ * Coût : ~0.0003€/question (GPT-4o-mini).
+ */
+export async function judgeResponseAsync(
+  question: string,
+  response: string,
+  availableSources: string,
+  openRouterChatFn: (messages: any[], model: string, maxTokens: number) => Promise<string>,
+  filterModel: string,
+): Promise<{ score: number; issues: string[] }> {
+  const prompt = `Évalue cette réponse juridique. JSON uniquement.
+
+Question : ${question}
+Sources disponibles : ${availableSources}
+Réponse : ${response.slice(0, 1500)}
+
+5 critères, 20 points chacun :
+1. GROUNDING — cite les articles/arrêts des sources fournies ?
+2. EXACTITUDE — références correctes (bonne loi, bon numéro) ?
+3. COMPLÉTUDE — tous les aspects traités ?
+4. ACTIONNABLE — recommandation concrète ?
+5. NUANCE — distingue les cas incertains ?
+
+{"score": 0-100, "issues": ["problème 1"]}`
+
+  try {
+    const result = await openRouterChatFn(
+      [{ role: 'user', content: prompt }],
+      filterModel,
+      200,
+    )
+    const cleaned = result.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+    return JSON.parse(cleaned)
+  } catch {
+    return { score: -1, issues: ['JUDGE_ERROR'] }
+  }
+}
+
+/**
  * Construit le prompt de correction quand la validation échoue.
  */
 export function buildCorrectionPrompt(quality: QualityCheck, sourceNames: string[]): string {

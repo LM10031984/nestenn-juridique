@@ -12,7 +12,7 @@ import { detectTopicArticles } from '@/lib/topic-articles'
 import { extractArticleRefs } from '@/lib/extract-refs'
 import { reformulateQuery } from '@/lib/query-reformulator'
 import { qualifyQuestion, formatQualificationResponse } from '@/lib/qualification'
-import { validateResponseQuality, buildCorrectionPrompt } from '@/lib/response-validator'
+import { validateResponseQuality, buildCorrectionPrompt, judgeResponseAsync } from '@/lib/response-validator'
 import { extractRelevantContext } from '@/lib/context-extractor'
 import { validateResponse, buildFusedCorrectionPrompt } from '@/lib/live-validator'
 
@@ -422,6 +422,31 @@ async function handlePost(req: NextRequest): Promise<Response> {
   // Fusion jurisprudence : curated+pgvector (résumés indexés) + arrêts live Judilibre
   const mergedJuriText = [mergedPgvector.arretText, juriContext.text].filter(Boolean).join('\n\n===\n\n')
 
+  // ── Articles forcés du sub-thème Judilibre (disponibles APRÈS fetchJurisprudence) ──
+  // Ces articles n'étaient pas connus avant le Promise.all — les récupérer maintenant
+  if (juriContext.forcedArticles?.length) {
+    const juriForced = juriContext.forcedArticles
+    // Fetch les articles manquants depuis Légifrance
+    const missingArticles = juriForced.filter(fa =>
+      !dilaContext.texts.some(t => fa.artNums.some(n => t.title?.includes(n)))
+    )
+    if (missingArticles.length > 0) {
+      console.info(`[pipeline] +${missingArticles.length} articles forcés du sub-thème Judilibre : ${missingArticles.map(fa => `${fa.law}/${fa.artNums.join(',')}`).join('; ')}`)
+      try {
+        const extraContext = await fetchLegalContext(trimmedMessage, openRouterChat, undefined, missingArticles)
+        if (extraContext.texts.length > 0) {
+          const existingTitles = new Set(dilaContext.texts.map(t => t.title))
+          const newTexts = extraContext.texts.filter(t => !existingTitles.has(t.title))
+          dilaContext.texts.push(...newTexts)
+          // Ajouter aux earlyForcedArticles pour le bypass extracteur
+          earlyForcedArticles.push(...missingArticles)
+        }
+      } catch (err) {
+        console.warn('[pipeline] Échec fetch articles sub-thème:', err)
+      }
+    }
+  }
+
   // ── Étape 3 : Qualification des faits (cas premium + cas réel seulement) ─
   if (juriContext.isPremium && juriContext.requiredFacts.length > 0 && !isTheoreticalQuestion(trimmedMessage)) {
     const missingFacts = checkMissingFacts(trimmedMessage, conversationHistory, juriContext.requiredFacts)
@@ -505,6 +530,8 @@ async function handlePost(req: NextRequest): Promise<Response> {
   const systemPromptContent = getSystemPrompt(finalContext, juriTextForPrompt, mode, mergedLexicon.length > 0 ? mergedLexicon : undefined) + playbookNote + topicNote + contextRefsNote
 
   console.info(`[pipeline] ${forcedTexts.length} articles forcés (direct) + ${supplementaryTexts.length} complémentaires (extracteur)`)
+  console.info(`[pipeline] Articles forcés en direct : ${forcedTexts.map(t => t.title?.slice(0, 50) ?? '?').join(' | ')}`)
+  console.info(`[pipeline] Chaque article forcé — chars : ${forcedTexts.map(t => `${t.title?.match(/art[.\s]*(\S+)/i)?.[1] ?? '?'}=${(t.content?.length ?? 0)}c`).join(', ')}`)
 
   const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(
@@ -580,6 +607,13 @@ async function handlePost(req: NextRequest): Promise<Response> {
     if (!responseText.includes('rédiger') && !responseText.includes('courrier') && !responseText.includes('préparer') && !responseText.includes('résolution')) {
       responseText += '\n\n---\nJe peux vous aider à rédiger une résolution type, un courrier ou détailler un point si nécessaire.'
     }
+
+    // ── Juge LLM async (fire-and-forget, ne bloque pas la réponse) ──
+    const sourcesSummary = allOriginalTexts.map(t => t.title).filter(Boolean).join(', ')
+      + ' | ' + juriContext.cases.map(c => c.number).join(', ')
+    judgeResponseAsync(trimmedMessage, responseText, sourcesSummary, openRouterChat, MODELS.FILTER)
+      .then(r => console.info(`[judge] score=${r.score} issues=[${r.issues.join(', ')}]`))
+      .catch(() => {})
 
     return simulateStreamResponse(responseText, {
       'X-DILA-Available': dilaContext.available ? 'true' : 'false',
