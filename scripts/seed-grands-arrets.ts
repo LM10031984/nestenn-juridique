@@ -1173,6 +1173,42 @@ const GRANDS_ARRETS: GrandArret[] = [
     domain:      'responsabilite_civile',
     sub_themes:  ['reticence_dolosive', 'dol', 'obligation_information', 'nullite', 'vice_consentement'],
   },
+
+  // -------------------------------------------------------------------------
+  // Thème 16 : Double mandat — représentation des deux parties (Art. 1161 C. civ.)
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-double-mandat-art-1161',
+    court:       'cc',
+    chamber:     '1re civ.',
+    date:        null,
+    number:      null,
+    solution:    'Principe légal',
+    situation:   "Un agent immobilier est mandaté à la fois par le vendeur (mandat de vente) et par l'acheteur (mandat de recherche) pour la même transaction. Les deux parties souhaitent savoir si l'agent peut légalement les représenter toutes les deux et percevoir une double commission.",
+    principle:   "L'article 1161 du Code civil (issu de l'ordonnance n° 2016-131 du 10 février 2016, mod. loi n° 2018-287 du 20 avril 2018) interdit en principe à un représentant d'agir pour le compte de plusieurs parties à un acte dont les intérêts sont en opposition, sauf si la loi l'y autorise ou si les parties en ont été informées et l'ont accepté. En droit immobilier, l'article 6 de la loi Hoguet (n° 70-9 du 2 janvier 1970) autorise l'agent à percevoir une rémunération des deux parties à condition que chaque mandat le mentionne expressément et que chaque partie en soit informée. La double représentation sans mention explicite dans les deux mandats est une faute professionnelle.",
+    consequence: "Si la double représentation n'est pas mentionnée dans chacun des mandats, l'agent s'expose à une perte de sa commission, voire à des dommages-intérêts. La Cour de cassation sanctionne l'agent qui perçoit une rémunération des deux parties sans transparence dans les mandats (la nullité de la clause de rémunération peut être prononcée). En pratique : deux mandats distincts, mention explicite du double mandat dans chacun, information écrite des deux parties avant la signature.",
+    visa_refs:   ['Art. 1161 Code civil', 'Art. 6 loi n° 70-9 du 2 janvier 1970 (loi Hoguet)', 'Art. 1240 Code civil'],
+    domain:      'agent_immobilier',
+    sub_themes:  ['double_mandat', 'conflit_interets', 'commission', 'representant', 'mandat_exclusif'],
+  },
+
+  // -------------------------------------------------------------------------
+  // Thème 17 : Double mandat — jurisprudence Cass. 1re civ. sur le conflit d'intérêts
+  // -------------------------------------------------------------------------
+  {
+    source_id:   'curated-double-mandat-jurisprudence',
+    court:       'cc',
+    chamber:     '1re civ.',
+    date:        null,
+    number:      null,
+    solution:    'Cassation',
+    situation:   "Un agent immobilier a représenté simultanément le vendeur et l'acheteur dans une même transaction et a perçu une commission des deux parties. L'une des parties conteste la validité de cette double rémunération, faisant valoir l'absence de mention dans son mandat.",
+    principle:   "La Cour de cassation juge que l'agent immobilier qui perçoit une rémunération de chacune des parties à la transaction doit avoir été expressément autorisé à le faire par chacun des mandats. Le mandat doit mentionner que l'agent est également mandaté par la partie adverse. À défaut de cette mention bilatérale, la stipulation de rémunération est inopposable à la partie non informée. Ce principe découle de l'obligation de loyauté et de transparence de l'intermédiaire (Art. 1161 C. civ.) combiné à l'Art. 6 loi Hoguet.",
+    consequence: "La clause de rémunération non mentionnée dans les deux mandats est nulle et l'agent perd son droit à commission vis-à-vis de la partie non informée. L'agent peut en outre engager sa responsabilité civile pour manquement à son devoir de conseil et de loyauté. (Jurisprudence de principe — pour arrêt exact, rechercher sur Judilibre : 'agent immobilier double commission mandat rémunération deux parties'.)",
+    visa_refs:   ['Art. 1161 Code civil', 'Art. 6 loi n° 70-9 du 2 janvier 1970 (loi Hoguet)', 'Art. 1134 al. 3 Code civil (bonne foi)'],
+    domain:      'agent_immobilier',
+    sub_themes:  ['double_mandat', 'conflit_interets', 'commission', 'loyaute', 'nullite_clause'],
+  },
 ]
 
 // ---------------------------------------------------------------------------

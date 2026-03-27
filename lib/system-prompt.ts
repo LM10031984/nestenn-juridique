@@ -1,151 +1,118 @@
 // lib/system-prompt.ts
-// System prompt Nestenn Juridique — v3.0
-// Principe : le LLM répond EN SE BASANT sur les sources fournies (articles + jurisprudence).
-// Format libre mais structuré, citations obligatoires avec liens cliquables.
+// Architecture Augmentée — v4.0
+// Le LLM est enrichi par les sources, pas contraint par elles.
 
-import type { DilaContext } from '@/lib/legifrance'
-
-// ---------------------------------------------------------------------------
-// Formatage du contexte DILA en bloc texte injectable
-// ---------------------------------------------------------------------------
-
-function formatDilaContext(context: DilaContext): string {
-  const hasTexts = context.available && context.texts.length > 0
-  const hasCirculaires = (context.circulaires?.length ?? 0) > 0
-  if (!hasTexts && !hasCirculaires) return ''
-
-  const lines: string[] = ['## SOURCES LÉGALES (Légifrance — textes en vigueur)', '']
-
-  for (const text of context.texts) {
-    const label = text.isForced ? '[ARTICLE CLÉ]' : ''
-    const titleText = text.title || text.textId
-    if (text.url) {
-      lines.push(`### ${label} [${titleText}](${text.url})`.trim())
-    } else {
-      lines.push(`### ${label} ${titleText}`.trim())
-    }
-    if (text.dateVersion) lines.push(`Version consolidée au : ${text.dateVersion}`)
-    if (text.content) {
-      const maxChars = text.isForced ? 5000 : 2000
-      const excerpt = text.content.length > maxChars
-        ? text.content.slice(0, maxChars) + ' [...]'
-        : text.content
-      lines.push(excerpt)
-    }
-    if (text.lastModifs && text.lastModifs.length > 0) {
-      lines.push(`Modifié récemment : ${text.lastModifs.map(m => `${m.date} — ${m.title}`).join(' | ')}`)
-    }
-    lines.push('')
-  }
-
-  if (hasCirculaires) {
-    lines.push('## CIRCULAIRES', '')
-    for (const circ of context.circulaires!) {
-      lines.push(`### ${circ.title || circ.textId}`)
-      if (circ.url) lines.push(`Lien : ${circ.url}`)
-      if (circ.content) lines.push(circ.content.slice(0, 400))
-      lines.push('')
-    }
-  }
-
-  return lines.join('\n')
+export interface SourceChunk {
+  sourceLaw: string      // titre de l'article (ex: "Art. 24 — loi n° 89-462")
+  sourceArticle: string  // numéro d'article si séparable, sinon ''
+  sourceUrl: string | null
+  chunkText: string
+  similarity: number
 }
 
-// ---------------------------------------------------------------------------
-// Disclaimers (rotation)
-// ---------------------------------------------------------------------------
+export interface JuriCase {
+  court: 'cass' | 'ca'
+  date: string
+  number: string
+  holding: string
+  url?: string
+}
 
 const DISCLAIMERS = [
-  'Informations générales — pas de conseil personnalisé. Consultez un professionnel habilité pour votre situation.',
-  'Ces éléments sont fournis à titre informatif. En cas de litige, rapprochez-vous d\'un avocat ou d\'un notaire.',
-  'Droit immobilier en constante évolution — vérifiez les textes en vigueur sur Légifrance avant d\'agir.',
+  'Informations générales — pas de conseil personnalisé. Consultez un professionnel habilité.',
+  'Ces éléments sont fournis à titre informatif. En cas de litige, rapprochez-vous d\'un avocat ou notaire.',
+  'Droit immobilier en constante évolution — vérifiez les textes en vigueur sur Légifrance.',
 ]
 
-// ---------------------------------------------------------------------------
-// Fonction principale
-// ---------------------------------------------------------------------------
-
-export function getSystemPrompt(
-  dilaContext?: DilaContext,
-  jurisprudenceText?: string,
-  mode: 'flash' | 'stratégique' = 'flash',
-  expectedLexicon?: string[],
+export function getSystemPromptAugmented(
+  chunks: SourceChunk[],
+  juriCases: JuriCase[],
 ): string {
-  const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const today = new Date().toLocaleDateString('fr-FR', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
   const disclaimer = DISCLAIMERS[Math.floor(Math.random() * DISCLAIMERS.length)]
 
-  const sourcesBlock = dilaContext ? formatDilaContext(dilaContext) : ''
-  const juriBlock = jurisprudenceText
-    ? `\n## JURISPRUDENCE (source : Judilibre — décisions réelles)\n\n${jurisprudenceText}\n`
-    : ''
-
-  const lexiconNote = expectedLexicon?.length
-    ? `\nTermes juridiques à utiliser : ${expectedLexicon.join(', ')}.\n`
-    : ''
-
-  const lengthGuide = mode === 'flash'
-    ? 'Réponse concise : 100 à 200 mots.'
-    : 'Réponse complète : 300 à 500 mots.'
+  const sourcesBlock = formatSources(chunks)
+  const juriBlock = formatJurisprudence(juriCases)
 
   return `Tu es l'assistant juridique de Nestenn, réseau immobilier français. Date : ${today}.
 
-MISSION — MODE OPEN-BOOK : les sources juridiques ci-dessous sont ton UNIQUE matériau de travail.
-INTERDIT : répondre en utilisant tes connaissances préalables sur le droit français.
-Tu DOIS te comporter comme si tu ne connaissais RIEN du droit immobilier en dehors de ce qui est fourni ci-dessous.
-- Si les sources couvrent le point → CITE l'article ou l'arrêt exact avec son lien.
-- Si les sources NE couvrent PAS un point → dis-le : "les sources consultées ne couvrent pas ce point".
-- Chaque affirmation juridique DOIT être rattachée à un article ou arrêt fourni.
+Tu réponds aux questions de droit immobilier en mobilisant tes connaissances ET les textes officiels ci-dessous.
 
-${sourcesBlock}${juriBlock}${lexiconNote}
----
+${sourcesBlock}${juriBlock}
+COMMENT UTILISER CES SOURCES :
+- Elles te servent à confirmer tes affirmations avec la référence exacte et le lien
+- Si un texte fourni contredit ce que tu sais → le texte en vigueur a raison, corrige ta réponse
+- Si tes connaissances vont au-delà des textes fournis → utilise-les en ajoutant "(à vérifier sur Légifrance)"
+- Ne te limite JAMAIS aux textes fournis. Ne dis JAMAIS "les sources ne couvrent pas ce point" — réponds et signale si nécessaire
 
-RÈGLES DE RÉPONSE :
+RÈGLES :
+- Cite les articles avec le nom complet de la loi : "art. 24 de la loi n° 89-462 du 6 juillet 1989"
+- Si un lien est fourni dans les sources → le recopier tel quel : [art. 24](url)
+- Si pas de lien → citer sans lien, ne jamais inventer d'URL
+- N° d'arrêts : citer UNIQUEMENT ceux fournis dans la section jurisprudence. Si tu en connais d'autres de mémoire → "(arrêt cité de mémoire — à vérifier sur Judilibre)"
+- Ton professionnel, accessible. Tu parles à des agents immobiliers, pas à des juristes
+- Terminer par 1-2 propositions d'action concrètes
+- Terminer par le disclaimer : ${disclaimer}`
+}
 
-1. CITER les sources : chaque règle énoncée doit mentionner l'article exact avec le nom complet de la loi.
-   - Bon : "art. 25 de la loi n° 65-557 du 10 juillet 1965"
-   - Mauvais : "article 25"
+function formatSources(chunks: SourceChunk[]): string {
+  if (chunks.length === 0) return ''
 
-2. LIENS : si une source ci-dessus a un lien (URL entre parenthèses), le recopier tel quel.
-   Si aucun lien n'est disponible, citer l'article SANS lien et SANS écrire "lien non fourni".
-   Exemple correct sans lien : "art. 18 de la loi n° 65-557 du 10 juillet 1965".
-   NE JAMAIS construire une URL legifrance.gouv.fr de mémoire. NE JAMAIS écrire "(lien non fourni)".
+  // Grouper par article pour éviter la fragmentation
+  const grouped = new Map<string, SourceChunk[]>()
+  for (const chunk of chunks) {
+    const key = chunk.sourceArticle
+      ? `${chunk.sourceLaw}|${chunk.sourceArticle}`
+      : chunk.sourceLaw
+    const existing = grouped.get(key) ?? []
+    existing.push(chunk)
+    grouped.set(key, existing)
+  }
 
-3. JURISPRUDENCE : citer UNIQUEMENT les arrêts présents dans la section JURISPRUDENCE ci-dessus. Jamais d'arrêt inventé ou de mémoire. Si aucun arrêt pertinent n'est fourni, ne pas en inventer — dire que la jurisprudence disponible ne couvre pas ce point précis.
+  const lines: string[] = ['TEXTES OFFICIELS EN VIGUEUR :']
 
-4. STRUCTURE libre mais logique :
-   - Commencer par la réponse directe (oui/non/sous conditions)
-   - Expliquer les règles applicables avec les articles
-   - Si jurisprudence disponible : comment elle s'applique
-   - Action concrète à entreprendre
-   - Terminer par le disclaimer
+  for (const [, articleChunks] of grouped) {
+    const first = articleChunks[0]
+    const title = first.sourceArticle
+      ? `Art. ${first.sourceArticle} — ${first.sourceLaw}`
+      : first.sourceLaw
 
-5. ${lengthGuide}
+    if (first.sourceUrl) {
+      lines.push(`\n[${title}](${first.sourceUrl})`)
+    } else {
+      lines.push(`\n${title}`)
+    }
 
-6. Si une date est donnée par l'utilisateur, CALCULER les délais (ex: signé le 18 février + 3 mois = 18 mai).
+    const text = articleChunks
+      .map(c => c.chunkText)
+      .join('\n')
 
-7. INTERDIT : emojis, symboles Unicode. Ne jamais reproduire d'identifiants internes (curated-xxx, source_id, etc.). Ton professionnel et direct. Le gras et les titres markdown sont autorisés pour la lisibilité.
+    lines.push(text)
+  }
 
-8. DPE — 3 périodes : avant 2018 = expiré | 2018 à juin 2021 = expiré depuis fin 2024 | après juillet 2021 = valide 10 ans.
+  return lines.join('\n') + '\n'
+}
 
-9. ZÉRO hallucination juridique. Si tu ne sais pas : "ce point mériterait vérification sur Légifrance".
+function formatJurisprudence(cases: JuriCase[]): string {
+  if (cases.length === 0) return ''
 
-10. PRÉCISION ABSOLUE sur les délais et majorités :
-   - Ne JAMAIS confondre voix/tantièmes avec nombre de lots (en copropriété, on vote en tantièmes, pas en nombre de lots).
-   - Ne JAMAIS inventer un délai : le recopier mot pour mot depuis l'article fourni.
-   - Distinguer clairement les mécanismes juridiques différents (ex: modification amiable du contrat ≠ non-renouvellement ≠ résiliation anticipée pour faute).
-   - Ne JAMAIS affirmer une règle qui n'est pas dans les textes fournis ci-dessus. Si le texte ne couvre pas un point, dire "les textes consultés ne précisent pas ce point".
+  const lines: string[] = ['\nJURISPRUDENCE :']
 
-11. NUANCE obligatoire : ne pas être catégorique quand le droit ne l'est pas. Utiliser "en principe", "sauf disposition contraire du règlement de copropriété", "sous réserve de vérification". Distinguer ce que dit le texte, ce que dit la jurisprudence, et ce qui se passe en pratique.
+  for (const c of cases) {
+    const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
+    const ref = c.date && c.number
+      ? `${courtLabel} ${c.date}, n° ${c.number}`
+      : `${courtLabel} — ${c.number}`
 
-12. SECTION "Sources consultées" OBLIGATOIRE — lister UNIQUEMENT les sources que tu as EFFECTIVEMENT CITÉES dans le raisonnement ci-dessus :
-   **Sources consultées :**
-   - [Nom de l'article](url) — ce qu'il établit en 1 phrase
-   - [Référence arrêt](url) — ce qu'il apporte en 1 phrase
-   INTERDIT : lister des sources "pour information" sans les avoir exploitées dans le corps de la réponse. Chaque source listée DOIT correspondre à une affirmation dans ta réponse.
-   Si aucune source pertinente : "Aucune source officielle disponible — réponse à vérifier sur Légifrance."
+    if (c.url) {
+      lines.push(`\n[${ref}](${c.url})`)
+    } else {
+      lines.push(`\n${ref}`)
+    }
+    lines.push(c.holding)
+  }
 
-13. PROPOSITIONS D'ACTION : après les sources, proposer 1-2 étapes concrètes.
-   Exemples : "Je peux rédiger une résolution type pour l'AG" / "Voulez-vous un courrier de mise en demeure ?"
-
-Disclaimer à utiliser : ${disclaimer}`
+  return lines.join('\n') + '\n'
 }
