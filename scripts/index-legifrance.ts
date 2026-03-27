@@ -186,7 +186,7 @@ const LAWS: LawConfig[] = [
     strategy: 'full',
     sctCid: 'LEGISCTA000006117905',  // Titre III : De l'usufruit, de l'usage et de l'habitation (59 arts, Art. 578-624)
     fond: 'CODE_DATE',
-    maxArticles: 25,
+    maxArticles: 60,
   },
   {
     id: 'cch-construction',
@@ -227,6 +227,28 @@ const LAWS: LawConfig[] = [
     strategy: 'full',
     sctCid: 'LEGISCTA000006158884',  // Chapitre Ier : Droit de préemption urbain (7 arts, L211-1 et s.)
     fond: 'CODE_DATE',
+  },
+  {
+    id: 'urbanisme-preemption-general',
+    label: 'Code de l\'urbanisme — Dispositions générales préemption (L210-1)',
+    legitext: 'LEGITEXT000006074075',
+    domain: 'urbanisme',
+    subThemes: ['preemption', 'droit_preference'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000006128557',  // Dispositions générales préemption (2 arts, L210-1 et s.)
+    fond: 'CODE_DATE',
+    maxArticles: 5,
+  },
+  {
+    id: 'urbanisme-zad',
+    label: 'Code de l\'urbanisme — Zones d\'aménagement différé ZAD (L213-1 et s.)',
+    legitext: 'LEGITEXT000006074075',
+    domain: 'urbanisme',
+    subThemes: ['preemption', 'zad', 'droit_preference'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000006158572',  // Section ZAD (18 arts, L213-1 et s.)
+    fond: 'CODE_DATE',
+    maxArticles: 20,
   },
   {
     id: 'urbanisme-permis',
@@ -406,6 +428,17 @@ const LAWS: LawConfig[] = [
     fond: 'CODE_DATE',
     maxArticles: 20,
   },
+  {
+    id: 'cgi-droits-mutation-taux',
+    label: 'CGI — Taux droits de mutation immobiliers (Art. 1594-A et s.)',
+    legitext: 'LEGITEXT000006069577',
+    domain: 'vente_immobiliere',
+    subThemes: ['dmto', 'frais_notaire', 'taux_departementaux'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000006179825',  // Sous-section taux DMTO (4 arts : 1594 A, B, D, E)
+    fond: 'CODE_DATE',
+    maxArticles: 10,
+  },
 
   // ── VEFA et garanties construction ────────────────────────────────────────
   {
@@ -486,7 +519,7 @@ const LAWS: LawConfig[] = [
     domain: 'vente_immobiliere',
     subThemes: ['retractation', 'sru', 'avant_contrat'],
     strategy: 'full',
-    sctCid: 'LEGISCTA000006176354',  // Section 2 : Protection acquéreur immeuble habitation (L271-1 et s.)
+    sctCid: 'LEGISCTA000006176357',  // Section 1 : Protection acquéreur immeuble habitation (L271-1 à L271-3) — 3 arts
     fond: 'CODE_DATE',
     maxArticles: 10,
   },
