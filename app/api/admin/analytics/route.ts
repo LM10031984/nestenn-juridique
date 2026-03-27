@@ -4,58 +4,59 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest } from 'next/server'
+import { getApiUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
-  const supabase = createClient()
+  const result = await getApiUser()
+  if ('error' in result) return result.error
 
-  // Auth check (accès admin ou director uniquement)
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return Response.json({ error: 'Non authentifié' }, { status: 401 })
-  }
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin' && profile?.role !== 'director') {
+  const { user } = result
+  if (user.role !== 'super_admin' && user.role !== 'responsable_agence') {
     return Response.json({ error: 'Accès refusé' }, { status: 403 })
   }
+
+  const supabase = createClient()
+  const isAdmin = user.role === 'super_admin'
+  const agencyId = isAdmin ? null : user.agency_id
 
   const period = req.nextUrl.searchParams.get('period') ?? '30'
   const since = new Date()
   since.setDate(since.getDate() - parseInt(period))
 
-  const [byDomainRes, byAgencyRes, topQuestionsRes, totalsRes] = await Promise.all([
-    // Questions avec domaine sur la période
-    supabase
-      .from('messages')
-      .select('domain')
-      .eq('role', 'user')
-      .not('domain', 'is', null)
-      .gte('created_at', since.toISOString()),
+  // Filtre agence pour responsable_agence
+  function withAgencyFilter<T extends object>(query: T): T {
+    if (!agencyId) return query
+    // @ts-expect-error dynamic filter
+    return (query as any).eq('conversations.agency_id', agencyId)
+  }
 
-    // Par agence (via vue)
-    supabase
-      .from('analytics_by_agency')
-      .select('agency_name, question_count')
-      .limit(50),
+  const baseMessages = supabase
+    .from('messages')
+    .select('domain, conversations!inner(agency_id)')
+    .eq('role', 'user')
+    .not('domain', 'is', null)
+    .gte('created_at', since.toISOString())
+
+  const [byDomainRes, byAgencyRes, topQuestionsRes, totalsRes] = await Promise.all([
+    agencyId
+      ? baseMessages.eq('conversations.agency_id', agencyId)
+      : baseMessages,
+
+    // Par agence (super_admin uniquement)
+    isAdmin
+      ? supabase.from('analytics_by_agency').select('agency_name, question_count').limit(50)
+      : Promise.resolve({ data: [] }),
 
     // Top questions
-    supabase
-      .from('top_questions')
-      .select('domain, question_preview, ask_count')
-      .limit(30),
+    agencyId
+      ? supabase.from('top_questions').select('domain, question_preview, ask_count').eq('agency_id', agencyId).limit(30)
+      : supabase.from('top_questions').select('domain, question_preview, ask_count').limit(30),
 
-    // Total questions sur la période
-    supabase
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'user')
-      .gte('created_at', since.toISOString()),
+    // Total
+    agencyId
+      ? supabase.from('messages').select('*, conversations!inner(agency_id)', { count: 'exact', head: true }).eq('role', 'user').eq('conversations.agency_id', agencyId).gte('created_at', since.toISOString())
+      : supabase.from('messages').select('*', { count: 'exact', head: true }).eq('role', 'user').gte('created_at', since.toISOString()),
   ])
 
   // Agréger par domaine côté serveur

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Scale, ChevronLeft, User, BarChart2 } from 'lucide-react'
+import { Scale, ChevronLeft, User, BarChart2, Users } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -15,16 +15,26 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+import type { AuthUser } from '@/lib/auth'
 
-const mainNav = [
-  { title: 'Assistant Juridique', url: '/chat', icon: Scale },
-  { title: 'Analytics', url: '/analytics', icon: BarChart2 },
+const allNav = [
+  { title: 'Assistant Juridique', url: '/chat', icon: Scale, roles: ['super_admin', 'responsable_agence', 'conseiller'] },
+  { title: 'Analytics', url: '/analytics', icon: BarChart2, roles: ['super_admin', 'responsable_agence'] },
+  { title: 'Utilisateurs', url: '/admin/users', icon: Users, roles: ['super_admin'] },
 ]
 
-export function AppSidebar() {
+const roleLabels: Record<string, string> = {
+  super_admin: 'Super Admin',
+  responsable_agence: "Responsable d'agence",
+  conseiller: 'Conseiller',
+}
+
+export function AppSidebar({ user }: { user: AuthUser }) {
   const { state, toggleSidebar } = useSidebar()
   const pathname = usePathname()
   const collapsed = state === 'collapsed'
+
+  const nav = allNav.filter(item => item.roles.includes(user.role))
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -49,7 +59,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNav.map((item) => {
+              {nav.map((item) => {
                 const isActive = pathname === item.url || pathname.startsWith(item.url + '/')
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -80,8 +90,10 @@ export function AppSidebar() {
               <User className="h-4 w-4 text-sidebar-foreground/70" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium text-sidebar-foreground">Conseiller</span>
-              <span className="text-[10px] text-sidebar-foreground/50">Nestenn</span>
+              <span className="text-xs font-medium text-sidebar-foreground">
+                {user.full_name ?? user.email}
+              </span>
+              <span className="text-[10px] text-sidebar-foreground/50">{roleLabels[user.role]}</span>
             </div>
           </div>
         )}
