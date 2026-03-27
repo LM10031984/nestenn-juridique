@@ -1,6 +1,8 @@
 // app/api/admin/analytics/route.ts
 // Dashboard analytics — questions par domaine, par agence, top questions
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 

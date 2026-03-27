@@ -2,6 +2,8 @@
 // Pipeline Augmenté v4 — le LLM est enrichi par pgvector, pas contraint par lui
 // Filtre hors-sujet → embedding + pgvector → prompt augmenté → streaming direct
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest } from 'next/server'
 import { openRouterStreamWithFallback, openRouterChat, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
 import { getSystemPromptAugmented } from '@/lib/system-prompt'

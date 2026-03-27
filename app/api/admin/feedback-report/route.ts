@@ -1,6 +1,8 @@
 // app/api/admin/feedback-report/route.ts
 // Rapport analytics des feedbacks — accessible aux admins seulement
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
