@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Scale, Clock, FileText, LayoutDashboard, ChevronLeft, User, BarChart2 } from 'lucide-react'
+import { Scale, ChevronLeft, User, BarChart2 } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -18,10 +18,7 @@ import { cn } from '@/lib/utils'
 
 const mainNav = [
   { title: 'Assistant Juridique', url: '/chat', icon: Scale },
-  { title: 'Historique', url: '/history', icon: Clock },
-  { title: 'Documents', url: '/documents', icon: FileText },
   { title: 'Analytics', url: '/analytics', icon: BarChart2 },
-  { title: 'Administration', url: '/admin/dashboard', icon: LayoutDashboard },
 ]
 
 export function AppSidebar() {
