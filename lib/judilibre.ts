@@ -81,6 +81,7 @@ export interface NormalizedCase {
   holding: string        // premier principe dégagé (1 phrase max)
   authorityRank: number  // 1 = CC publiée, 2 = CC non-publiée, 3 = CA
   formattedText: string  // bloc texte complet pour injection narrative
+  url?: string           // lien Judilibre vers la décision
 }
 
 export interface JudilibreContext {
@@ -514,6 +515,131 @@ const LEGAL_SUBTEME_MAP: LegalSubTheme[] = [
     caQuery: 'condition suspensive prêt immobilier acheteur bonne foi refus',
     theme: 'vente immobilière', chamber: 'civ3',
   },
+  {
+    id: 'copropriete_syndic_contrat',
+    triggerPatterns: [
+      'contrat du syndic', 'contrat syndic', 'contrat de syndic',
+      'renégocier le contrat', 'renégocier le syndic',
+      'renégociation contrat syndic', 'révoquer le syndic', 'changement de syndic',
+      'mise en concurrence syndic', 'résiliation contrat syndic',
+      'mandat du syndic', 'renouvellement syndic', 'renouvellement du syndic',
+      'syndic avant son terme', 'non-renouvellement du syndic',
+      'révoquer syndic', 'revoquer syndic', 'nouveau syndic',
+      'durée du mandat du syndic', 'honoraires du syndic',
+      'rémunération du syndic', 'désignation du syndic',
+    ],
+    requiredFacts: [],
+    answerMode: 'premium',
+    expectedLexicon: [
+      'article 18', 'article 18-1 A', 'loi 65-557',
+      'assemblée générale', 'majorité absolue', 'article 25',
+      'mise en concurrence', 'contrat type', 'ordre du jour',
+      'révocation', 'non-renouvellement',
+    ],
+    ccQuery: 'syndic copropriété contrat mandat révocation mise en concurrence renouvellement',
+    caQuery: 'syndic copropriété contrat renégociation révocation assemblée générale',
+    forcedArticles: [
+      { law: 'loi 65-557', artNums: ['18', '18-1 A', '25'] },
+    ],
+    theme: 'copropriété', chamber: 'civ3',
+  },
+  {
+    id: 'diagnostics_vente',
+    triggerPatterns: [
+      'diagnostics obligatoires', 'diagnostics immobiliers',
+      'quels diagnostics', 'DDT', 'dossier de diagnostic',
+      'diagnostics pour la vente', 'diagnostics vente',
+      'avant 1949', 'avant 1997', 'diagnostic amiante', 'diagnostic plomb', 'CREP',
+    ],
+    excludePatterns: [],
+    requiredFacts: [],
+    answerMode: 'direct' as const,
+    expectedLexicon: ['DPE', 'amiante', 'plomb', 'CREP', 'termites', 'électricité', 'gaz', 'ERP', 'loi Carrez'],
+    ccQuery: 'diagnostics immobiliers vente obligation vendeur',
+    caQuery: 'diagnostics immobiliers obligation vente appartement',
+    forcedArticles: [{ law: 'cch', artNums: ['L271-4', 'L271-5'] }],
+    theme: 'vente immobilière', chamber: 'civ3',
+  },
+  {
+    id: 'clause_substitution',
+    triggerPatterns: [
+      'clause de substitution', 'substitution compromis',
+      'se substituer', 'cessionnaire', 'substituer acheteur',
+    ],
+    excludePatterns: [],
+    requiredFacts: [],
+    answerMode: 'direct' as const,
+    expectedLexicon: ['substitution', 'cessionnaire', 'SCI', 'avant réitération'],
+    ccQuery: 'clause substitution compromis vente immobilier cessionnaire',
+    caQuery: 'clause substitution compromis vente acheteur',
+    forcedArticles: [{ law: 'code civil', artNums: ['1589', '1216'] }],
+    theme: 'vente immobilière', chamber: 'civ3',
+  },
+  {
+    id: 'permis_construire_delai_instruction',
+    triggerPatterns: [
+      'délai permis de construire', 'instruction permis',
+      'délai instruction', 'permis de construire mairie',
+      'combien de temps permis', 'déclaration préalable délai',
+    ],
+    excludePatterns: [],
+    requiredFacts: [],
+    answerMode: 'direct' as const,
+    expectedLexicon: ['2 mois', '3 mois', 'maison individuelle', 'silence vaut acceptation'],
+    ccQuery: 'permis construire délai instruction urbanisme',
+    caQuery: 'permis construire délai instruction mairie',
+    forcedArticles: [{ law: 'code de l\'urbanisme', artNums: ['R423-23'] }],
+    theme: 'urbanisme', chamber: 'civ3',
+  },
+  {
+    id: 'promesse_vs_compromis',
+    triggerPatterns: [
+      'promesse unilatérale', 'promesse de vente',
+      'différence promesse compromis', 'promesse vs compromis',
+      'promesse ou compromis', 'levée d\'option', 'indemnité d\'immobilisation',
+    ],
+    excludePatterns: [],
+    requiredFacts: [],
+    answerMode: 'direct' as const,
+    expectedLexicon: ['promesse unilatérale', 'compromis', 'article 1124', 'article 1589', 'levée d\'option'],
+    ccQuery: 'promesse unilatérale compromis vente différence immobilier',
+    caQuery: 'promesse unilatérale vente compromis levée option',
+    forcedArticles: [{ law: 'code civil', artNums: ['1124', '1589'] }],
+    theme: 'vente immobilière', chamber: 'civ3',
+  },
+  {
+    id: 'commission_mandat_non_enregistre',
+    triggerPatterns: [
+      'mandat non enregistré', 'mandat pas enregistré',
+      'commission sans mandat', 'registre des mandats',
+      'mandat non inscrit', 'défaut d\'enregistrement',
+    ],
+    excludePatterns: [],
+    requiredFacts: [],
+    answerMode: 'direct' as const,
+    expectedLexicon: ['registre des mandats', 'article 6', 'loi Hoguet', 'nullité'],
+    ccQuery: 'commission agent immobilier mandat registre enregistrement nullité',
+    caQuery: 'commission agent mandat non enregistré registre',
+    forcedArticles: [{ law: 'loi 70-9', artNums: ['6', '7'] }],
+    theme: 'agent immobilier', chamber: 'civ1',
+    noDateFilter: true, publications: ['b', 'r', 'l'],
+  },
+  {
+    id: 'syndic_travaux_urgents',
+    triggerPatterns: [
+      'travaux sans vote', 'travaux sans assemblée',
+      'travaux urgents syndic', 'syndic engager travaux',
+      'travaux d\'urgence copropriété', 'travaux conservatoires',
+    ],
+    excludePatterns: [],
+    requiredFacts: [],
+    answerMode: 'direct' as const,
+    expectedLexicon: ['urgence', 'travaux conservatoires', 'article 18', 'sans vote', 'sauvegarde'],
+    ccQuery: 'syndic copropriété travaux urgence sans vote assemblée',
+    caQuery: 'syndic travaux urgents copropriété sans autorisation',
+    forcedArticles: [{ law: 'loi 65-557', artNums: ['18', '24'] }],
+    theme: 'copropriété', chamber: 'civ3',
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -634,7 +760,7 @@ function detectTheme(question: string): DetectedTheme | null {
       isPremium: true, requiredFacts: FACTS_CONDITIONS_SUSPENSIVES,
     }
   }
-  if (lower.includes('rétractation') || lower.includes('délai de réflexion')) {
+  if (lower.includes('rétractation') || lower.includes('délai de réflexion') || lower.includes('se rétracter') || lower.includes('se retracter')) {
     return {
       theme: 'vente immobilière', chamber: 'civ3',
       ccQuery: 'droit rétractation acquéreur vente immobilière délai',
@@ -649,7 +775,19 @@ function detectTheme(question: string): DetectedTheme | null {
     }
   }
 
-  // Bail — sub-queries spécialisées
+  // Bail commercial — AVANT bail habitation (sinon "bail" matche "bail d'habitation" en premier)
+  if (lower.includes('bail commercial') || lower.includes('fonds de commerce') || lower.includes('l145') ||
+      lower.includes('indemnité d\'éviction') || lower.includes('indemnite d\'eviction') ||
+      lower.includes('3-6-9') || lower.includes('droit au bail') || lower.includes('pas de porte')) {
+    return {
+      theme: 'bail commercial', chamber: 'comm',
+      ccQuery: 'bail commercial renouvellement indemnité éviction résiliation locataire preneur',
+      caQuery: 'bail commercial renouvellement indemnité éviction faute preneur',
+      isPremium: true,
+    }
+  }
+
+  // Bail habitation — sub-queries spécialisées
   if (lower.includes('vétusté') || lower.includes('dégradation') || lower.includes('état des lieux')) {
     return {
       theme: "bail d'habitation", chamber: 'civ3',
@@ -704,10 +842,28 @@ function parseVisaRefs(visaList: Array<{ title?: string }>): VisaRef[] {
 
 function extractZoneText(detail: any, zoneName: string, maxChars: number): string {
   const segments: Array<{ start: number; end: number }> | undefined = detail?.zones?.[zoneName]
-  if (!Array.isArray(segments) || segments.length === 0) return ''
   const fullText: string = detail?.text ?? ''
-  const combined = segments.map(seg => fullText.slice(seg.start, seg.end)).join('\n')
-  return combined.slice(0, maxChars)
+
+  // Cas 1 : zones structurées avec ranges {start, end}
+  if (Array.isArray(segments) && segments.length > 0) {
+    const combined = segments.map(seg => fullText.slice(seg.start, seg.end)).join('\n')
+    if (combined.length > 20) return combined.slice(0, maxChars)
+  }
+
+  // Cas 2 : pas de zones mais texte brut disponible — extraire une portion pertinente
+  if (zoneName === 'motivations' && fullText.length > 200) {
+    // Chercher "attendu que", "considérant que", "mais attendu" qui marquent les motivations
+    const markers = ['attendu que', 'considérant que', 'mais attendu', 'par ces motifs']
+    for (const marker of markers) {
+      const idx = fullText.toLowerCase().indexOf(marker)
+      if (idx > 0) return fullText.slice(idx, idx + maxChars)
+    }
+    // Sinon prendre la 2e moitié du texte (les motivations sont généralement après les faits)
+    const midpoint = Math.floor(fullText.length * 0.4)
+    return fullText.slice(midpoint, midpoint + maxChars)
+  }
+
+  return ''
 }
 
 // ---------------------------------------------------------------------------
@@ -906,7 +1062,9 @@ function formatDecision(detail: any): string {
     .filter(Boolean)
   const visaLine = visaTitles.length ? `Textes appliqués : ${visaTitles.join(' ; ')}` : null
 
-  return [header, themesLine, body, dispositif || null, visaLine]
+  const urlLine = detail.id ? `Lien : ${judilibreUrl(detail.id)}` : null
+
+  return [header, themesLine, body, dispositif || null, visaLine, urlLine]
     .filter(Boolean)
     .join('\n')
 }
@@ -938,7 +1096,9 @@ function formatCAResult(result: any): string {
     body = `Sommaire : ${String(result.summary).slice(0, 400)}`
   }
 
-  return [header, body].filter(Boolean).join('\n')
+  const urlLine = result.id ? `Lien : ${judilibreUrl(result.id)}` : null
+
+  return [header, body, urlLine].filter(Boolean).join('\n')
 }
 
 // ---------------------------------------------------------------------------
@@ -956,6 +1116,10 @@ function extractHolding(detail: any): string {
   return detail.summary ? String(detail.summary).slice(0, 200) : ''
 }
 
+function judilibreUrl(id: string): string {
+  return `https://www.courdecassation.fr/decision/${id}`
+}
+
 function buildNormalizedCC(detail: any, publications: string[]): NormalizedCase {
   const rank = publications.includes('b') || publications.includes('r') ? 1 : 2
   return {
@@ -966,6 +1130,7 @@ function buildNormalizedCC(detail: any, publications: string[]): NormalizedCase 
     holding: extractHolding(detail),
     authorityRank: rank,
     formattedText: formatDecision(detail),
+    url: detail.id ? judilibreUrl(detail.id) : undefined,
   }
 }
 
@@ -978,6 +1143,7 @@ function buildNormalizedCAFromDecision(detail: any): NormalizedCase {
     holding: extractHolding(detail),
     authorityRank: 3,
     formattedText: formatDecision(detail),
+    url: detail.id ? judilibreUrl(detail.id) : undefined,
   }
 }
 
@@ -995,6 +1161,7 @@ function buildNormalizedCAFromSearch(result: any): NormalizedCase {
     holding: snippet,
     authorityRank: 3,
     formattedText: formatCAResult(result),
+    url: result.id ? judilibreUrl(result.id) : undefined,
   }
 }
 
@@ -1061,7 +1228,7 @@ async function classifySubThemeLLM(question: string): Promise<LegalSubTheme | nu
 // Point d'entrée public
 // ---------------------------------------------------------------------------
 
-export async function fetchJurisprudence(question: string): Promise<JudilibreContext> {
+export async function fetchJurisprudence(question: string, reformulatedQuery?: string): Promise<JudilibreContext> {
   // Fast-path synchrone : keyword matching (0ms, couvre ~85% des cas)
   const fastDetected = detectTheme(question)
 
@@ -1086,8 +1253,9 @@ export async function fetchJurisprudence(question: string): Promise<JudilibreCon
   }
 
   const { theme, chamber, ccQuery, caQuery, noDateFilter, publications, dpeSignal, isPremium, requiredFacts, subTheme, expectedLexicon, forcedArticles } = detected
-  const ccSearchQuery = ccQuery ?? question
-  const caSearchQuery = caQuery ?? question
+  // Priorité : ccQuery du sub-theme > query reformulée > question brute
+  const ccSearchQuery = ccQuery ?? reformulatedQuery ?? question
+  const caSearchQuery = caQuery ?? reformulatedQuery ?? question
   const pubs = publications ?? ['b', 'r']
 
   try {

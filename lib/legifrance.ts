@@ -59,15 +59,57 @@ export async function getAccessToken(): Promise<string> {
 
 // LEGITEXT : IDs consolidés LEGI — endpoints legiPart + canonicalVersion
 const LEGITEXT_MAP: Record<string, string> = {
-  'civil':      'LEGITEXT000006070721', // Code civil
-  'code-civil': 'LEGITEXT000006070721',
-  '89-462':     'LEGITEXT000006069108', // Loi baux habitation 6 juil 1989
-  '65-557':     'LEGITEXT000006068256', // Loi copropriété 10 juil 1965
-  '70-9':       'LEGITEXT000006068387', // Loi Hoguet 2 jan 1970
-  '2014-366':   'LEGITEXT000028775733', // Loi ALUR 24 mars 2014
-  '2018-1021':  'LEGITEXT000037642121', // Loi ELAN 23 nov 2018
-  '2021-1104':  'LEGITEXT000043957598', // Loi Climat-Résilience 22 août 2021
-  '67-223':     'LEGITEXT000006061423', // Décret copropriété 17 mars 1967
+  // Code civil
+  'civil':           'LEGITEXT000006070721',
+  'code-civil':      'LEGITEXT000006070721',
+  'code civil':      'LEGITEXT000006070721',
+  // Lois immobilières
+  '89-462':          'LEGITEXT000006069108', // Loi baux habitation
+  'loi 89-462':      'LEGITEXT000006069108',
+  '65-557':          'LEGITEXT000006068256', // Loi copropriété
+  'loi 65-557':      'LEGITEXT000006068256',
+  '70-9':            'LEGITEXT000006068387', // Loi Hoguet
+  'loi 70-9':        'LEGITEXT000006068387',
+  '2014-366':        'LEGITEXT000028775733', // Loi ALUR
+  'loi 2014-366':    'LEGITEXT000028775733',
+  '2018-1021':       'LEGITEXT000037642121', // Loi ELAN
+  'loi 2018-1021':   'LEGITEXT000037642121',
+  '2021-1104':       'LEGITEXT000043957598', // Loi Climat-Résilience
+  'loi 2021-1104':   'LEGITEXT000043957598',
+  'loi climat':      'LEGITEXT000043957598',
+  'loi 2005-102':    'LEGITEXT000006068412', // Loi égalité droits handicap
+  // Décrets
+  '67-223':          'LEGITEXT000006061423', // Décret copropriété 1967
+  'décret 67-223':   'LEGITEXT000006061423',
+  '72-678':          'LEGITEXT000006063791', // Décret Hoguet 1972
+  'décret 72-678':   'LEGITEXT000006063791',
+  '71-941':          'LEGITEXT000006063952', // Décret état civil 1971
+  'décret 71-941':   'LEGITEXT000006063952',
+  // Codes
+  'cch':             'LEGITEXT000006074096', // Code de la Construction et Habitation
+  'code de la construction': 'LEGITEXT000006074096',
+  'code de l\'urbanisme':    'LEGITEXT000006074075', // Code de l'urbanisme
+  'urbanisme':               'LEGITEXT000006074075',
+  'code de l\'environnement':'LEGITEXT000006074220', // Code de l'environnement
+  'environnement':           'LEGITEXT000006074220',
+  'cgi':                     'LEGITEXT000006069577', // Code général des impôts
+  'code général des impôts': 'LEGITEXT000006069577',
+  'code des impôts':         'LEGITEXT000006069577',
+  'code de la santé publique':'LEGITEXT000006072665', // Code de la santé publique
+  'csp':                     'LEGITEXT000006072665',
+  'code de procédure civile':'LEGITEXT000006070716', // Code de procédure civile
+  'cpc':                     'LEGITEXT000006070716',
+  'code des assurances':     'LEGITEXT000006073984', // Code des assurances
+  'cmf':                     'LEGITEXT000006072026', // Code monétaire et financier
+  'cpce':                    'LEGITEXT000025024948', // Code procédures civiles d'exécution (trêve hivernale)
+  'code de la consommation': 'LEGITEXT000006069565', // Code de la consommation
+  'code de commerce':        'LEGITEXT000005634379', // Code de commerce (bail commercial L145)
+  'code commerce':           'LEGITEXT000005634379',
+  'commerce':                'LEGITEXT000005634379',
+  'code du tourisme':        'LEGITEXT000006074073', // Code du tourisme (meublé tourisme)
+  'code rural':              'LEGITEXT000006071367', // Code rural (SAFER, préemption)
+  'code-urbanisme':          'LEGITEXT000006074075', // alias avec tiret
+  'code-construction':       'LEGITEXT000006074096', // alias CCH
 }
 
 const API_BASE = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'

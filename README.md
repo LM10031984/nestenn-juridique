@@ -68,6 +68,10 @@ Question utilisateur
 
 Voir `.env.example`. Sans credentials PISTE (`PISTE_CLIENT_ID` / `PISTE_CLIENT_SECRET`), le système fonctionne en mode dégradé (LLM seul). Inscription sur https://piste.gouv.fr/registration.
 
+## Philosophie produit
+
+> Le chantier principal n'est plus la qualité de la réponse, c'est la qualité de la réponse en tant que produit juridique institutionnel.
+
 ## Roadmap
 
 - **Phase 1** (S1-2) : Chat juridique + DILA ✅

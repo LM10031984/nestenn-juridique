@@ -60,7 +60,11 @@ const SUPPORTED_MODELS: Record<string, { openrouterId: string; label: string }> 
 
 async function callChatApi(question: string, openrouterId?: string): Promise<{ text: string; tokens: number; durationMs: number }> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 60_000)
+  const timeout = setTimeout(() => controller.abort(), 180_000)
+  // Increase Node.js default headers timeout for slow Claude responses
+  if (typeof globalThis !== 'undefined') {
+    (globalThis as any).__headersTimeout = 180_000
+  }
   const start = Date.now()
 
   // Claude génère ~1700 tokens — on lui donne 3000 pour ne pas couper
@@ -199,6 +203,7 @@ async function checkOpenRouterKey(): Promise<boolean> {
  * - supprime "n°" (ex: "loi n° 89-462" → "loi 89-462")
  * - normalise les apostrophes et guillemets
  * - réduit les espaces multiples
+ * - alias : "art. X" → "article X", abréviations codes (CMF, CCH, CGI, CSP)
  */
 function normalize(str: string): string {
   return str
@@ -206,6 +211,11 @@ function normalize(str: string): string {
     .replace(/[\u0300-\u036f]/g, '')   // supprime diacritiques
     .toLowerCase()
     .replace(/n°\s*/g, '')             // "n° 89-462" → "89-462"
+    .replace(/\bart\.\s*/g, 'article ') // "Art. 24" → "article 24"
+    .replace(/\bcmf\b/g, 'code monetaire et financier')
+    .replace(/\bcch\b/g, 'code de la construction et de l habitation')
+    .replace(/\bcgi\b/g, 'code general des impots')
+    .replace(/\bcsp\b/g, 'code de la sante publique')
     .replace(/[''`]/g, "'")            // normalise apostrophes
     .replace(/\s+/g, ' ')             // espaces multiples → un seul
     .trim()

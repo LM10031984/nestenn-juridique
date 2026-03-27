@@ -13,8 +13,9 @@ export interface OpenRouterStreamChunk {
 const BASE_URL = 'https://openrouter.ai/api/v1'
 
 export const MODELS = {
-  MAIN: 'openai/gpt-4o',
+  MAIN: 'anthropic/claude-sonnet-4-6',
   FILTER: 'openai/gpt-4o-mini',
+  FALLBACK: 'openai/gpt-4o',
 } as const
 
 function getApiKey(): string {
@@ -37,7 +38,7 @@ function buildHeaders(): HeadersInit {
 export async function openRouterChat(
   messages: OpenRouterMessage[],
   model: string = MODELS.FILTER,
-  maxTokens: number = 200
+  maxTokens: number = 4000
 ): Promise<string> {
   const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -68,7 +69,7 @@ export async function openRouterChat(
 export async function openRouterStream(
   messages: OpenRouterMessage[],
   model: string = MODELS.MAIN,
-  maxTokens: number = 2000
+  maxTokens: number = 4000
 ): Promise<ReadableStream<Uint8Array>> {
   const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -91,4 +92,16 @@ export async function openRouterStream(
   }
 
   return response.body
+}
+
+export async function openRouterStreamWithFallback(
+  messages: OpenRouterMessage[],
+  maxTokens: number = 2000,
+): Promise<ReadableStream<Uint8Array>> {
+  try {
+    return await openRouterStream(messages, MODELS.MAIN, maxTokens)
+  } catch (err) {
+    console.warn('[openrouter] MAIN model down — fallback:', err)
+    return await openRouterStream(messages, MODELS.FALLBACK, maxTokens)
+  }
 }

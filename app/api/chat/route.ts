@@ -1,18 +1,19 @@
 // app/api/chat/route.ts
-// Pipeline principal : filtre hors-sujet → contexte DILA → GPT-4o → stream SSE
+// Pipeline Augmenté v4 — le LLM est enrichi par pgvector, pas contraint par lui
+// Filtre hors-sujet → embedding + pgvector → prompt augmenté → streaming direct
 
 import { NextRequest } from 'next/server'
-import { openRouterChat, openRouterStream, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
-import { fetchLegalContext } from '@/lib/legifrance'
-import { fetchJurisprudence, type VisaRef, type RequiredFact } from '@/lib/judilibre'
-import { getSystemPrompt } from '@/lib/system-prompt'
+import { openRouterStreamWithFallback, openRouterChat, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
+import { getSystemPromptAugmented } from '@/lib/system-prompt'
+import { fetchRelevantSources } from '@/lib/sources'
+import { embedQuestion } from '@/lib/embedding'
+import { detectDomains } from '@/lib/domain-detector'
+import { autoIndexMissingArticles } from '@/lib/auto-indexer'
 
-// ---------------------------------------------------------------------------
-// Constantes
-// ---------------------------------------------------------------------------
+// ── Constantes ──
 
 const MAX_MESSAGE_LENGTH = 2000
-const MAX_HISTORY_TURNS = 10 // nb de tours (user+assistant) conservés pour le contexte
+const MAX_HISTORY_TURNS = 10
 
 const REFUSAL_MESSAGE =
   "Je suis spécialisé en droit immobilier français. Je ne peux pas répondre à cette question.\n\n" +
@@ -21,351 +22,216 @@ const REFUSAL_MESSAGE =
   "- Les **baux d'habitation** (location vide, meublée, mobilité)\n" +
   "- La **copropriété** (charges, assemblée générale, syndic)\n" +
   "- Les **diagnostics immobiliers** (DPE, amiante, plomb…)\n" +
-  "- La **loi ALUR** et la **loi ELAN**\n" +
-  "- Les **transactions immobilières** (compromis, promesse de vente, **conditions suspensives**, frais de notaire, viager)\n" +
-  "- L'**urbanisme** et la **fiscalité immobilière** (**SCI**, viager, démembrement)\n\n" +
+  "- Les **transactions immobilières** (compromis, promesse de vente, conditions suspensives)\n" +
+  "- L'**urbanisme** et la **fiscalité immobilière** (SCI, plus-value, Pinel)\n\n" +
   "N'hésitez pas à me poser une question dans ces domaines."
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+const FILTER_SYSTEM = `Tu es un filtre. Réponds OUI ou NON.
+OUI si la question touche au droit immobilier français : bail, loyer, sous-location,
+copropriété, vente, mandat, diagnostics, urbanisme, fiscalité immo, expulsion,
+charges, travaux, dépôt de garantie, etc.
+NON uniquement si clairement hors sujet (recette de cuisine, sport, etc.). En cas de doute → OUI.`
 
-interface ConversationTurn {
-  role: string
-  content: string
-}
+// ── Types ──
 
 interface ChatRequestBody {
   message: string
-  conversationHistory?: ConversationTurn[]
+  conversationHistory?: Array<{ role: string; content: string }>
   sessionId?: string
-  model?: string
-  maxTokens?: number
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ── Pipeline principal ──
 
-/**
- * Construit une Response SSE à partir d'un message texte statique.
- * Utilisé pour les refus et les erreurs renvoyées en streaming.
- */
-/**
- * Simule le streaming SSE en émettant le texte par groupes de mots.
- * Utilisé quand la réponse est pré-calculée (validation jurisprudence).
- */
-function simulateStreamResponse(text: string, headers: Record<string, string> = {}): Response {
-  const encoder = new TextEncoder()
-  const words = text.split(' ')
-  const CHUNK_SIZE = 4   // mots par événement SSE
-  const DELAY_MS  = 12  // ms entre chaque chunk
+export async function POST(req: NextRequest) {
+  const body = await req.json() as ChatRequestBody
+  const trimmedMessage = (body.message ?? '').trim().slice(0, MAX_MESSAGE_LENGTH)
 
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      for (let i = 0; i < words.length; i += CHUNK_SIZE) {
-        const chunk = words.slice(i, i + CHUNK_SIZE).join(' ') + (i + CHUNK_SIZE < words.length ? ' ' : '')
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk }, finish_reason: null }] })}\n\n`)
-        )
-        await new Promise(r => setTimeout(r, DELAY_MS))
-      }
-      controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-      controller.close()
-    },
-  })
-
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      ...headers,
-    },
-  })
-}
-
-function staticSseResponse(text: string, headers: Record<string, string> = {}): Response {
-  const encoder = new TextEncoder()
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      // Envoie le texte en un seul chunk SSE puis clôture
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: text }, finish_reason: null }] })}\n\n`))
-      controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-      controller.close()
-    },
-  })
-
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      ...headers,
-    },
-  })
-}
-
-/**
- * Détecte si la question est théorique/académique plutôt qu'un cas de dossier réel.
- * Une question théorique ne doit pas déclencher la qualification des faits.
- */
-function isTheoreticalQuestion(message: string): boolean {
-  const lower = message.toLowerCase()
-  // Marqueurs de question théorique (règle générale, pas un cas vécu)
-  const theoreticalMarkers = [
-    'est-il valide', 'est-elle valide', 'est-il possible', 'est-il légal',
-    'comment fonctionne', 'comment se calcule', 'quelle est la règle',
-    'quelle est la différence', 'qu\'est-ce que', 'quelles sont les conditions',
-    'quelles sont les obligations', 'depuis la loi', 'selon la loi',
-    'est-ce que la loi', 'que dit la loi', 'que prévoit', 'quel est le délai',
-    'quels sont les délais', 'quelles sont les mentions', 'comment calculer',
-    'est-ce obligatoire', 'est-il obligatoire', 'dois-je', 'faut-il',
-    'citez-moi', 'donnez-moi', 'expliquez', 'quelle jurisprudence',
-    'peut-il invoquer', 'peut-elle invoquer', 'peut-on invoquer',
-    'perd-il automatiquement', 'perd-elle automatiquement',
-    'est-il automatiquement', 'est-elle automatiquement',
-    'quel délai s\'applique', 'quel est le délai applicable',
-  ]
-  // Marqueurs de cas réel (première personne, situation vécue)
-  const realCaseMarkers = [
-    'mon client', 'mon acheteur', 'mon vendeur', 'mon locataire', 'mon bailleur',
-    'j\'ai reçu', 'j\'ai signé', 'nous avons signé', 'il conteste', 'elle conteste',
-    'ils refusent', 'il refuse', 'elle refuse', 'on m\'a envoyé', 'j\'ai un problème',
-    'ma commission', 'mes honoraires', 'mon mandat', 'ma situation',
-  ]
-  const hasRealCase = realCaseMarkers.some(m => lower.includes(m))
-  const hasTheoretical = theoreticalMarkers.some(m => lower.includes(m))
-  // Théorique si marqueur théorique présent ET pas de marqueur de cas réel
-  return hasTheoretical && !hasRealCase
-}
-
-/**
- * Détecte les faits requis absents du contexte conversationnel.
- * Retourne les labels des faits manquants ([] = tous présents).
- */
-function checkMissingFacts(
-  message: string,
-  history: ConversationTurn[] | undefined,
-  requiredFacts: RequiredFact[],
-): RequiredFact[] {
-  if (requiredFacts.length === 0) return []
-
-  // Texte de recherche : message courant + 4 derniers tours de l'historique
-  const historyText = (history ?? [])
-    .slice(-4)
-    .map(t => t.content)
-    .join(' ')
-  const searchText = (message + ' ' + historyText).toLowerCase()
-
-  return requiredFacts.filter(
-    fact => !fact.keywords.some(kw => searchText.includes(kw.toLowerCase()))
-  )
-}
-
-/**
- * Construit le message de qualification des faits manquants.
- */
-function buildQualificationResponse(missingFacts: RequiredFact[]): string {
-  const questions = missingFacts.map((f, i) => `${i + 1}. ${f.label}`).join('\n')
-  return `Pour vous donner un avis précis sur ce point, j'ai besoin de quelques informations supplémentaires :\n\n${questions}\n\nDès que vous me les communiquez, je pourrai vous dire si votre position est solide ou fragile, et quelle démarche adopter.`
-}
-
-/**
- * Sanitise et valide l'historique de conversation fourni par le client.
- * Retient au plus MAX_HISTORY_TURNS tours et ne garde que les rôles user/assistant.
- */
-function sanitizeHistory(raw: ConversationTurn[] | undefined): OpenRouterMessage[] {
-  if (!Array.isArray(raw) || raw.length === 0) return []
-
-  return raw
-    .filter(
-      (turn) =>
-        turn &&
-        typeof turn.role === 'string' &&
-        typeof turn.content === 'string' &&
-        (turn.role === 'user' || turn.role === 'assistant')
-    )
-    .slice(-MAX_HISTORY_TURNS * 2) // *2 car chaque tour = 1 user + 1 assistant
-    .map((turn) => ({
-      role: turn.role as 'user' | 'assistant',
-      content: turn.content,
-    }))
-}
-
-// ---------------------------------------------------------------------------
-// Filtre hors-périmètre (gpt-4o-mini — rapide et peu coûteux)
-// ---------------------------------------------------------------------------
-
-const FILTER_SYSTEM = `Tu es un classificateur. Réponds UNIQUEMENT avec {"relevant":true} ou {"relevant":false}.
-Sont dans le périmètre : droit immobilier français, notamment :
-- baux d'habitation (loyer, locataire, bailleur, expulsion, congé, dépôt de garantie, clause résolutoire, commandement de payer)
-- copropriété (syndic, syndicat, assemblée générale, charges, règlement de copropriété)
-- transactions immobilières (compromis, promesse de vente, conditions suspensives, délai de prêt, obtention de financement, refus de prêt, prêt immobilier, droit de rétractation, vices cachés, notaire, VEFA, vente en état futur d'achèvement, garantie décennale, garantie biennale, garantie de parfait achèvement, constructeur, maîtrise d'ouvrage)
-- agent immobilier (loi Hoguet, mandat, commission, honoraires, devoir de conseil)
-- diagnostics immobiliers obligatoires (DPE, amiante, plomb, termites, électricité, gaz, ERP, assainissement)
-- urbanisme (permis de construire, PLU, loi ZAN, préemption, ALUR, ELAN)
-- SCI, viager, rente viagère, démembrement, usufruit, nue-propriété
-- servitudes, mitoyenneté, troubles de voisinage
-Hors périmètre : cuisine, médecine, droit du travail (hors immobilier), politique, informatique générale.
-En cas de doute, réponds {"relevant":true}.`
-
-async function isRelevantQuestion(message: string): Promise<boolean> {
-  try {
-    const result = await openRouterChat(
-      [
-        { role: 'system', content: FILTER_SYSTEM },
-        { role: 'user', content: message.slice(0, 500) },
-      ],
-      MODELS.FILTER,
-      20
-    )
-    const parsed = JSON.parse(result.trim()) as { relevant: boolean }
-    return parsed.relevant !== false
-  } catch {
-    return true // fail-open : en cas d'erreur, on laisse passer
-  }
-}
-
-// ---------------------------------------------------------------------------
-// POST /api/chat
-// ---------------------------------------------------------------------------
-
-export async function POST(req: NextRequest): Promise<Response> {
-  // ── Validation de base ──────────────────────────────────────────────────
-
-  let body: ChatRequestBody
-  try {
-    body = (await req.json()) as ChatRequestBody
-  } catch {
-    return new Response(JSON.stringify({ error: 'Corps de la requête invalide (JSON attendu).' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  if (!trimmedMessage) {
+    return Response.json({ error: 'Message vide' }, { status: 400 })
   }
 
-  const { message, conversationHistory, sessionId, model, maxTokens } = body
+  // ── Étape 1 : Filtre hors-sujet (GPT-4o-mini, ~500ms) ──
 
-  if (!message || typeof message !== 'string' || message.trim().length === 0) {
-    return new Response(JSON.stringify({ error: 'Le champ "message" est requis.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  const isRelevant = await checkRelevance(trimmedMessage)
+  if (!isRelevant) {
+    return streamTextResponse(REFUSAL_MESSAGE)
   }
 
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    return new Response(
-      JSON.stringify({
-        error: `Le message dépasse la limite de ${MAX_MESSAGE_LENGTH} caractères.`,
-      }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    )
-  }
+  // ── Étape 2 : Sources en parallèle ──
+  // - Détection domaine : keyword matching, 0ms
+  // - Embedding + pgvector : ~150ms total
 
-  const trimmedMessage = message.trim()
+  const domains = detectDomains(trimmedMessage)
+  const embedding = await embedQuestion(trimmedMessage)
 
-  // ── Rate limiting basique (sera renforcé Phase 4) ───────────────────────
-  // On logue l'IP pour monitoring — le vrai rate limiting viendra avec Redis/Upstash
-  const forwardedFor = req.headers.get('X-Forwarded-For')
-  const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
-  console.info(`[chat] Requête reçue — ip=${clientIp} sessionId=${sessionId ?? 'none'} msgLength=${trimmedMessage.length}`)
-
-  // ── Étape 1 : Filtre hors-sujet ─────────────────────────────────────────
-  const relevant = await isRelevantQuestion(trimmedMessage)
-  if (!relevant) {
-    return staticSseResponse(REFUSAL_MESSAGE)
-  }
-
-  // ── Étape 2 : Judilibre en premier → visaRefs → Légifrance ─────────────
-  const juriContext = await fetchJurisprudence(trimmedMessage)
-  const dilaContext = await fetchLegalContext(
-    trimmedMessage,
-    openRouterChat,
-    juriContext.visaRefs.length > 0 ? juriContext.visaRefs : undefined,
-    juriContext.forcedArticles && juriContext.forcedArticles.length > 0 ? juriContext.forcedArticles : undefined,
+  const { chunks, juriCases } = await fetchRelevantSources(
+    embedding,
+    domains.length > 0 ? domains : null,
+    8,    // max résultats
+    0.30, // threshold minimum
   )
 
-  // ── Étape 3 : Qualification des faits (cas premium + cas réel seulement) ─
-  if (juriContext.isPremium && juriContext.requiredFacts.length > 0 && !isTheoreticalQuestion(trimmedMessage)) {
-    const missingFacts = checkMissingFacts(trimmedMessage, conversationHistory, juriContext.requiredFacts)
-    // Si 2+ faits critiques absents : demander avant de générer
-    if (missingFacts.length >= 2) {
-      console.info(`[pipeline] qualification requise — ${missingFacts.length} faits manquants: ${missingFacts.map(f => f.id).join(', ')}`)
-      return staticSseResponse(buildQualificationResponse(missingFacts))
-    }
-  }
-
-  const mode: 'flash' | 'stratégique' = juriContext.isPremium ? 'stratégique' : 'flash'
-  const systemPromptContent = getSystemPrompt(dilaContext, juriContext?.text, mode, juriContext.expectedLexicon)
-
-  const juriNumbers = juriContext.cases.map((c) => c.number).join(', ') || '—'
   console.info(
-    `[pipeline] mode=${mode} juri=${juriNumbers} (${juriContext.cases.length} arrêts: ${juriContext.cases.filter(c => c.court === 'cass').length}CC/${juriContext.cases.filter(c => c.court === 'ca').length}CA) visa=[${juriContext.visaRefs.length} refs] → legi=[${dilaContext.texts.length} articles] → prompt=[${systemPromptContent.length} chars]`
+    `[pipeline] domains=${domains.join(',') || '—'} `
+    + `chunks=${chunks.length} juri=${juriCases.length} `
+    + `best=${chunks[0]?.similarity?.toFixed(3) ?? '—'}`
   )
 
-  const history = sanitizeHistory(conversationHistory)
+  // ── Étape 3 : Assemblage du prompt augmenté ──
+
+  const systemPrompt = getSystemPromptAugmented(chunks, juriCases)
+  const history = sanitizeHistory(body.conversationHistory)
 
   const messages: OpenRouterMessage[] = [
-    { role: 'system', content: systemPromptContent },
+    { role: 'system', content: systemPrompt },
     ...history,
     { role: 'user', content: trimmedMessage },
   ]
 
-  // ── Étape 4 : Génération avec validation jurisprudence si nécessaire ─────
-  const hasJuri = juriContext.available && juriContext.cases.length > 0
+  console.info(`[pipeline] prompt=${systemPrompt.length} chars`)
+
+  // ── Étape 4 : Génération en streaming direct ──
 
   try {
-    if (hasJuri) {
-      // Quand la jurisprudence est injectée : appel non-streaming pour valider
-      // la présence de la section 2️⃣ avant d'envoyer la réponse
-      let responseText = await openRouterChat(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
+    const llmStream = await openRouterStreamWithFallback(messages, 2000)
 
-      const hasCitation = /Cass\.|Cour d'appel|Cour de cassation|n° \d{2}[-\/]/.test(responseText)
+    // Auto-indexer : si peu de sources, on tee le stream pour capturer la réponse
+    // et indexer automatiquement les articles cités mais absents de pgvector
+    const chunksFound = chunks.length
+    let outputStream: ReadableStream<Uint8Array>
 
-      if (!hasCitation) {
-        console.warn('[chat] Jurisprudence absente de la réponse — correction forcée (2e appel)')
-        const correctionMessages: OpenRouterMessage[] = [
-          ...messages,
-          { role: 'assistant', content: responseText },
-          {
-            role: 'user',
-            content:
-              'CORRECTION REQUISE : ta réponse ne contient pas la section "2️⃣ Jurisprudence applicable" alors que des arrêts sont fournis dans le prompt (section JURISPRUDENCES DE RÉFÉRENCE). Réécris ta réponse complète en incluant impérativement cette section avec au moins un arrêt cité, son numéro, sa date et l\'enseignement qu\'il apporte.',
-          },
-        ]
-        responseText = await openRouterChat(correctionMessages, model ?? MODELS.MAIN, maxTokens ?? 2000)
-        console.info('[chat] 2e appel — correction jurisprudence appliquée')
-      }
+    if (chunksFound < 3) {
+      const decoder = new TextDecoder()
+      const accumulated: string[] = []
+      const [clientStream, captureStream] = llmStream.tee()
 
-      return simulateStreamResponse(responseText, {
-        'X-DILA-Available': dilaContext.available ? 'true' : 'false',
-        'X-Judilibre-Available': 'true',
-      })
+      // Consommer le flux de capture en arrière-plan
+      ;(async () => {
+        try {
+          const reader = captureStream.getReader()
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            accumulated.push(decoder.decode(value, { stream: true }))
+          }
+          const fullText = accumulated.join('')
+          autoIndexMissingArticles(fullText, chunksFound)
+            .catch(err => console.error('[auto-indexer]', err))
+        } catch { /* silencieux — ne bloque jamais la réponse */ }
+      })()
+
+      outputStream = clientStream
+    } else {
+      outputStream = llmStream
     }
 
-    // Pas de jurisprudence : streaming normal
-    const llmStream = await openRouterStream(messages, model ?? MODELS.MAIN, maxTokens ?? 2000)
-
-    return new Response(llmStream, {
+    return new Response(outputStream, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'X-DILA-Available': dilaContext.available ? 'true' : 'false',
-        'X-Judilibre-Available': 'false',
+        'X-Sources-Count': String(chunks.length),
+        'X-Juri-Count': String(juriCases.length),
       },
     })
   } catch (err) {
-    console.error('[chat] Erreur pipeline LLM :', err)
-    return new Response(
-      JSON.stringify({
-        error:
-          'Une erreur est survenue lors du traitement de votre demande. Veuillez réessayer dans quelques instants.',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    console.error('[pipeline] Erreur LLM :', err)
+    return Response.json(
+      { error: 'Erreur lors du traitement. Réessayez.' },
+      { status: 500 },
     )
   }
+}
+
+// ── Whitelist keywords — pass immédiat, 0ms, 0 coût ──
+// Couvre tous les domaines du droit immobilier français.
+// Si un keyword matche → OUI sans appel LLM.
+// Si aucun keyword → fallback GPT-4o-mini pour les cas ambigus.
+
+const IMMO_KEYWORDS = [
+  // Bail / location
+  'bail', 'loyer', 'locataire', 'bailleur', 'location', 'sous-louer', 'sous-location',
+  'congé', 'expulsion', 'dépôt de garantie', 'depot de garantie', 'préavis', 'preavis',
+  'trêve hivernale', 'treve hivernale', 'clause résolutoire', 'irl', 'quittance',
+  'état des lieux', 'etat des lieux', 'logement', 'appartement', 'propriétaire',
+  'louer', 'locatif', 'résiliation', 'renouvellement du bail',
+  // Copropriété
+  'copropriété', 'copropriete', 'syndic', 'assemblée générale', 'assemblee generale',
+  'charges de copropriété', 'tantièmes', 'tantiemes', 'parties communes',
+  'règlement de copropriété', 'syndicat des copropriétaires', 'lot de copropriété',
+  // Agent immobilier / mandat
+  'agent immobilier', 'mandat', 'honoraires', 'hoguet', 'carte t', 'commission',
+  'agence immobilière', 'agence immobiliere', 'négociateur', 'negociateur',
+  'devoir de conseil', 'compromis', 'promesse de vente',
+  // Vente / transactions
+  'vente', 'acheteur', 'vendeur', 'notaire', 'frais de notaire', 'avant-contrat',
+  'vice caché', 'vice cache', 'rétractation', 'retractation', 'condition suspensive',
+  'acte authentique', 'sru', 'plus-value', 'droits de mutation', 'préemption', 'preemption',
+  // Diagnostics
+  'diagnostic', 'dpe', 'amiante', 'plomb', 'termites', 'erp', 'carrez',
+  'audit énergétique', 'audit energetique', 'passoire thermique', 'classe énergétique',
+  // Urbanisme / construction
+  'urbanisme', 'permis de construire', 'plu', 'zan', 'certificat d\'urbanisme',
+  'vefa', 'décennale', 'decennale', 'malfaçon', 'travaux', 'construction',
+  // Fiscalité immo
+  'sci', 'ifi', 'pinel', 'denormandie', 'déficit foncier', 'deficit foncier',
+  'lmnp', 'revenus fonciers', 'taxe foncière', 'taxe fonciere',
+  // Autres
+  'viager', 'usufruit', 'démembrement', 'demembrement', 'nue-propriété',
+  'bail commercial', 'fonds de commerce', 'crédit immobilier', 'credit immobilier',
+  'immobilier', 'immeuble', 'bien immobilier', 'terrain',
+]
+
+function isImmoKeywordMatch(message: string): boolean {
+  const lower = message.toLowerCase()
+  return IMMO_KEYWORDS.some(kw => lower.includes(kw))
+}
+
+// ── Helpers ──
+
+async function checkRelevance(message: string): Promise<boolean> {
+  // Pré-filtre keyword : 0ms, 0 coût, couvre ~95% des questions légitimes
+  if (isImmoKeywordMatch(message)) return true
+
+  // Fallback LLM pour les cas ambigus sans keyword évident
+  try {
+    const result = await openRouterChat(
+      [
+        { role: 'system', content: FILTER_SYSTEM },
+        { role: 'user', content: message },
+      ],
+      MODELS.FILTER,
+      5,
+    )
+    return result.trim().toUpperCase().startsWith('OUI')
+  } catch {
+    return true // fail-open : en cas d'erreur, laisser passer
+  }
+}
+
+function sanitizeHistory(raw: unknown): OpenRouterMessage[] {
+  if (!Array.isArray(raw)) return []
+  return (raw as Array<{ role?: string; content?: string }>)
+    .filter(t => t?.role && t?.content && ['user', 'assistant'].includes(t.role))
+    .slice(-MAX_HISTORY_TURNS * 2)
+    .map(t => ({ role: t.role as 'user' | 'assistant', content: t.content as string }))
+}
+
+function streamTextResponse(text: string): Response {
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify({
+          choices: [{ delta: { content: text }, finish_reason: null }],
+        })}\n\n`)
+      )
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+      controller.close()
+    },
+  })
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
 }
