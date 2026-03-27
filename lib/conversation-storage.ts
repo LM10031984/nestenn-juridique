@@ -52,6 +52,19 @@ export function deleteConversation(id: string): void {
   }
 }
 
+export function renameConversation(id: string, newTitle: string): void {
+  try {
+    const list = loadConversations()
+    const idx = list.findIndex(c => c.id === id)
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], title: newTitle.trim().slice(0, 80), updatedAt: new Date().toISOString() }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+    }
+  } catch {
+    // Silently ignore
+  }
+}
+
 export function clearAllConversations(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)

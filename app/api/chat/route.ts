@@ -9,6 +9,7 @@ import { fetchRelevantSources } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
 import { detectDomains } from '@/lib/domain-detector'
 import { autoIndexMissingArticles } from '@/lib/auto-indexer'
+import { createClient } from '@/lib/supabase/server'
 
 // ── Constantes ──
 
@@ -38,6 +39,8 @@ interface ChatRequestBody {
   message: string
   conversationHistory?: Array<{ role: string; content: string }>
   sessionId?: string
+  messageId?: string   // UUID Supabase du message user, pour le logging analytics
+  conversationId?: string // UUID Supabase de la conversation
 }
 
 // ── Pipeline principal ──
@@ -45,6 +48,7 @@ interface ChatRequestBody {
 export async function POST(req: NextRequest) {
   const body = await req.json() as ChatRequestBody
   const trimmedMessage = (body.message ?? '').trim().slice(0, MAX_MESSAGE_LENGTH)
+  const { messageId, conversationId } = body
 
   if (!trimmedMessage) {
     return Response.json({ error: 'Message vide' }, { status: 400 })
@@ -71,11 +75,23 @@ export async function POST(req: NextRequest) {
     0.30, // threshold minimum
   )
 
+  const primaryDomain = domains[0] ?? null
+  const responseMode: 'sourced' | 'free' = chunks.length >= 2 ? 'sourced' : 'free'
+
   console.info(
     `[pipeline] domains=${domains.join(',') || '—'} `
     + `chunks=${chunks.length} juri=${juriCases.length} `
     + `best=${chunks[0]?.similarity?.toFixed(3) ?? '—'}`
   )
+
+  // Analytics fire-and-forget
+  if (messageId) {
+    saveMessageMetadata(messageId, conversationId ?? null, {
+      domain: primaryDomain,
+      sourcesCount: chunks.length,
+      responseMode,
+    }).catch(() => {})
+  }
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
 
@@ -133,6 +149,8 @@ export async function POST(req: NextRequest) {
         'Connection': 'keep-alive',
         'X-Sources-Count': String(chunks.length),
         'X-Juri-Count': String(juriCases.length),
+        'X-Domain': primaryDomain ?? '',
+        'X-Response-Mode': responseMode,
       },
     })
   } catch (err) {
@@ -216,6 +234,36 @@ function sanitizeHistory(raw: unknown): OpenRouterMessage[] {
     .filter(t => t?.role && t?.content && ['user', 'assistant'].includes(t.role))
     .slice(-MAX_HISTORY_TURNS * 2)
     .map(t => ({ role: t.role as 'user' | 'assistant', content: t.content as string }))
+}
+
+// ── Analytics ──
+
+async function saveMessageMetadata(
+  messageId: string,
+  conversationId: string | null,
+  meta: { domain: string | null; sourcesCount: number; responseMode: 'sourced' | 'free' },
+) {
+  try {
+    const supabase = createClient()
+    // Update du message user
+    await supabase
+      .from('messages')
+      .update({
+        domain: meta.domain,
+        sources_count: meta.sourcesCount,
+        response_mode: meta.responseMode,
+      })
+      .eq('id', messageId)
+
+    // Propager le domaine sur la conversation (uniquement si pas déjà set)
+    if (conversationId && meta.domain) {
+      await supabase
+        .from('conversations')
+        .update({ domain: meta.domain })
+        .eq('id', conversationId)
+        .is('domain', null)
+    }
+  } catch { /* silencieux — ne bloque jamais la réponse */ }
 }
 
 function streamTextResponse(text: string): Response {

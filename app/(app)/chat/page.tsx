@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Scale, AlertTriangle, Mic } from 'lucide-react'
+import { Send, Scale, AlertTriangle, Mic, Paperclip, FileText, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { SuggestionCard } from '@/components/SuggestionCard'
 import { LegalDisclaimer } from '@/components/LegalDisclaimer'
 import { LetterModal } from '@/components/LetterModal'
+import ConversationSidebar from '@/components/chat/ConversationSidebar'
 import {
   loadConversations,
   saveConversation,
@@ -86,6 +87,12 @@ export default function ChatPage() {
   const [letterSuggestions, setLetterSuggestions] = useState<Record<string, LetterSuggestion>>({})
   const [letterModal, setLetterModal] = useState<{ open: boolean; msgId: string } | null>(null)
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  const [uploadedDoc, setUploadedDoc] = useState<{ fileName: string; extractedText: string } | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [isListening, setIsListening] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
@@ -123,6 +130,31 @@ export default function ChatPage() {
     recognition.start()
   }
 
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset input pour permettre le même fichier
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    setIsUploading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/documents', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (data.text) {
+        setUploadedDoc({ fileName: data.filename ?? file.name, extractedText: data.text })
+      } else {
+        alert(data.error ?? 'Erreur lors de l\'extraction du document.')
+      }
+    } catch {
+      alert('Erreur réseau lors de l\'upload.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   useEffect(() => {
     const stored = loadConversations()
     setConversations(stored)
@@ -134,6 +166,38 @@ export default function ChatPage() {
       setActiveConvId(genId())
     }
   }, [])
+
+  function handleNewConversation() {
+    setMessages([])
+    setActiveConvId(genId())
+    setIsSidebarOpen(false)
+  }
+
+  function handleSelectConversation(id: string) {
+    const conv = conversations.find(c => c.id === id)
+    if (!conv) return
+    setActiveConvId(id)
+    setMessages(conv.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
+    setIsSidebarOpen(false)
+  }
+
+  function handleDeleteConversation(id: string) {
+    deleteConversation(id)
+    const updated = loadConversations()
+    setConversations(updated)
+    if (id === activeConvId) {
+      if (updated.length > 0) {
+        handleSelectConversation(updated[0].id)
+      } else {
+        setMessages([])
+        setActiveConvId(genId())
+      }
+    }
+  }
+
+  function handleRenameConversation(_id: string, _newTitle: string) {
+    setConversations(loadConversations())
+  }
 
   // Scroll vers le bas uniquement quand un nouveau message apparaît (pas pendant le streaming)
   const prevMsgCount = useRef(0)
@@ -149,7 +213,22 @@ export default function ChatPage() {
     if (!question.trim() || isLoading) return
     setInput('')
 
-    const userMsg: Message = { id: genId(), role: 'user', content: question, timestamp: new Date() }
+    // Injecter le document si présent
+    let fullMessage = question
+    let docLabel: string | null = null
+    if (uploadedDoc) {
+      docLabel = uploadedDoc.fileName
+      fullMessage = `[Document joint : ${uploadedDoc.fileName}]\n\n${uploadedDoc.extractedText.slice(0, 10000)}\n\n---\n\nMa question : ${question}`
+      setUploadedDoc(null)
+    }
+
+    const userMsg: Message = {
+      id: genId(),
+      role: 'user',
+      // Afficher uniquement la question + mention doc pour l'utilisateur
+      content: docLabel ? `📎 ${docLabel}\n\n${question}` : question,
+      timestamp: new Date(),
+    }
     setMessages(prev => [...prev, userMsg])
     setIsLoading(true)
 
@@ -162,7 +241,7 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: question,
+          message: fullMessage,
           conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
         }),
       })
@@ -260,10 +339,33 @@ export default function ChatPage() {
   const showSuggestions = messages.length === 0 && !isLoading
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen bg-background">
+    <div className="flex h-[calc(100vh-3.5rem)] md:h-screen bg-background">
+      {/* Sidebar des conversations */}
+      <ConversationSidebar
+        conversations={conversations}
+        activeId={activeConvId}
+        onSelect={handleSelectConversation}
+        onNew={handleNewConversation}
+        onDelete={handleDeleteConversation}
+        onRename={handleRenameConversation}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+
+      <div className="flex flex-col flex-1 min-w-0">
       {/* Header */}
       <div className="shrink-0 border-b border-border bg-card px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
+          {/* Bouton hamburger mobile pour ouvrir la sidebar conversations */}
+          <button
+            className="sm:hidden p-1.5 rounded-lg hover:bg-muted transition-colors mr-1"
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="Voir les conversations"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
           <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
             <Scale className="h-5 w-5 text-primary" />
           </div>
@@ -431,13 +533,50 @@ export default function ChatPage() {
       {/* Input */}
       <div className="shrink-0 border-t border-border bg-card">
         <div className="max-w-3xl mx-auto px-6 py-3">
+          {/* Badge document joint */}
+          {uploadedDoc && (
+            <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-primary/10 rounded-lg text-xs w-fit">
+              <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-primary font-medium truncate max-w-[200px]">{uploadedDoc.fileName}</span>
+              <button
+                onClick={() => setUploadedDoc(null)}
+                className="text-primary/60 hover:text-primary transition-colors"
+                aria-label="Retirer le document"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <div className="flex gap-2 mb-2">
+            {/* Bouton upload fichier */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt"
+              onChange={handleUpload}
+              className="hidden"
+              id="doc-upload"
+            />
+            <label
+              htmlFor="doc-upload"
+              className={`px-3 py-3 rounded-xl cursor-pointer transition-colors ${
+                isUploading
+                  ? 'bg-muted/50 text-muted-foreground/50 cursor-wait'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+              title="Joindre un document (PDF, DOCX, TXT)"
+            >
+              {isUploading
+                ? <span className="block h-4 w-4 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
+                : <Paperclip className="h-4 w-4" />
+              }
+            </label>
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit(input)}
-              placeholder={isListening ? 'Écoute...' : 'Posez votre question juridique...'}
+              placeholder={isListening ? 'Écoute...' : uploadedDoc ? 'Posez votre question sur ce document...' : 'Posez votre question juridique...'}
               className="flex-1 px-4 py-3 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary transition-all"
               disabled={isLoading}
             />
@@ -471,6 +610,7 @@ export default function ChatPage() {
           </div>
           <LegalDisclaimer />
         </div>
+      </div>
       </div>
     </div>
   )

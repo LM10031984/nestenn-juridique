@@ -54,11 +54,11 @@ export async function verifyReferencesAsync(
     if (result.invented.length > 0) {
       console.warn(`[post-treatment] ${result.invented.length} réf(s) non vérifiée(s): ${result.invented.join(', ')}`)
 
-      await supabase.from('quality_alerts').insert({
+      supabase.from('quality_alerts').insert({
         alert_type: 'unverified_reference',
         details: result,
         session_id: sessionId,
-      }).catch(() => {})  // fire-and-forget
+      }).then(() => {}).catch(() => {})  // fire-and-forget
     }
 
     return result

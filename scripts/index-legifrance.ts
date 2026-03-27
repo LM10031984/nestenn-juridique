@@ -477,6 +477,67 @@ const LAWS: LawConfig[] = [
     fond: 'CODE_DATE',
     maxArticles: 20,
   },
+
+  // CCH — Protection acheteur SRU (L271-1 rétractation 10 jours)
+  {
+    id: 'cch-sru',
+    label: 'Code CCH — Protection acheteur SRU (L271-1 et s.)',
+    legitext: 'LEGITEXT000006074096',
+    domain: 'vente_immobiliere',
+    subThemes: ['retractation', 'sru', 'avant_contrat'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000006176354',  // Section 2 : Protection acquéreur immeuble habitation (L271-1 et s.)
+    fond: 'CODE_DATE',
+    maxArticles: 10,
+  },
+
+  // CCH — Documents vente lot copropriété (L721-2, L721-3)
+  {
+    id: 'cch-copro-vente',
+    label: 'Code CCH — Documents vente lot copropriété (L721 et s.)',
+    legitext: 'LEGITEXT000006074096',
+    domain: 'vente_immobiliere',
+    subThemes: ['pre_etat_date', 'documents_syndic', 'vente_copro'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000028778242',  // Chapitre unique : Vente lot copropriété (L721-1 et s.) — 3 arts
+    fond: 'CODE_DATE',
+    maxArticles: 10,
+  },
+
+  // ── Sections ajoutées 2026-03-27 (couverture gaps) ────────────────────────
+  {
+    id: 'civil-regime-obligations',
+    label: 'Code civil — Titre IV : Régime général des obligations (Art. 1300+)',
+    legitext: 'LEGITEXT000006070721',
+    domain: 'vente_immobiliere',
+    subThemes: ['mise_en_demeure', 'compensation', 'cession_creance', 'novation', 'paiement'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000006118073',  // Titre IV : Du régime général des obligations — CID corrigé
+    fond: 'CODE_DATE',
+    maxArticles: 90,
+  },
+  {
+    id: 'civil-viager-rente',
+    label: 'Code civil — Contrat de rente viagère (Art. 1968 et s.)',
+    legitext: 'LEGITEXT000006070721',
+    domain: 'viager_demembrement',
+    subThemes: ['viager', 'rente_viagere', 'bouquet', 'reversion'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000006136403',  // Chapitre II : Du contrat de rente viagère
+    fond: 'CODE_DATE',
+    maxArticles: 20,
+  },
+  {
+    id: 'cpce-l4-legi',
+    label: 'CPCE — Livre IV Expulsion partie législative (L411-1 et s.)',
+    legitext: 'LEGITEXT000025024948',
+    domain: 'baux_habitation',
+    subThemes: ['expulsion', 'treve_hivernale', 'procedure_expulsion'],
+    strategy: 'full',
+    sctCid: 'LEGISCTA000025026024',  // LIVRE IV : L'EXPULSION — partie législative
+    fond: 'LODA_DATE',
+    maxArticles: 30,
+  },
 ]
 
 // ---------------------------------------------------------------------------

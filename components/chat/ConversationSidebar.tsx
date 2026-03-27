@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { StoredConversation } from '@/lib/conversation-storage'
-import { clearAllConversations } from '@/lib/conversation-storage'
+import { clearAllConversations, renameConversation } from '@/lib/conversation-storage'
 
 interface Props {
   conversations: StoredConversation[]
@@ -10,6 +10,7 @@ interface Props {
   onSelect: (id: string) => void
   onNew: () => void
   onDelete: (id: string) => void
+  onRename?: (id: string, newTitle: string) => void
   isOpen: boolean
   onClose: () => void
 }
@@ -38,10 +39,36 @@ export default function ConversationSidebar({
   onSelect,
   onNew,
   onDelete,
+  onRename,
   isOpen,
   onClose,
 }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const editInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingId) editInputRef.current?.focus()
+  }, [editingId])
+
+  function startRename(conv: StoredConversation) {
+    setEditingId(conv.id)
+    setEditTitle(conv.title)
+  }
+
+  function confirmRename(id: string) {
+    const title = editTitle.trim()
+    if (title) {
+      renameConversation(id, title)
+      onRename?.(id, title)
+    }
+    setEditingId(null)
+  }
+
+  function cancelRename() {
+    setEditingId(null)
+  }
 
   function handleClearAll() {
     if (window.confirm('Effacer toutes les conversations ?')) {
@@ -111,6 +138,7 @@ export default function ConversationSidebar({
           conversations.map(conv => {
             const isActive = conv.id === activeId
             const isHovered = conv.id === hoveredId
+            const isEditing = conv.id === editingId
             return (
               <div
                 key={conv.id}
@@ -119,47 +147,99 @@ export default function ConversationSidebar({
                   background: isActive ? '#E0F5F7' : isHovered ? '#F9FAFB' : 'transparent',
                   borderLeft: isActive ? '3px solid #00AEBC' : '3px solid transparent',
                 }}
-                onClick={() => onSelect(conv.id)}
+                onClick={() => !isEditing && onSelect(conv.id)}
                 onMouseEnter={() => setHoveredId(conv.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={e => e.key === 'Enter' && onSelect(conv.id)}
+                onKeyDown={e => !isEditing && e.key === 'Enter' && onSelect(conv.id)}
                 aria-current={isActive ? 'true' : undefined}
               >
-                <div className="flex-1 min-w-0 pr-6">
-                  <p
-                    className="text-sm truncate"
-                    style={{
-                      color: isActive ? '#0F2744' : '#374151',
-                      fontFamily: 'Lato, sans-serif',
-                      fontWeight: isActive ? 600 : 400,
-                    }}
-                  >
-                    {conv.title}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#9CA3AF', fontFamily: 'Lato, sans-serif' }}>
-                    {relativeDate(conv.updatedAt)}
-                  </p>
-                </div>
+                {isEditing ? (
+                  /* Mode édition inline */
+                  <div className="flex-1 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    <input
+                      ref={editInputRef}
+                      value={editTitle}
+                      onChange={e => setEditTitle(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') confirmRename(conv.id)
+                        if (e.key === 'Escape') cancelRename()
+                      }}
+                      className="flex-1 text-xs px-2 py-1 rounded border border-gray-300 focus:outline-none focus:border-[#00AEBC]"
+                      style={{ fontFamily: 'Lato, sans-serif', color: '#374151' }}
+                      maxLength={80}
+                    />
+                    <button
+                      onClick={() => confirmRename(conv.id)}
+                      className="p-1 rounded hover:bg-green-50 text-green-500"
+                      aria-label="Confirmer"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={cancelRename}
+                      className="p-1 rounded hover:bg-red-50 text-red-400"
+                      aria-label="Annuler"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 min-w-0 pr-14">
+                      <p
+                        className="text-sm truncate"
+                        style={{
+                          color: isActive ? '#0F2744' : '#374151',
+                          fontFamily: 'Lato, sans-serif',
+                          fontWeight: isActive ? 600 : 400,
+                        }}
+                        onDoubleClick={e => { e.stopPropagation(); startRename(conv) }}
+                        title="Double-clic pour renommer"
+                      >
+                        {conv.title}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: '#9CA3AF', fontFamily: 'Lato, sans-serif' }}>
+                        {relativeDate(conv.updatedAt)}
+                      </p>
+                    </div>
 
-                {/* Delete button — visible on hover */}
-                <button
-                  className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50"
-                  style={{ color: '#9CA3AF' }}
-                  onClick={e => {
-                    e.stopPropagation()
-                    onDelete(conv.id)
-                  }}
-                  aria-label={`Supprimer "${conv.title}"`}
-                  tabIndex={-1}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                    <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 01.5-.5h2a.5.5 0 01.5.5v1M11 3.5l-.6 7.5a1 1 0 01-1 .9H4.6a1 1 0 01-1-.9L3 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
+                    {/* Boutons hover : rename + delete */}
+                    <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                      <button
+                        className="p-1 rounded hover:bg-gray-100"
+                        style={{ color: '#9CA3AF' }}
+                        onClick={e => { e.stopPropagation(); startRename(conv) }}
+                        aria-label={`Renommer "${conv.title}"`}
+                        tabIndex={-1}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#00AEBC')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                          <path d="M8.5 1.5a1.414 1.414 0 012 2L3.5 10.5l-3 .5.5-3L8.5 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                      <button
+                        className="p-1 rounded hover:bg-red-50"
+                        style={{ color: '#9CA3AF' }}
+                        onClick={e => { e.stopPropagation(); onDelete(conv.id) }}
+                        aria-label={`Supprimer "${conv.title}"`}
+                        tabIndex={-1}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                          <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 01.5-.5h2a.5.5 0 01.5.5v1M11 3.5l-.6 7.5a1 1 0 01-1 .9H4.6a1 1 0 01-1-.9L3 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )
           })
