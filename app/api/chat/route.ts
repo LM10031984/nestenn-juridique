@@ -11,7 +11,7 @@ import { fetchRelevantSources } from '@/lib/sources'
 import type { JuriCase } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
 import { detectDomains } from '@/lib/domain-detector'
-import { fetchJudilibreSimple } from '@/lib/judilibre'
+import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence } from '@/lib/auto-indexer'
 import { createClient } from '@/lib/supabase/server'
@@ -66,38 +66,37 @@ export async function POST(req: NextRequest) {
     return streamTextResponse(REFUSAL_MESSAGE)
   }
 
-  // ── Étape 2 : Sources en parallèle ──
+  // ── Étape 2 : Sources en parallèle (~200ms pgvector + ~1-2s Judilibre) ──
   // - Détection domaine : keyword matching, 0ms
-  // - Embedding + pgvector : ~150ms total
+  // - Embedding + Judilibre live : en parallèle
+  // - pgvector : après embedding
 
   const domains = detectDomains(trimmedMessage)
-  const embedding = await embedQuestion(trimmedMessage)
+  const primaryDomain = domains[0] ?? null
 
-  // Fix 1 : si aucun domaine détecté, appel Judilibre direct en parallèle
-  // pour garantir que la jurisprudence est toujours disponible
-  const [{ chunks, juriCases: pgJuriCases }, simpleJuriCases] = await Promise.all([
-    fetchRelevantSources(
-      embedding,
-      domains.length > 0 ? domains : null,
-      8,    // max résultats
-      0.30, // threshold minimum
-    ),
-    domains.length === 0
-      ? fetchJudilibreSimple(trimmedMessage).then(cases =>
-          cases.map((c): JuriCase => ({
-            court: c.court,
-            date: c.date,
-            number: c.number,
-            holding: c.holding,
-            url: c.url,
-          }))
-        ).catch(() => [] as JuriCase[])
-      : Promise.resolve([] as JuriCase[]),
+  // Judilibre TOUJOURS appelé — avantage compétitif vs ChatGPT/Claude sans accès live
+  const [embedding, liveJuriCases] = await Promise.all([
+    embedQuestion(trimmedMessage),
+    fetchJudilibreLive(trimmedMessage, primaryDomain).then(cases =>
+      cases.map((c): JuriCase => ({
+        court: c.court,
+        date: c.date,
+        number: c.number,
+        holding: c.holding,
+        url: c.url,
+      }))
+    ).catch(() => [] as JuriCase[]),
   ])
 
-  const juriCases: JuriCase[] = [...pgJuriCases, ...simpleJuriCases]
+  const { chunks, juriCases: pgJuriCases } = await fetchRelevantSources(
+    embedding,
+    domains.length > 0 ? domains : null,
+    8,    // max résultats
+    0.30, // threshold minimum
+  )
 
-  const primaryDomain = domains[0] ?? null
+  // pgvector : arrêts de référence stables | Judilibre live : arrêts récents à jour
+  const juriCases: JuriCase[] = [...pgJuriCases, ...liveJuriCases]
   const responseMode: 'sourced' | 'free' = chunks.length >= 2 ? 'sourced' : 'free'
 
   console.info(

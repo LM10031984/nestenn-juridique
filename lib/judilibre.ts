@@ -1462,3 +1462,91 @@ export async function fetchJudilibreSimple(question: string): Promise<Normalized
 
   return []
 }
+
+// ---------------------------------------------------------------------------
+// fetchJudilibreLive — appelé sur CHAQUE question, en parallèle avec pgvector
+// Différences vs fetchJudilibreSimple :
+//   - Sans filtre publication (tous les arrêts CC + CA, pas que bulletin)
+//   - Sans filtre chambre (résultat plus large, LLM trie)
+//   - Top 3 décisions avec motivations complètes
+//   - Log dédié pour monitoring pertinence
+// ---------------------------------------------------------------------------
+
+export async function fetchJudilibreLive(
+  question: string,
+  _domain: string | null = null, // réservé pour filtrage chambre futur
+): Promise<NormalizedCase[]> {
+  const token = await getJudilibreToken()
+  if (!token || !question.trim()) return []
+
+  const STOP = new Set([
+    'dans', 'avec', 'pour', 'quel', 'quoi', 'comment', 'quelle', 'quels', 'quelles',
+    'peut', 'doit', 'faut', 'sont', 'être', 'avoir', 'faire', 'cette', 'celui',
+    'celle', 'cela', 'leur', 'leurs', 'mais', 'donc', 'aussi', 'plus', 'bien',
+    'quand', 'vers', 'sans', 'sous', 'tout', 'tous', 'même', 'aucun', 'autre',
+    'elle', 'elles', 'nous', 'vous', 'ils', 'mon', 'ton', 'son', 'notre', 'votre',
+    'jurisprudence', 'arrêts', 'arrêt', 'décision', 'décisions', 'jugement',
+    'tribunal', 'question', 'règle', 'article', 'code', 'loi', 'texte',
+    'droit', 'droits', 'obligation', 'obligations',
+  ])
+
+  const keywords = question
+    .toLowerCase()
+    .replace(/[^\w\sàâäéèêëîïôùûüç-]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !STOP.has(w))
+    .slice(0, 6)
+
+  if (keywords.length === 0) return []
+
+  // Deux tentatives progressivement relâchées, SANS filtre publication
+  const attempts: Array<{ query: string; operator: string }> = [
+    { query: keywords.join(' '),             operator: 'and' },
+    { query: keywords.slice(0, 3).join(' '), operator: 'or'  },
+  ]
+
+  for (const attempt of attempts) {
+    try {
+      const url = new URL(`${API_URL}/search`)
+      url.searchParams.set('query', attempt.query)
+      url.searchParams.set('operator', attempt.operator)
+      url.searchParams.append('field', 'summary')
+      url.searchParams.append('field', 'motivations')
+      url.searchParams.set('page_size', '5')
+      url.searchParams.set('resolve_references', 'true')
+      url.searchParams.set('date_start', '2010-01-01')
+      // Pas de filtre publication → tous les arrêts CC + CA
+      // Pas de filtre chambre → LLM trie la pertinence
+
+      const res = await fetchWithTimeout(url.toString(), {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      }).catch(() => null)
+
+      if (!res || !res.ok) continue
+      const data = await res.json() as { results?: any[] }
+      const hits = data.results ?? []
+
+      if (hits.length === 0) continue
+
+      const top3 = hits.slice(0, 3)
+      const details = (await Promise.all(
+        top3.map(h => fetchDecisionDetail(token, h.id, attempt.query))
+      )).filter(Boolean)
+
+      if (details.length === 0) continue
+
+      const cases = details.map((d: any) => buildNormalizedCC(d, []))
+
+      console.info(
+        `[judilibre-live] query="${attempt.query}" → ${cases.length} arrêts | `
+        + cases.map(c => `${c.court} ${c.date} n°${c.number}`).join(', ')
+      )
+
+      return cases
+    } catch (err) {
+      console.error('[judilibre] fetchJudilibreLive — exception :', err)
+    }
+  }
+
+  return []
+}
