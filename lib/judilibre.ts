@@ -1375,3 +1375,66 @@ export async function fetchJurisprudence(question: string, reformulatedQuery?: s
     return { available: false, text: '', cases: [], decisions: [], visaRefs: [], isPremium: false, requiredFacts: [], expectedLexicon: [] }
   }
 }
+
+// ---------------------------------------------------------------------------
+// fetchJudilibreSimple — fallback sans domaine détecté
+// Appelé quand domain-detector retourne [] : cherche dans Judilibre
+// avec les mots-clés bruts de la question, sans filtre thème/chambre.
+// ---------------------------------------------------------------------------
+
+export async function fetchJudilibreSimple(question: string): Promise<NormalizedCase[]> {
+  const token = await getJudilibreToken()
+  if (!token || !question.trim()) return []
+
+  // Extraire 4 mots-clés significatifs (> 4 chars, pas de stopwords fréquents)
+  const STOP = new Set([
+    'dans', 'avec', 'pour', 'quel', 'quoi', 'comment', 'quelle', 'quels', 'quelles',
+    'peut', 'doit', 'faut', 'sont', 'être', 'avoir', 'faire', 'cette', 'celui',
+    'celle', 'cela', 'leur', 'leurs', 'mais', 'donc', 'aussi', 'plus', 'bien',
+    'quand', 'case', 'vers', 'sans', 'sous', 'tout', 'tous', 'même', 'aucun',
+  ])
+  const keywords = question
+    .toLowerCase()
+    .replace(/[^\w\sàâäéèêëîïôùûüç-]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 4 && !STOP.has(w))
+    .slice(0, 4)
+
+  if (keywords.length === 0) return []
+  const query = keywords.join(' ')
+
+  try {
+    const url = new URL(`${API_URL}/search`)
+    url.searchParams.set('query', query)
+    url.searchParams.append('publication', 'b')
+    url.searchParams.append('publication', 'r')
+    url.searchParams.set('operator', 'or')
+    url.searchParams.append('field', 'summary')
+    url.searchParams.append('field', 'motivations')
+    url.searchParams.set('page_size', '3')
+    url.searchParams.set('resolve_references', 'true')
+    url.searchParams.set('date_start', '2010-01-01')
+
+    const res = await fetchWithTimeout(url.toString(), {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    }).catch(() => null)
+
+    if (!res || !res.ok) return []
+    const data = await res.json() as { results?: any[] }
+    const hits = data.results ?? []
+
+    console.info(`[judilibre] simple search query='${query}' → ${hits.length} résultats`)
+    if (hits.length === 0) return []
+
+    const top2 = hits.slice(0, 2)
+    const pubs = ['b', 'r']
+    const details = (await Promise.all(
+      top2.map(h => fetchDecisionDetail(token, h.id, query))
+    )).filter(Boolean)
+
+    return details.map((d: any) => buildNormalizedCC(d, pubs))
+  } catch (err) {
+    console.error('[judilibre] fetchJudilibreSimple — exception :', err)
+    return []
+  }
+}

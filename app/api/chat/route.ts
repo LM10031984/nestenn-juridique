@@ -8,8 +8,10 @@ import { NextRequest } from 'next/server'
 import { openRouterStreamWithFallback, openRouterChat, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
 import { getSystemPromptAugmented } from '@/lib/system-prompt'
 import { fetchRelevantSources } from '@/lib/sources'
+import type { JuriCase } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
 import { detectDomains } from '@/lib/domain-detector'
+import { fetchJudilibreSimple } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles } from '@/lib/auto-indexer'
 import { createClient } from '@/lib/supabase/server'
@@ -71,12 +73,29 @@ export async function POST(req: NextRequest) {
   const domains = detectDomains(trimmedMessage)
   const embedding = await embedQuestion(trimmedMessage)
 
-  const { chunks, juriCases } = await fetchRelevantSources(
-    embedding,
-    domains.length > 0 ? domains : null,
-    8,    // max résultats
-    0.30, // threshold minimum
-  )
+  // Fix 1 : si aucun domaine détecté, appel Judilibre direct en parallèle
+  // pour garantir que la jurisprudence est toujours disponible
+  const [{ chunks, juriCases: pgJuriCases }, simpleJuriCases] = await Promise.all([
+    fetchRelevantSources(
+      embedding,
+      domains.length > 0 ? domains : null,
+      8,    // max résultats
+      0.30, // threshold minimum
+    ),
+    domains.length === 0
+      ? fetchJudilibreSimple(trimmedMessage).then(cases =>
+          cases.map((c): JuriCase => ({
+            court: c.court,
+            date: c.date,
+            number: c.number,
+            holding: c.holding,
+            url: c.url,
+          }))
+        ).catch(() => [] as JuriCase[])
+      : Promise.resolve([] as JuriCase[]),
+  ])
+
+  const juriCases: JuriCase[] = [...pgJuriCases, ...simpleJuriCases]
 
   const primaryDomain = domains[0] ?? null
   const responseMode: 'sourced' | 'free' = chunks.length >= 2 ? 'sourced' : 'free'
@@ -204,6 +223,22 @@ const IMMO_KEYWORDS = [
   'viager', 'usufruit', 'démembrement', 'demembrement', 'nue-propriété',
   'bail commercial', 'fonds de commerce', 'crédit immobilier', 'credit immobilier',
   'immobilier', 'immeuble', 'bien immobilier', 'terrain',
+  // Successions / protection / famille (Fix 3)
+  'tutelle', 'curatelle', 'indivision', 'succession', 'donation', 'héritage',
+  'héritier', 'héritiers', 'partage', 'mandat de protection future',
+  'divorce', 'liquidation communauté', 'séparation de biens', 'bien propre', 'bien commun',
+  'donation-partage', 'pacte de famille', 'indivision successorale',
+  // Bail — situations spéciales
+  'squat', 'squatteur', 'occupation illicite', 'colocation', 'caution solidaire',
+  'garantie visale', 'gli', 'assurance loyers impayés', 'insalubrité',
+  'logement indigne', 'habitat indigne', 'meublé tourisme',
+  // Diagnostics complémentaires
+  'mérule', 'radon', 'diagnostiqueur', 'dpe erroné', 'dpe opposable', 'classe g', 'classe f',
+  // Urbanisme complémentaire
+  'déclaration préalable', 'lotissement', 'zone inondable', 'ppri', 'monument historique',
+  // Litiges immobiliers
+  'assignation', 'référé', 'mise en demeure', 'commissaire de justice',
+  'prescription', 'forclusion', 'expertise judiciaire', 'astreinte', 'saisie immobilière',
 ]
 
 function isImmoKeywordMatch(message: string): boolean {
