@@ -37,7 +37,14 @@ export async function GET(req: NextRequest) {
     .not('domain', 'is', null)
     .gte('created_at', since.toISOString())
 
-  const [byDomainRes, byAgencyRes, topQuestionsRes, totalsRes] = await Promise.all([
+  const baseTopics = supabase
+    .from('messages')
+    .select('topic, conversations!inner(agency_id)')
+    .eq('role', 'user')
+    .not('topic', 'is', null)
+    .gte('created_at', since.toISOString())
+
+  const [byDomainRes, byAgencyRes, topQuestionsRes, totalsRes, byTopicRes] = await Promise.all([
     agencyId
       ? baseMessages.eq('conversations.agency_id', agencyId)
       : baseMessages,
@@ -51,6 +58,11 @@ export async function GET(req: NextRequest) {
     agencyId
       ? supabase.from('top_questions').select('domain, question_preview, ask_count').eq('agency_id', agencyId).limit(30)
       : supabase.from('top_questions').select('domain, question_preview, ask_count').limit(30),
+
+    // Par topic
+    agencyId
+      ? baseTopics.eq('conversations.agency_id', agencyId)
+      : baseTopics,
 
     // Total
     agencyId
@@ -80,10 +92,21 @@ export async function GET(req: NextRequest) {
     .sort(([, a], [, b]) => b - a)
     .map(([agency_name, question_count]) => ({ agency_name, question_count }))
 
+  // Agréger par topic
+  const topicCounts: Record<string, number> = {}
+  for (const row of byTopicRes.data ?? []) {
+    const t = (row.topic as string) ?? 'autre'
+    topicCounts[t] = (topicCounts[t] ?? 0) + 1
+  }
+  const byTopic = Object.entries(topicCounts)
+    .sort(([, a], [, b]) => b - a)
+    .map(([topic, count]) => ({ topic, count }))
+
   return Response.json({
     period: parseInt(period),
     totalQuestions: totalsRes.count ?? 0,
     byDomain,
+    byTopic,
     byAgency,
     topQuestions: topQuestionsRes.data ?? [],
   })

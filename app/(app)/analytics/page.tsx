@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { BarChart2, MessageSquare, Building2, TrendingUp } from 'lucide-react'
+import { BarChart2, MessageSquare, Building2, TrendingUp, AlertCircle } from 'lucide-react'
+import { TOPIC_LABELS } from '@/lib/topic-detector'
 
 interface AnalyticsData {
   period: number
   totalQuestions: number
   byDomain: Array<{ domain: string; count: number }>
+  byTopic: Array<{ topic: string; count: number }>
   byAgency: Array<{ agency_name: string; question_count: number }>
   topQuestions: Array<{ domain: string; question_preview: string; ask_count: number }>
 }
@@ -59,6 +61,7 @@ export default function AnalyticsPage() {
   }
 
   const maxCount = Math.max(...data.byDomain.map(d => d.count), 1)
+  const maxTopicCount = Math.max(...data.byTopic.map(t => t.count), 1)
 
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8">
@@ -135,6 +138,36 @@ export default function AnalyticsPage() {
                     style={{ width: `${Math.max((d.count / maxCount) * 100, 4)}%` }}
                   >
                     <span className="text-[11px] text-primary-foreground font-semibold">{d.count}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pain points — thèmes juridiques précis */}
+      {data.byTopic.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-6 mb-6">
+          <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-orange-400" />
+            Pain points — thèmes juridiques précis
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            Ce sur quoi les agents bloquent le plus
+          </p>
+          <div className="space-y-3">
+            {data.byTopic.slice(0, 15).map(t => (
+              <div key={t.topic} className="flex items-center gap-3">
+                <div className="w-52 text-xs text-right text-muted-foreground truncate shrink-0">
+                  {TOPIC_LABELS[t.topic] ?? t.topic}
+                </div>
+                <div className="flex-1 bg-muted rounded-full h-6 overflow-hidden">
+                  <div
+                    className="bg-orange-400/80 h-full rounded-full flex items-center justify-end px-2.5 transition-all duration-500"
+                    style={{ width: `${Math.max((t.count / maxTopicCount) * 100, 4)}%` }}
+                  >
+                    <span className="text-[11px] text-white font-semibold">{t.count}</span>
                   </div>
                 </div>
               </div>

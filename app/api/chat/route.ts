@@ -10,6 +10,7 @@ import { getSystemPromptAugmented } from '@/lib/system-prompt'
 import { fetchRelevantSources } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
 import { detectDomains } from '@/lib/domain-detector'
+import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles } from '@/lib/auto-indexer'
 import { createClient } from '@/lib/supabase/server'
 
@@ -88,8 +89,10 @@ export async function POST(req: NextRequest) {
 
   // Analytics fire-and-forget
   if (messageId) {
+    const topic = detectTopic(trimmedMessage)
     saveMessageMetadata(messageId, conversationId ?? null, {
       domain: primaryDomain,
+      topic,
       sourcesCount: chunks.length,
       responseMode,
     }).catch(() => {})
@@ -243,7 +246,7 @@ function sanitizeHistory(raw: unknown): OpenRouterMessage[] {
 async function saveMessageMetadata(
   messageId: string,
   conversationId: string | null,
-  meta: { domain: string | null; sourcesCount: number; responseMode: 'sourced' | 'free' },
+  meta: { domain: string | null; topic: string | null; sourcesCount: number; responseMode: 'sourced' | 'free' },
 ) {
   try {
     const supabase = createClient()
@@ -252,6 +255,7 @@ async function saveMessageMetadata(
       .from('messages')
       .update({
         domain: meta.domain,
+        topic: meta.topic,
         sources_count: meta.sourcesCount,
         response_mode: meta.responseMode,
       })

@@ -17,6 +17,7 @@ import {
   generateTitle,
   type StoredConversation,
 } from '@/lib/conversation-storage'
+import { getOrCreateConversation, saveMessage, resetConversation } from '@/lib/chat-persistence'
 
 interface LetterSuggestion {
   needed: boolean
@@ -90,6 +91,7 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const [uploadedDoc, setUploadedDoc] = useState<{ fileName: string; extractedText: string } | null>(null)
+  const supabaseConvId = useRef<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -170,6 +172,8 @@ export default function ChatPage() {
   function handleNewConversation() {
     setMessages([])
     setActiveConvId(genId())
+    supabaseConvId.current = null
+    resetConversation()
     setIsSidebarOpen(false)
   }
 
@@ -236,6 +240,19 @@ export default function ChatPage() {
     let finalContent = ''
     let isRejection = false
 
+    // Persistance Supabase — crée conversation + sauvegarde message user
+    let dbMessageId: string | null = null
+    try {
+      const firstUserMsg = messages.find(m => m.role === 'user')
+      const title = firstUserMsg ? generateTitle(firstUserMsg.content) : generateTitle(question)
+      if (!supabaseConvId.current) {
+        supabaseConvId.current = await getOrCreateConversation(title)
+      }
+      if (supabaseConvId.current) {
+        dbMessageId = await saveMessage(supabaseConvId.current, 'user', question)
+      }
+    } catch { /* silencieux — ne bloque jamais le chat */ }
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -243,6 +260,8 @@ export default function ChatPage() {
         body: JSON.stringify({
           message: fullMessage,
           conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+          messageId: dbMessageId ?? undefined,
+          conversationId: supabaseConvId.current ?? undefined,
         }),
       })
 
