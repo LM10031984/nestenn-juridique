@@ -1386,55 +1386,74 @@ export async function fetchJudilibreSimple(question: string): Promise<Normalized
   const token = await getJudilibreToken()
   if (!token || !question.trim()) return []
 
-  // Extraire 4 mots-clés significatifs (> 4 chars, pas de stopwords fréquents)
+  // Stopwords génériques + mots-clés méta qui polluent la query Judilibre
   const STOP = new Set([
+    // Français courant
     'dans', 'avec', 'pour', 'quel', 'quoi', 'comment', 'quelle', 'quels', 'quelles',
     'peut', 'doit', 'faut', 'sont', 'être', 'avoir', 'faire', 'cette', 'celui',
     'celle', 'cela', 'leur', 'leurs', 'mais', 'donc', 'aussi', 'plus', 'bien',
-    'quand', 'case', 'vers', 'sans', 'sous', 'tout', 'tous', 'même', 'aucun',
+    'quand', 'vers', 'sans', 'sous', 'tout', 'tous', 'même', 'aucun', 'autre',
+    'elle', 'elles', 'nous', 'vous', 'ils', 'mon', 'ton', 'son', 'notre', 'votre',
+    // Méta-juridique — ne rien apporter à la recherche Judilibre
+    'jurisprudence', 'arrêts', 'arrêt', 'décision', 'décisions', 'jugement',
+    'tribunal', 'question', 'règle', 'article', 'code', 'loi', 'texte',
+    'droit', 'droits', 'obligation', 'obligations', 'quelles', 'quels',
   ])
+
   const keywords = question
     .toLowerCase()
     .replace(/[^\w\sàâäéèêëîïôùûüç-]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 4 && !STOP.has(w))
-    .slice(0, 4)
+    .filter(w => w.length >= 4 && !STOP.has(w))
+    .slice(0, 6)
 
   if (keywords.length === 0) return []
-  const query = keywords.join(' ')
 
-  try {
-    const url = new URL(`${API_URL}/search`)
-    url.searchParams.set('query', query)
-    url.searchParams.append('publication', 'b')
-    url.searchParams.append('publication', 'r')
-    url.searchParams.set('operator', 'or')
-    url.searchParams.append('field', 'summary')
-    url.searchParams.append('field', 'motivations')
-    url.searchParams.set('page_size', '3')
-    url.searchParams.set('resolve_references', 'true')
-    url.searchParams.set('date_start', '2010-01-01')
+  const pubs = ['b', 'r']
 
-    const res = await fetchWithTimeout(url.toString(), {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    }).catch(() => null)
+  // Premier essai : operator=and — résultats précis
+  // Fallback : operator=or avec seulement les 3 premiers mots-clés
+  const attempts: Array<{ query: string; operator: string }> = [
+    { query: keywords.join(' '), operator: 'and' },
+    { query: keywords.slice(0, 3).join(' '), operator: 'or' },
+  ]
 
-    if (!res || !res.ok) return []
-    const data = await res.json() as { results?: any[] }
-    const hits = data.results ?? []
+  for (const attempt of attempts) {
+    try {
+      const url = new URL(`${API_URL}/search`)
+      url.searchParams.set('query', attempt.query)
+      url.searchParams.append('publication', 'b')
+      url.searchParams.append('publication', 'r')
+      url.searchParams.set('operator', attempt.operator)
+      url.searchParams.append('field', 'summary')
+      url.searchParams.append('field', 'motivations')
+      url.searchParams.set('page_size', '3')
+      url.searchParams.set('resolve_references', 'true')
+      url.searchParams.set('date_start', '2010-01-01')
 
-    console.info(`[judilibre] simple search query='${query}' → ${hits.length} résultats`)
-    if (hits.length === 0) return []
+      const res = await fetchWithTimeout(url.toString(), {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      }).catch(() => null)
 
-    const top2 = hits.slice(0, 2)
-    const pubs = ['b', 'r']
-    const details = (await Promise.all(
-      top2.map(h => fetchDecisionDetail(token, h.id, query))
-    )).filter(Boolean)
+      if (!res || !res.ok) continue
+      const data = await res.json() as { results?: any[] }
+      const hits = data.results ?? []
 
-    return details.map((d: any) => buildNormalizedCC(d, pubs))
-  } catch (err) {
-    console.error('[judilibre] fetchJudilibreSimple — exception :', err)
-    return []
+      console.info(
+        `[judilibre] simple search op=${attempt.operator} query='${attempt.query}' → ${hits.length} résultats`
+      )
+      if (hits.length === 0) continue
+
+      const top2 = hits.slice(0, 2)
+      const details = (await Promise.all(
+        top2.map(h => fetchDecisionDetail(token, h.id, attempt.query))
+      )).filter(Boolean)
+
+      return details.map((d: any) => buildNormalizedCC(d, pubs))
+    } catch (err) {
+      console.error('[judilibre] fetchJudilibreSimple — exception :', err)
+    }
   }
+
+  return []
 }
