@@ -29,10 +29,15 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function fetchUsers() {
     const res = await fetch('/api/admin/users')
     const data = await res.json()
+    if (data.error) {
+      console.error('[admin/users]', data.error)
+      setError(data.error)
+    }
     setUsers(data.users ?? [])
     setLoading(false)
   }
@@ -50,9 +55,8 @@ export default function AdminUsersPage() {
 
   useEffect(() => { fetchUsers() }, [])
 
-  if (loading) {
-    return <div className="p-8 text-sm text-muted-foreground">Chargement...</div>
-  }
+  if (loading) return <div className="p-8 text-sm text-muted-foreground">Chargement...</div>
+  if (error) return <div className="p-8 text-sm text-red-400">Erreur API : {error}</div>
 
   const pending = users.filter(u => u.status === 'pending')
   const others  = users.filter(u => u.status !== 'pending')
