@@ -37,31 +37,265 @@ interface ArticleEntry {
 }
 
 const TO_INDEX: ArticleEntry[] = [
-  // Tutelle / capacité juridique (lacune identifiée en prod)
-  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['473', '475', '476', '505', '507'], domain: 'transactions' },
 
-  // Double mandat (Q79 — seul vrai échec du benchmark)
-  // Art. 1161 + Prescription 2224
-  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1161', '2224'], domain: 'agent_immobilier' },
+  // ═══════════════════════════════════════════════════════════════
+  // TUTELLE / CAPACITÉ JURIDIQUE (lacune identifiée en prod)
+  // ═══════════════════════════════════════════════════════════════
+  // 425=ouverture mesure  440=choix tuteur  473=représentation majeur
+  // 475-476=actes tuteur  505=autorisation juge  507=conseil de famille  509=inventaire
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['425', '440', '473', '475', '476', '505', '507', '509'], domain: 'transactions' },
 
-  // Frais de notaire (Q19) + Plus-value (lacune cartographie)
+  // Curatelle — 467=simple  468=renforcée  469=actes interdits au curateur seul
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['467', '468', '469'], domain: 'transactions' },
+
+  // Habilitation familiale
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['494-1', '494-6', '494-9'], domain: 'transactions' },
+
+  // Nullité des actes du majeur protégé — 414-1=insanité  465=nullité
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['414-1', '414-2', '465'], domain: 'transactions' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CODE CIVIL — CONTRATS / VENTE / OBLIGATIONS
+  // ═══════════════════════════════════════════════════════════════
+
+  // Consentement et vices — 1104=bonne foi  1112-1=obligation info précontractuelle
+  // 1130=vices consentement  1131=erreur/dol  1137=dol  1139=violence
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1104', '1112-1', '1130', '1131', '1137', '1139'], domain: 'transactions' },
+
+  // Promesse et compromis — 1124=promesse unilatérale  1128=conditions validité
+  // 1186-1187=caducité  1195=imprévision  1217=inexécution
+  // 1231-5=clause pénale  1583=perfection vente  1589=promesse vaut vente
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1124', '1128', '1186', '1187', '1193', '1195', '1217', '1231-5', '1583', '1589'], domain: 'transactions' },
+
+  // Cession de contrat / substitution
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1216', '1216-1', '1216-3'], domain: 'transactions' },
+
+  // Responsabilité civile
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1240', '1241', '1242', '1244'], domain: 'transactions' },
+
+  // Vices cachés
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1641', '1643', '1644', '1645', '1648'], domain: 'transactions' },
+
+  // Garantie d'éviction
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1625', '1626', '1630'], domain: 'transactions' },
+
+  // Prescription
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['2224', '2232'], domain: 'litiges' },
+
+  // Mise en demeure
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1344', '1345'], domain: 'litiges' },
+
+  // Conflit d'intérêts (double mandat)
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1161'], domain: 'agent_immobilier' },
+
+  // Mandat (droit commun)
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1984', '1998', '2003', '2004'], domain: 'agent_immobilier' },
+
+  // Lésion
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1674', '1675', '1681'], domain: 'transactions' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CODE CIVIL — PROPRIÉTÉ / SERVITUDES / VOISINAGE
+  // ═══════════════════════════════════════════════════════════════
+
+  // Servitudes — 637=définition  682-685=droit de passage (enclave)
+  // 686=servitude conventionnelle  701=étendue
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['637', '682', '683', '685', '686', '701'], domain: 'servitudes' },
+
+  // Vues et distances
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['675', '676', '678', '679'], domain: 'servitudes' },
+
+  // Mitoyenneté
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['653', '654', '655', '657', '661'], domain: 'servitudes' },
+
+  // Usufruit — 578=définition  595=location  596=bail rural/commercial
+  // 605-606=réparations (entretien vs grosses)
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['578', '595', '596', '599', '600', '605', '606'], domain: 'viager_demembrement' },
+
+  // Viager
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1968', '1975', '1976', '1977', '1978', '1983'], domain: 'viager_demembrement' },
+
+  // Indivision — 815=nul ne peut être contraint  815-3=majorité 2/3
+  // 815-5=actes conservatoires  815-5-1=vente judiciaire  815-6=autorisation judiciaire
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['815', '815-3', '815-5', '815-5-1', '815-6'], domain: 'transactions' },
+
+  // Construction / garanties
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1792', '1792-2', '1792-3', '1792-4-1', '1792-6'], domain: 'construction' },
+
+  // SCI
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1832', '1845', '1852', '1856'], domain: 'fiscalite' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOI HOGUET + DÉCRET (agent immobilier)
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'loi 70-9', legitextId: 'LEGITEXT000006068387', fond: 'LODA_DATE', articles: ['1', '3', '4', '6', '6-1', '7', '8', '8-1'], domain: 'agent_immobilier' },
+  // 78=durée mandat exclusif (3 mois irrévocable)  79-80=registre des mandats
+  { law: 'décret 72-678', legitextId: 'LEGITEXT000006061974', fond: 'LODA_DATE', articles: ['72', '78', '79', '80'], domain: 'agent_immobilier' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOI 89-462 (baux d'habitation)
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'loi 89-462', legitextId: 'LEGITEXT000006069108', fond: 'LODA_DATE', articles: [
+    '3', '3-2', '3-3',           // contenu bail, état des lieux
+    '6', '7',                    // obligations bailleur / locataire
+    '8', '8-1',                  // sous-location, colocation
+    '10', '11', '12',            // durée, reconduction, résiliation locataire
+    '14',                        // décès locataire (transfert bail)
+    '15',                        // congé bailleur (vente, reprise, motif)
+    '17', '17-1', '17-2',       // fixation loyer, révision IRL, renouvellement
+    '22',                        // dépôt de garantie
+    '23',                        // charges récupérables
+    '24', '24-1',               // clause résolutoire, impayés
+    '25-3', '25-7', '25-8',    // bail meublé
+    '25-12', '25-13', '25-18', // bail mobilité
+  ], domain: 'baux_habitation' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOI 65-557 (copropriété)
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'loi 65-557', legitextId: 'LEGITEXT000006068256', fond: 'LODA_DATE', articles: [
+    '2', '3', '4',              // parties communes, privatives
+    '8',                        // règlement de copropriété
+    '10', '10-1',               // charges, fonds travaux
+    '14', '14-1', '14-2',      // syndicat, administrateur provisoire
+    '17', '17-2',               // décisions AG, syndic bénévole
+    '18', '18-1 A',            // syndic (contrat, prestations)
+    '21',                       // mise en concurrence
+    '24', '25', '25-1', '26', // majorités
+    '42',                       // contestation décisions AG
+    '46',                       // mesurage Carrez
+  ], domain: 'copropriete' },
+
+  // Décret copropriété — 9=délai convocation AG (21j)  11=contenu convocation  13=feuille présence
+  { law: 'décret 67-223', legitextId: 'LEGITEXT000006061423', fond: 'LODA_DATE', articles: ['9', '11', '13', '64'], domain: 'copropriete' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CCH (Code de la construction et de l'habitation)
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'cch', legitextId: 'LEGITEXT000006074096', fond: 'CODE_DATE', articles: [
+    'L271-1', 'L271-2',         // rétractation SRU (10 jours)
+    'L271-4', 'L271-5', 'L271-6', // DDT (dossier diagnostics)
+    'L126-26', 'L126-28',      // DPE
+    'L721-2', 'L721-3',        // documents vente copro (pré-état daté)
+    'L631-7',                   // changement d'usage (meublé tourisme)
+  ], domain: 'diagnostics' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CODE DE L'URBANISME
+  // ═══════════════════════════════════════════════════════════════
+  { law: "code de l'urbanisme", legitextId: 'LEGITEXT000006074075', fond: 'CODE_DATE', articles: [
+    'L210-1',                   // droit de préemption urbain
+    'L213-1', 'L213-2', 'L213-4', 'L213-7', 'L213-8', // procédure préemption
+    'L410-1',                   // certificat d'urbanisme
+    'L151-1',                   // PLU
+    'L141-8',                   // ZAN
+    'R421-9',                   // déclaration préalable (R421-1 non indexable via tableMatieres)
+    'R423-24',                  // délai instruction permis (R423-23/25 idem)
+  ], domain: 'urbanisme' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CODE DE COMMERCE (bail commercial)
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'commerce', legitextId: 'LEGITEXT000005634379', fond: 'CODE_DATE', articles: [
+    'L145-1', 'L145-4',        // champ d'application, durée 3-6-9
+    'L145-9', 'L145-10',       // renouvellement, droit au maintien
+    'L145-14',                  // indemnité d'éviction
+    'L145-16',                  // cession du bail
+    'L145-33', 'L145-34',     // révision du loyer
+    'L145-41',                  // clause résolutoire
+    'L145-47',                  // sous-location
+  ], domain: 'bail_commercial' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CGI (Code général des impôts)
   // Note : CGI utilise des espaces dans la numérotation (ex: "150 U" pas "150-U")
-  { law: 'cgi', legitextId: 'LEGITEXT000006069577', fond: 'CODE_DATE', articles: ['683', '1594 D', '150 U', '150 VB', '150 VC'], domain: 'fiscalite' },
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'cgi', legitextId: 'LEGITEXT000006069577', fond: 'CODE_DATE', articles: [
+    '150 U', '150 VB', '150 VC', // plus-value immobilière
+    '199 novovicies',            // Pinel / Denormandie
+    '257',                       // TVA immobilière (neuf)
+    '683',                       // droits de mutation
+    '1594 D',                    // taux départemental
+    '964',                       // IFI
+    '1380', '1383',              // taxe foncière
+  ], domain: 'fiscalite' },
 
-  // Documents vente lot copro (Q26)
-  { law: 'cch', legitextId: 'LEGITEXT000006074096', fond: 'CODE_DATE', articles: ['L721-2', 'L721-3'], domain: 'transactions' },
 
-  // Assignation / procédure civile (Q87)
-  { law: 'cpc', legitextId: 'LEGITEXT000006070716', fond: 'CODE_DATE', articles: ['755', '756', '817'], domain: 'litiges' },
+  // ═══════════════════════════════════════════════════════════════
+  // CODE DE LA CONSOMMATION
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'code de la consommation', legitextId: 'LEGITEXT000006069565', fond: 'CODE_DATE', articles: [
+    'L313-40', 'L313-41', 'L313-42', // condition suspensive prêt
+  ], domain: 'transactions' },
 
-  // Trêve hivernale / expulsion (Q89)
-  { law: 'cpce', legitextId: 'LEGITEXT000025024948', fond: 'CODE_DATE', articles: ['L412-6', 'L411-1'], domain: 'baux_habitation' },
 
-  // Condition suspensive prêt (lacune cartographie)
-  { law: 'code de la consommation', legitextId: 'LEGITEXT000006069565', fond: 'CODE_DATE', articles: ['L313-41'], domain: 'transactions' },
+  // ═══════════════════════════════════════════════════════════════
+  // CODE DE PROCÉDURE CIVILE
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'cpc', legitextId: 'LEGITEXT000006070716', fond: 'CODE_DATE', articles: [
+    '750-1',                    // médiation préalable obligatoire
+    '755', '756',               // assignation (délai, contenu)
+    '817',                      // mise en état
+    '834', '835',               // référé
+  ], domain: 'litiges' },
 
-  // Décès locataire / sous-location / charges récupérables (loi 89-462 — LODA)
-  { law: 'loi 89-462', legitextId: 'LEGITEXT000006069108', fond: 'LODA_DATE', articles: ['8', '14', '23'], domain: 'baux_habitation' },
+
+  // ═══════════════════════════════════════════════════════════════
+  // CPCE (procédures civiles d'exécution)
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'cpce', legitextId: 'LEGITEXT000025024948', fond: 'CODE_DATE', articles: [
+    'L411-1',                   // expulsion (titre exécutoire)
+    'L412-1', 'L412-3', 'L412-6', // délais expulsion, trêve hivernale
+  ], domain: 'baux_habitation' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CODE DE L'ENVIRONNEMENT
+  // ═══════════════════════════════════════════════════════════════
+  { law: "code de l'environnement", legitextId: 'LEGITEXT000006074220', fond: 'CODE_DATE', articles: [
+    'L125-5',                   // ERP (état des risques)
+  ], domain: 'diagnostics' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // CODE DE LA SANTÉ PUBLIQUE
+  // ═══════════════════════════════════════════════════════════════
+  { law: 'code de la santé publique', legitextId: 'LEGITEXT000006072665', fond: 'CODE_DATE', articles: [
+    'L1334-5', 'L1334-7',      // plomb / CREP
+    'L1334-13',                 // amiante
+  ], domain: 'diagnostics' },
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // DÉCRETS SPÉCIFIQUES
+  // ═══════════════════════════════════════════════════════════════
+
+  // Liste des charges récupérables
+  { law: 'décret 87-713', legitextId: 'LEGITEXT000006063573', fond: 'LODA_DATE', articles: ['1'], domain: 'baux_habitation' },
+
+  // Décence du logement
+  { law: 'décret 2002-120', legitextId: 'LEGITEXT000005620810', fond: 'LODA_DATE', articles: ['1', '2', '3'], domain: 'baux_habitation' },
+
+  // Grille de vétusté
+  { law: 'décret 2016-382', legitextId: 'LEGITEXT000032324415', fond: 'LODA_DATE', articles: ['1', '2'], domain: 'baux_habitation' },
+
+  // ALUR (articles spécifiques)
+  { law: 'loi 2014-366', legitextId: 'LEGITEXT000028775733', fond: 'LODA_DATE', articles: ['1', '24', '25', '68', '149'], domain: 'baux_habitation' },
+
+  // ELAN
+  { law: 'loi 2018-1021', legitextId: 'LEGITEXT000037642121', fond: 'LODA_DATE', articles: ['107', '139', '157'], domain: 'baux_habitation' },
+
+  // Climat et Résilience
+  { law: 'loi 2021-1104', legitextId: 'LEGITEXT000043957598', fond: 'LODA_DATE', articles: ['148', '158', '160'], domain: 'diagnostics' },
 ]
 // =============================================================================
 
@@ -99,6 +333,9 @@ const CODE_NAMES: Record<string, string> = {
   'LEGITEXT000025024948': "Code des procédures civiles d'exécution",
   'LEGITEXT000006069719': 'Code pénal',
   'LEGITEXT000006072026': 'Code monétaire et financier',
+  'LEGITEXT000005634379': 'Code de commerce',
+  'LEGITEXT000006074220': "Code de l'environnement",
+  'LEGITEXT000006072665': 'Code de la santé publique',
 }
 
 // ── CODE_DATE : tableMatieres → LEGIARTI ID, fallback /search NUM_ARTICLE ─────
