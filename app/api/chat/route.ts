@@ -255,9 +255,18 @@ const IMMO_KEYWORDS = [
   'prescription', 'forclusion', 'expertise judiciaire', 'astreinte', 'saisie immobilière',
 ]
 
+function matchesKeyword(text: string, keyword: string): boolean {
+  if (text.includes(keyword)) return true
+  if (keyword.length >= 5) {
+    const stem = keyword.slice(0, Math.min(keyword.length - 1, 6))
+    if (text.includes(stem)) return true
+  }
+  return false
+}
+
 function isImmoKeywordMatch(message: string): boolean {
   const lower = message.toLowerCase()
-  return IMMO_KEYWORDS.some(kw => lower.includes(kw))
+  return IMMO_KEYWORDS.some(kw => matchesKeyword(lower, kw))
 }
 
 // ── Helpers ──

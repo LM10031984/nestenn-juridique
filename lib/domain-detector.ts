@@ -122,6 +122,23 @@ const DOMAIN_KEYWORDS: Array<{
 ]
 
 /**
+ * Matching tolérant aux fautes d'orthographe et variantes.
+ * - Match exact en priorité
+ * - Pour les mots de 5+ caractères, match sur la racine (premiers 6 chars max)
+ *   "locatire" → racine "locata" → matche "locataire"
+ *   "expulser" → racine "expuls" → matche "expulsion"
+ */
+function matchesKeyword(text: string, keyword: string): boolean {
+  const kw = keyword.toLowerCase()
+  if (text.includes(kw)) return true
+  if (kw.length >= 5) {
+    const stem = kw.slice(0, Math.min(kw.length - 1, 6))
+    if (text.includes(stem)) return true
+  }
+  return false
+}
+
+/**
  * Retourne le domaine le plus probable (ou null) + un second si proche.
  * Les noms retournés correspondent aux valeurs `domain` dans la DB.
  */
@@ -130,7 +147,7 @@ export function detectDomains(question: string): string[] {
   const scores: Array<{ domain: DomainMatch; score: number }> = []
 
   for (const entry of DOMAIN_KEYWORDS) {
-    const score = entry.keywords.filter(kw => lower.includes(kw.toLowerCase())).length
+    const score = entry.keywords.filter(kw => matchesKeyword(lower, kw)).length
     if (score > 0) scores.push({ domain: entry.domain, score })
   }
 
@@ -149,7 +166,7 @@ export function detectDomain(question: string): DomainMatch | null {
   let bestScore = 0
 
   for (const entry of DOMAIN_KEYWORDS) {
-    const score = entry.keywords.filter(kw => lower.includes(kw.toLowerCase())).length
+    const score = entry.keywords.filter(kw => matchesKeyword(lower, kw)).length
     if (score > bestScore) {
       bestScore = score
       bestMatch = entry.domain
