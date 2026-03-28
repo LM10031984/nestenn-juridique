@@ -216,7 +216,179 @@ async function embedText(text: string): Promise<number[] | null> {
   }
 }
 
-// ── 7. Pipeline complet auto-index ────────────────────────────────────────
+// ── 7. Auto-index jurisprudence ───────────────────────────────────────────
+
+const JUDILIBRE_API_URL = process.env.PISTE_ENV === 'sandbox'
+  ? 'https://sandbox-api.piste.gouv.fr/cassation/judilibre/v1.0'
+  : 'https://api.piste.gouv.fr/cassation/judilibre/v1.0'
+
+interface CaseRef {
+  court: 'cass' | 'ca'
+  number: string  // ex: "18-25.147"
+}
+
+function extractCaseReferences(text: string): CaseRef[] {
+  const refs: CaseRef[] = []
+  const seen = new Set<string>()
+
+  // "Cass. civ. 3e, ... n° 18-25.147" / "Cass. com., ... n° 20-11.547"
+  const cassPattern = /Cass\.\s*(?:civ\.\s*\d+e?|com\.|soc\.|crim\.|ass\.\s*plén\.)[^n°]*?n°\s*([\d]{2}-[\d]{2,5}\.[\d]{3,5})/gi
+  for (const m of text.matchAll(cassPattern)) {
+    const number = m[1].trim()
+    if (!seen.has(number)) { seen.add(number); refs.push({ court: 'cass', number }) }
+  }
+
+  // Numéro seul : "n° 18-25.147" (hors contexte Cass. déjà capturé)
+  const genericPattern = /\bn°\s*([\d]{2}-[\d]{2,5}\.[\d]{3,5})\b/gi
+  for (const m of text.matchAll(genericPattern)) {
+    const number = m[1].trim()
+    if (!seen.has(number)) { seen.add(number); refs.push({ court: 'cass', number }) }
+  }
+
+  return refs
+}
+
+async function fetchDecisionFromJudilibre(token: string, number: string): Promise<{
+  text: string; date: string; url: string; id: string
+} | null> {
+  try {
+    const url = new URL(`${JUDILIBRE_API_URL}/search`)
+    url.searchParams.set('number', number)
+    url.searchParams.set('page_size', '1')
+
+    const searchRes = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!searchRes.ok) return null
+    const searchData = await searchRes.json() as { results?: Array<{ id: string }> }
+    const id = searchData.results?.[0]?.id
+    if (!id) return null
+
+    const decUrl = new URL(`${JUDILIBRE_API_URL}/decision`)
+    decUrl.searchParams.set('id', id)
+    decUrl.searchParams.set('resolve_references', 'false')
+    const decRes = await fetch(decUrl.toString(), {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!decRes.ok) return null
+    const dec = await decRes.json() as {
+      id: string
+      decision_date?: string
+      zones?: { motivations?: Array<{ text: string }>; sommaire?: Array<{ text: string }> }
+      text?: string
+      summary?: string
+    }
+
+    const motivations = (dec.zones?.motivations ?? []).map(z => z.text).join('\n').trim()
+    const sommaire    = (dec.zones?.sommaire ?? []).map(z => z.text).join('\n').trim()
+    const fullText    = motivations || sommaire || dec.text?.slice(0, 3000) || dec.summary || ''
+    if (fullText.length < 50) return null
+
+    return {
+      id: dec.id,
+      text: fullText,
+      date: dec.decision_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+      url: `https://www.judilibre.io/#cass/judilibre/${dec.id}`,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function summarizeJurisprudence(number: string, text: string): Promise<{
+  situation: string; principe: string; consequence: string
+} | null> {
+  try {
+    const raw = await openRouterChat([
+      {
+        role: 'system',
+        content: `Tu es juriste spécialisé en droit immobilier français.
+Résume cet arrêt en 3 champs JSON stricts (pas de markdown) :
+- situation : les faits et le contexte procédural
+- principe : la règle de droit dégagée par la juridiction
+- consequence : l'effet pratique pour un agent immobilier ou praticien
+Réponds UNIQUEMENT avec du JSON valide : {"situation":"...","principe":"...","consequence":"..."}`,
+      },
+      {
+        role: 'user',
+        content: `Arrêt n° ${number}\n\n${text.slice(0, 2000)}`,
+      },
+    ], MODELS.FILTER, 300)
+
+    const parsed = JSON.parse(raw.trim())
+    if (!parsed.situation || !parsed.principe) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export async function autoIndexMissingJurisprudence(
+  responseText: string,
+  chunksFound: number,
+): Promise<void> {
+  if (chunksFound >= 3) return
+
+  const refs = extractCaseReferences(responseText)
+  if (refs.length === 0) return
+
+  const token = await getPisteToken()
+  if (!token) {
+    console.warn('[auto-indexer] Token PISTE indisponible — skip jurisprudence')
+    return
+  }
+
+  for (const ref of refs) {
+    try {
+      const { count } = await supabase
+        .from('legal_articles')
+        .select('*', { count: 'exact', head: true })
+        .eq('law_id', ref.court === 'cass' ? 'JURI_CASS' : 'JURI_CA')
+        .ilike('article_num', ref.number)
+
+      if ((count ?? 0) > 0) continue
+
+      const decision = await fetchDecisionFromJudilibre(token, ref.number)
+      if (!decision) {
+        console.warn(`[auto-indexer] Arrêt n° ${ref.number} introuvable sur Judilibre`)
+        continue
+      }
+
+      const summary = await summarizeJurisprudence(ref.number, decision.text)
+      if (!summary) continue
+
+      const embeddingText = `${summary.situation} ${summary.principe} ${summary.consequence}`
+      const embedding = await embedText(embeddingText)
+      if (!embedding) continue
+
+      const { error } = await supabase.from('legal_articles').upsert({
+        law_id:          ref.court === 'cass' ? 'JURI_CASS' : 'JURI_CA',
+        article_num:     ref.number,
+        title:           `${ref.court === 'cass' ? 'Cass.' : 'CA'} n° ${ref.number} (${decision.date})`,
+        content:         decision.text.slice(0, 3000),
+        content_summary: JSON.stringify(summary),
+        date_version:    decision.date,
+        url:             decision.url,
+        domain:          'auto_indexed_jurisprudence',
+        sub_themes:      [],
+        in_force:        true,
+        embedding,
+      }, { onConflict: 'law_id,article_num' })
+
+      if (error) {
+        console.error(`[auto-indexer] Upsert juri ${ref.number}:`, error.message)
+      } else {
+        console.info(`[auto-indexer] ✅ Jurisprudence indexée : ${ref.court} n° ${ref.number}`)
+      }
+    } catch (err) {
+      console.error(`[auto-indexer] Erreur juri ${ref.number}:`, err)
+    }
+  }
+}
+
+// ── 8. Pipeline complet auto-index ────────────────────────────────────────
 
 export async function autoIndexMissingArticles(
   responseText: string,

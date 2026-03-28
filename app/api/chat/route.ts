@@ -13,7 +13,7 @@ import { embedQuestion } from '@/lib/embedding'
 import { detectDomains } from '@/lib/domain-detector'
 import { fetchJudilibreSimple } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
-import { autoIndexMissingArticles } from '@/lib/auto-indexer'
+import { autoIndexMissingArticles, autoIndexMissingJurisprudence } from '@/lib/auto-indexer'
 import { createClient } from '@/lib/supabase/server'
 
 // ── Constantes ──
@@ -155,8 +155,10 @@ export async function POST(req: NextRequest) {
             accumulated.push(decoder.decode(value, { stream: true }))
           }
           const fullText = accumulated.join('')
-          autoIndexMissingArticles(fullText, chunksFound)
-            .catch(err => console.error('[auto-indexer]', err))
+          Promise.all([
+            autoIndexMissingArticles(fullText, chunksFound),
+            autoIndexMissingJurisprudence(fullText, chunksFound),
+          ]).catch(err => console.error('[auto-indexer]', err))
         } catch { /* silencieux — ne bloque jamais la réponse */ }
       })()
 
