@@ -18,11 +18,7 @@ export interface JuriCase {
   url?: string
 }
 
-const DISCLAIMERS = [
-  'Informations générales — pas de conseil personnalisé. Consultez un professionnel habilité.',
-  'Ces éléments sont fournis à titre informatif. En cas de litige, rapprochez-vous d\'un avocat ou notaire.',
-  'Droit immobilier en constante évolution — vérifiez les textes en vigueur sur Légifrance.',
-]
+const DISCLAIMER = `⚠️ **Avertissement juridique** : Nestenn Juridique est un outil d'information juridique générale. Il ne constitue en aucun cas une consultation juridique personnalisée, un avis d'avocat ou un acte de conseil au sens de la loi. Les informations, articles de loi et jurisprudences cités sont fournis à titre indicatif et peuvent être incomplets, obsolètes ou inadaptés à votre situation particulière. Aucune responsabilité ne saurait être engagée à l'encontre de l'éditeur de cet outil, du réseau Nestenn ou de ses agents sur la base des informations fournies. Pour toute décision juridique, rapprochez-vous d'un avocat ou d'un notaire.`
 
 export function getSystemPromptAugmented(
   chunks: SourceChunk[],
@@ -31,7 +27,7 @@ export function getSystemPromptAugmented(
   const today = new Date().toLocaleDateString('fr-FR', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
-  const disclaimer = DISCLAIMERS[Math.floor(Math.random() * DISCLAIMERS.length)]
+  const disclaimer = DISCLAIMER
 
   const sourcesBlock = formatSources(chunks)
   const juriBlock = formatJurisprudence(juriCases)
