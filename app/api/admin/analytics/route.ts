@@ -27,7 +27,6 @@ export async function GET(req: NextRequest) {
   // Filtre agence pour responsable_agence
   function withAgencyFilter<T extends object>(query: T): T {
     if (!agencyId) return query
-    // @ts-expect-error dynamic filter
     return (query as any).eq('conversations.agency_id', agencyId)
   }
 

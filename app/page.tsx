@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Layout } from '@/components/Layout'
+import { requireAuth } from '@/lib/auth'
 import { Scale, Building2, Gavel, FileText, Shield, Users, BookOpen, CheckCircle, ArrowRight } from 'lucide-react'
 
 const domains = [
@@ -18,9 +19,10 @@ const trustPoints = [
   'Articles de loi cités et sourcés',
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await requireAuth()
   return (
-    <Layout>
+    <Layout user={user}>
       <div className="min-h-screen bg-background overflow-auto">
         {/* Hero */}
         <section className="relative overflow-hidden">
