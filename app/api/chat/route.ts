@@ -118,11 +118,11 @@ export async function POST(req: NextRequest) {
     }).catch(() => {})
 
     // Classification sous-domaine IA (~0.0001€, GPT-4o-mini, 20 tokens max)
+    const supabaseForClassify = createClient()
     classifySubDomain(trimmedMessage)
       .then(subDomain => {
         if (subDomain) {
-          const supabase = createClient()
-          void supabase.from('messages').update({ sub_domain: subDomain }).eq('id', messageId)
+          void supabaseForClassify.from('messages').update({ sub_domain: subDomain }).eq('id', messageId)
         }
       })
       .catch(() => {})
