@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { BarChart2, MessageSquare, Building2, TrendingUp, AlertCircle } from 'lucide-react'
-import { TOPIC_LABELS } from '@/lib/topic-detector'
 
 interface AnalyticsData {
   period: number
@@ -12,20 +11,7 @@ interface AnalyticsData {
   byAgency: Array<{ agency_name: string; question_count: number }>
   topQuestions: Array<{ domain: string; question_preview: string; ask_count: number }>
   painPoints: Array<{ domain: string; sub_domain: string; question_count: number }>
-}
-
-const DOMAIN_LABELS: Record<string, string> = {
-  baux_habitation: 'Baux d\'habitation',
-  copropriete: 'Copropriété',
-  agent_immobilier: 'Loi Hoguet / Agent',
-  transactions: 'Transactions',
-  diagnostics: 'Diagnostics',
-  urbanisme: 'Urbanisme',
-  bail_commercial: 'Bail commercial',
-  fiscalite: 'Fiscalité',
-  viager: 'Viager / Démembrement',
-  construction: 'Construction',
-  servitudes: 'Servitudes',
+  recentQuestions: Array<{ question_preview: string; sub_domain: string | null; domain: string | null; created_at: string }>
 }
 
 export default function AnalyticsPage() {
@@ -60,9 +46,6 @@ export default function AnalyticsPage() {
       </div>
     )
   }
-
-  const maxCount = Math.max(...data.byDomain.map(d => d.count), 1)
-  const maxTopicCount = Math.max(...data.byTopic.map(t => t.count), 1)
 
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8">
@@ -103,11 +86,11 @@ export default function AnalyticsPage() {
 
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 text-muted-foreground mb-3">
-            <BarChart2 className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wide">Domaines actifs</span>
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-xs font-medium uppercase tracking-wide">Pain points</span>
           </div>
-          <div className="text-3xl font-bold text-foreground">{data.byDomain.length}</div>
-          <p className="text-xs text-muted-foreground mt-1">domaines juridiques couverts</p>
+          <div className="text-3xl font-bold text-foreground">{data.painPoints.length}</div>
+          <p className="text-xs text-muted-foreground mt-1">thèmes identifiés</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5">
@@ -120,78 +103,56 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Répartition par domaine — barres horizontales */}
-      {data.byDomain.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-6 mb-6">
-          <h2 className="text-sm font-semibold text-foreground mb-5 flex items-center gap-2">
-            <BarChart2 className="h-4 w-4 text-primary" />
-            Répartition par domaine juridique
+      {/* Pain points — VUE PRINCIPALE */}
+      {data.painPoints.length > 0 && (
+        <div className="bg-card border rounded-xl p-6 mb-8">
+          <h2 className="text-lg font-semibold mb-2">
+            Problématiques des agents
           </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Ce sur quoi vos agents ont le plus besoin d&apos;aide
+          </p>
           <div className="space-y-3">
-            {data.byDomain.map(d => (
-              <div key={d.domain} className="flex items-center gap-3">
-                <div className="w-44 text-xs text-right text-muted-foreground truncate shrink-0">
-                  {DOMAIN_LABELS[d.domain] ?? d.domain}
-                </div>
-                <div className="flex-1 bg-muted rounded-full h-6 overflow-hidden">
-                  <div
-                    className="bg-primary h-full rounded-full flex items-center justify-end px-2.5 transition-all duration-500"
-                    style={{ width: `${Math.max((d.count / maxCount) * 100, 4)}%` }}
-                  >
-                    <span className="text-[11px] text-primary-foreground font-semibold">{d.count}</span>
+            {data.painPoints.slice(0, 20).map((p, i) => {
+              const maxCount = data.painPoints[0]?.question_count ?? 1
+              const pct = (p.question_count / maxCount) * 100
+              return (
+                <div key={i} className="flex items-center gap-4">
+                  <div className="w-8 text-right text-sm font-bold text-primary">
+                    {p.question_count}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium">{p.sub_domain}</span>
+                    </div>
+                    <div className="bg-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-primary h-full rounded-full transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* Pain points — sous-domaines IA (GPT-4o-mini) */}
-      {data.painPoints.length > 0 ? (
-        <div className="bg-card border border-border rounded-xl p-6 mb-6">
-          <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-orange-400" />
-            Pain points des agents
-          </h2>
-          <p className="text-xs text-muted-foreground mb-5">
-            Sous-thèmes précis classifiés par IA — ce sur quoi les agents bloquent vraiment
-          </p>
+      {/* Questions récentes — détail */}
+      {data.recentQuestions.length > 0 && (
+        <div className="bg-card border rounded-xl p-6 mb-8">
+          <h2 className="font-semibold mb-4">Dernières questions posées</h2>
           <div className="space-y-2">
-            {data.painPoints.slice(0, 15).map((p, i) => (
-              <div key={i} className="flex items-center gap-4 py-2 border-b border-border last:border-0">
-                <span className="text-xs bg-muted px-2 py-1 rounded min-w-[160px] text-right text-muted-foreground truncate shrink-0">
-                  {DOMAIN_LABELS[p.domain] ?? p.domain}
+            {data.recentQuestions.slice(0, 15).map((q, i) => (
+              <div key={i} className="flex items-center gap-3 py-2 border-b last:border-0">
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded min-w-[160px] text-center">
+                  {q.sub_domain ?? 'Non classé'}
                 </span>
-                <span className="flex-1 text-sm font-medium text-foreground">{p.sub_domain}</span>
-                <span className="text-sm text-muted-foreground shrink-0">{p.question_count}×</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : data.byTopic.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-6 mb-6">
-          <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-orange-400" />
-            Pain points — thèmes juridiques
-          </h2>
-          <p className="text-xs text-muted-foreground mb-5">
-            Ce sur quoi les agents bloquent le plus
-          </p>
-          <div className="space-y-3">
-            {data.byTopic.slice(0, 15).map(t => (
-              <div key={t.topic} className="flex items-center gap-3">
-                <div className="w-52 text-xs text-right text-muted-foreground truncate shrink-0">
-                  {TOPIC_LABELS[t.topic] ?? t.topic}
-                </div>
-                <div className="flex-1 bg-muted rounded-full h-6 overflow-hidden">
-                  <div
-                    className="bg-orange-400/80 h-full rounded-full flex items-center justify-end px-2.5 transition-all duration-500"
-                    style={{ width: `${Math.max((t.count / maxTopicCount) * 100, 4)}%` }}
-                  >
-                    <span className="text-[11px] text-white font-semibold">{t.count}</span>
-                  </div>
-                </div>
+                <span className="flex-1 text-sm truncate">{q.question_preview}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(q.created_at).toLocaleDateString('fr-FR')}
+                </span>
               </div>
             ))}
           </div>
@@ -209,9 +170,6 @@ export default function AnalyticsPage() {
             <div className="space-y-1">
               {data.topQuestions.slice(0, 15).map((q, i) => (
                 <div key={i} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded shrink-0">
-                    {DOMAIN_LABELS[q.domain] ?? q.domain}
-                  </span>
                   <span className="flex-1 text-xs text-foreground/80 truncate">{q.question_preview}</span>
                   <span className="text-xs font-semibold text-muted-foreground shrink-0">{q.ask_count}×</span>
                 </div>

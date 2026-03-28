@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     }).catch(() => {})
 
     // Classification sous-domaine IA (~0.0001€, GPT-4o-mini, 20 tokens max)
-    classifySubDomain(trimmedMessage, primaryDomain ?? undefined)
+    classifySubDomain(trimmedMessage)
       .then(subDomain => {
         if (subDomain) {
           const supabase = createClient()
@@ -322,31 +322,60 @@ async function saveMessageMetadata(
 
 // ── Sub-domain classification ──
 
-async function classifySubDomain(question: string, domain?: string): Promise<string | null> {
-  const prompt = `Classifie cette question d'agent immobilier en UN sous-thème précis (2-4 mots max).
+async function classifySubDomain(question: string): Promise<string | null> {
+  const prompt = `Tu classifies les questions d'agents immobiliers en thèmes précis.
+Choisis UN thème dans la liste ci-dessous. Si aucun ne correspond, crée un nouveau thème en 2-3 mots.
 
-Exemples :
-- "Mon locataire ne paie plus" → "impayés loyer"
-- "Quel délai de rétractation" → "rétractation acquéreur"
-- "Mon vendeur est sous tutelle" → "tutelle vendeur"
-- "Le DPE est-il encore valable" → "validité DPE"
-- "Mon mandat exclusif a été dénoncé" → "rupture mandat exclusif"
-- "Comment calculer les frais de notaire" → "frais notaire"
-- "Le syndic peut-il faire des travaux sans vote" → "travaux urgents syndic"
-- "Mon locataire refuse de partir" → "expulsion locataire"
+THÈMES EXISTANTS (utilise ces formulations exactes quand c'est pertinent) :
+- Commission et honoraires (tout ce qui concerne le paiement, le refus, le partage de commission)
+- Mandat exclusif (durée, résiliation, dénonciation, période irrévocable)
+- Mandat simple (conditions, concurrent, commission)
+- Compromis et promesse (signature, rétractation, caducité, clause pénale)
+- Conditions suspensives (prêt, permis, délai, défaillance)
+- Vices cachés (découverte, recours, délai, exonération)
+- Tutelle et capacité (majeur protégé, curatelle, autorisation juge)
+- Préemption (DPU, prix, juge, commune)
+- Clause de substitution (cessionnaire, SCI)
+- Dépôt de garantie (restitution, retenue, vétusté, dégradation)
+- Loyers impayés (commandement, clause résolutoire, procédure)
+- Expulsion locataire (trêve hivernale, huissier, délai)
+- Congé bailleur (vente, reprise, motif, préavis)
+- Congé locataire (préavis, zone tendue)
+- Révision loyer (IRL, augmentation, encadrement)
+- Sous-location (autorisation, interdiction)
+- Décès locataire (transfert bail, héritiers)
+- Bail meublé (durée, résiliation, inventaire)
+- Bail mobilité (conditions, durée)
+- Diagnostics obligatoires (DPE, amiante, plomb, DDT)
+- DPE validité (périodes, opposable, classe F/G)
+- Copropriété AG (convocation, majorité, contestation)
+- Syndic contrat (révocation, mise en concurrence, honoraires)
+- Charges copropriété (répartition, impayés, récupérables)
+- Travaux copropriété (vote, urgence, parties communes)
+- Permis de construire (délai, instruction, recours)
+- Frais de notaire (montant, décomposition)
+- Plus-value immobilière (calcul, exonération, RP)
+- Responsabilité agent (devoir conseil, information, faute)
+- Double mandat (conflit intérêts, vendeur et acheteur)
+- Assignation et procédure (délai, tribunal, référé)
+- Servitude (passage, vue, mitoyenneté)
+- Viager (rente, résolution, décès)
+- Usufruit (location, travaux, nu-propriétaire)
+- Bail commercial (renouvellement, éviction, révision loyer)
+- Indivision (vente, partage, accord)
+- SCI (fiscalité, gestion, associés)
 
 Question : "${question}"
-Domaine : ${domain ?? 'non détecté'}
 
-Réponds avec UNIQUEMENT le sous-thème en 2-4 mots, rien d'autre.`
+Réponds avec UNIQUEMENT le thème, rien d'autre.`
 
   try {
     const result = await openRouterChat(
       [{ role: 'user', content: prompt }],
       MODELS.FILTER,
-      20,
+      30,
     )
-    return result.trim().toLowerCase().slice(0, 50)
+    return result.trim().slice(0, 60)
   } catch {
     return null
   }

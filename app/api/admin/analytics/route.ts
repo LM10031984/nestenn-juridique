@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     .not('topic', 'is', null)
     .gte('created_at', since.toISOString())
 
-  const [byDomainRes, byAgencyRes, topQuestionsRes, byTopicRes, totalsRes, painPointsRes] = await Promise.all([
+  const [byDomainRes, byAgencyRes, topQuestionsRes, byTopicRes, totalsRes, painPointsRes, recentQuestionsRes] = await Promise.all([
     agencyId
       ? baseMessages.eq('conversations.agency_id', agencyId)
       : baseMessages,
@@ -71,6 +71,15 @@ export async function GET(req: NextRequest) {
 
     // Pain points par sous-domaine IA
     supabase.from('analytics_pain_points').select('domain, sub_domain, question_count').limit(20),
+
+    // Questions récentes classifiées
+    supabase
+      .from('messages')
+      .select('content, sub_domain, domain, created_at')
+      .eq('role', 'user')
+      .not('sub_domain', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(15),
   ])
 
   // Agréger par domaine côté serveur
@@ -105,6 +114,13 @@ export async function GET(req: NextRequest) {
     .sort(([, a], [, b]) => b - a)
     .map(([topic, count]) => ({ topic, count }))
 
+  const recentQuestions = (recentQuestionsRes.data ?? []).map(q => ({
+    question_preview: (q.content as string)?.slice(0, 100) ?? '',
+    sub_domain: q.sub_domain as string | null,
+    domain: q.domain as string | null,
+    created_at: q.created_at as string,
+  }))
+
   return Response.json({
     period: parseInt(period),
     totalQuestions: totalsRes.count ?? 0,
@@ -113,5 +129,6 @@ export async function GET(req: NextRequest) {
     byAgency,
     topQuestions: topQuestionsRes.data ?? [],
     painPoints: painPointsRes.data ?? [],
+    recentQuestions,
   })
 }
