@@ -15,6 +15,7 @@ import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence } from '@/lib/auto-indexer'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // ── Constantes ──
 
@@ -117,12 +118,12 @@ export async function POST(req: NextRequest) {
       responseMode,
     }).catch(() => {})
 
-    // Classification sous-domaine IA (~0.0001€, GPT-4o-mini, 20 tokens max)
-    const supabaseForClassify = createClient()
+    // Classification sous-domaine IA — admin client pour bypasser RLS/cookies hors contexte
+    const supabaseAdmin = createAdminClient()
     classifySubDomain(trimmedMessage)
       .then(subDomain => {
         if (subDomain) {
-          void supabaseForClassify.from('messages').update({ sub_domain: subDomain }).eq('id', messageId)
+          void supabaseAdmin.from('messages').update({ sub_domain: subDomain }).eq('id', messageId)
         }
       })
       .catch(() => {})
