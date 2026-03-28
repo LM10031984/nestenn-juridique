@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     .not('topic', 'is', null)
     .gte('created_at', since.toISOString())
 
-  const [byDomainRes, byAgencyRes, topQuestionsRes, totalsRes, byTopicRes] = await Promise.all([
+  const [byDomainRes, byAgencyRes, topQuestionsRes, byTopicRes, totalsRes, painPointsRes] = await Promise.all([
     agencyId
       ? baseMessages.eq('conversations.agency_id', agencyId)
       : baseMessages,
@@ -68,6 +68,9 @@ export async function GET(req: NextRequest) {
     agencyId
       ? supabase.from('messages').select('*, conversations!inner(agency_id)', { count: 'exact', head: true }).eq('role', 'user').eq('conversations.agency_id', agencyId).gte('created_at', since.toISOString())
       : supabase.from('messages').select('*', { count: 'exact', head: true }).eq('role', 'user').gte('created_at', since.toISOString()),
+
+    // Pain points par sous-domaine IA
+    supabase.from('analytics_pain_points').select('domain, sub_domain, question_count').limit(20),
   ])
 
   // Agréger par domaine côté serveur
@@ -109,5 +112,6 @@ export async function GET(req: NextRequest) {
     byTopic,
     byAgency,
     topQuestions: topQuestionsRes.data ?? [],
+    painPoints: painPointsRes.data ?? [],
   })
 }

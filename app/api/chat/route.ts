@@ -116,6 +116,16 @@ export async function POST(req: NextRequest) {
       sourcesCount: chunks.length,
       responseMode,
     }).catch(() => {})
+
+    // Classification sous-domaine IA (~0.0001€, GPT-4o-mini, 20 tokens max)
+    classifySubDomain(trimmedMessage, primaryDomain ?? undefined)
+      .then(subDomain => {
+        if (subDomain) {
+          const supabase = createClient()
+          void supabase.from('messages').update({ sub_domain: subDomain }).eq('id', messageId)
+        }
+      })
+      .catch(() => {})
   }
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
@@ -308,6 +318,38 @@ async function saveMessageMetadata(
         .is('domain', null)
     }
   } catch { /* silencieux — ne bloque jamais la réponse */ }
+}
+
+// ── Sub-domain classification ──
+
+async function classifySubDomain(question: string, domain?: string): Promise<string | null> {
+  const prompt = `Classifie cette question d'agent immobilier en UN sous-thème précis (2-4 mots max).
+
+Exemples :
+- "Mon locataire ne paie plus" → "impayés loyer"
+- "Quel délai de rétractation" → "rétractation acquéreur"
+- "Mon vendeur est sous tutelle" → "tutelle vendeur"
+- "Le DPE est-il encore valable" → "validité DPE"
+- "Mon mandat exclusif a été dénoncé" → "rupture mandat exclusif"
+- "Comment calculer les frais de notaire" → "frais notaire"
+- "Le syndic peut-il faire des travaux sans vote" → "travaux urgents syndic"
+- "Mon locataire refuse de partir" → "expulsion locataire"
+
+Question : "${question}"
+Domaine : ${domain ?? 'non détecté'}
+
+Réponds avec UNIQUEMENT le sous-thème en 2-4 mots, rien d'autre.`
+
+  try {
+    const result = await openRouterChat(
+      [{ role: 'user', content: prompt }],
+      MODELS.FILTER,
+      20,
+    )
+    return result.trim().toLowerCase().slice(0, 50)
+  } catch {
+    return null
+  }
 }
 
 function streamTextResponse(text: string): Response {

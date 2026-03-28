@@ -11,6 +11,7 @@ interface AnalyticsData {
   byTopic: Array<{ topic: string; count: number }>
   byAgency: Array<{ agency_name: string; question_count: number }>
   topQuestions: Array<{ domain: string; question_preview: string; ask_count: number }>
+  painPoints: Array<{ domain: string; sub_domain: string; question_count: number }>
 }
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -146,12 +147,33 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Pain points — thèmes juridiques précis */}
-      {data.byTopic.length > 0 && (
+      {/* Pain points — sous-domaines IA (GPT-4o-mini) */}
+      {data.painPoints.length > 0 ? (
         <div className="bg-card border border-border rounded-xl p-6 mb-6">
           <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-orange-400" />
-            Pain points — thèmes juridiques précis
+            Pain points des agents
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            Sous-thèmes précis classifiés par IA — ce sur quoi les agents bloquent vraiment
+          </p>
+          <div className="space-y-2">
+            {data.painPoints.slice(0, 15).map((p, i) => (
+              <div key={i} className="flex items-center gap-4 py-2 border-b border-border last:border-0">
+                <span className="text-xs bg-muted px-2 py-1 rounded min-w-[160px] text-right text-muted-foreground truncate shrink-0">
+                  {DOMAIN_LABELS[p.domain] ?? p.domain}
+                </span>
+                <span className="flex-1 text-sm font-medium text-foreground">{p.sub_domain}</span>
+                <span className="text-sm text-muted-foreground shrink-0">{p.question_count}×</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : data.byTopic.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-6 mb-6">
+          <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-orange-400" />
+            Pain points — thèmes juridiques
           </h2>
           <p className="text-xs text-muted-foreground mb-5">
             Ce sur quoi les agents bloquent le plus
