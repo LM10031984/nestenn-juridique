@@ -1,6 +1,7 @@
 // lib/judilibre.ts
 // Client PISTE — API JUDILIBRE
 import { openRouterChat, MODELS } from '@/lib/openrouter'
+import type { DomainMatch } from '@/lib/domain-detector'
 // Pipeline double-piste CC+CA :
 //   Piste CC → /search (publication=['b','r'], theme, operator='or', field=['summary','motivations']) → /decision top-2
 //   Piste CA → /search (jurisdiction='ca', operator='and', field=['summary','motivations']) → summary direct
@@ -1465,16 +1466,16 @@ export async function fetchJudilibreSimple(question: string): Promise<Normalized
 
 // ---------------------------------------------------------------------------
 // fetchJudilibreLive — appelé sur CHAQUE question, en parallèle avec pgvector
-// Différences vs fetchJudilibreSimple :
-//   - Sans filtre publication (tous les arrêts CC + CA, pas que bulletin)
-//   - Sans filtre chambre (résultat plus large, LLM trie)
-//   - Top 3 décisions avec motivations complètes
-//   - Log dédié pour monitoring pertinence
+// 3 tentatives progressives :
+//   1. Ciblée : thème + chambre du domaine détecté (si connu)
+//   2. Large AND : tous arrêts, tous mots-clés
+//   3. Fallback OR : 3 mots-clés, operator=or
+// Sans filtre publication → tous les arrêts CC + CA
 // ---------------------------------------------------------------------------
 
 export async function fetchJudilibreLive(
   question: string,
-  _domain: string | null = null, // réservé pour filtrage chambre futur
+  domain: DomainMatch | null = null,
 ): Promise<NormalizedCase[]> {
   const token = await getJudilibreToken()
   if (!token || !question.trim()) return []
@@ -1499,11 +1500,40 @@ export async function fetchJudilibreLive(
 
   if (keywords.length === 0) return []
 
-  // Deux tentatives progressivement relâchées, SANS filtre publication
-  const attempts: Array<{ query: string; operator: string }> = [
-    { query: keywords.join(' '),             operator: 'and' },
-    { query: keywords.slice(0, 3).join(' '), operator: 'or'  },
-  ]
+  const attempts: Array<{
+    query: string
+    operator: string
+    theme?: string
+    chamber?: string
+    label: string
+  }> = []
+
+  // Tentative 1 : ciblée thème + chambre (si domaine connu)
+  if (domain?.judilibreTheme) {
+    attempts.push({
+      query: keywords.join(' '),
+      operator: 'and',
+      theme: domain.judilibreTheme,
+      chamber: domain.judilibreChamber,
+      label: 'ciblé',
+    })
+  }
+
+  // Tentative 2 : large sans thème, operator=and
+  attempts.push({
+    query: keywords.join(' '),
+    operator: 'and',
+    label: 'large-and',
+  })
+
+  // Tentative 3 : fallback 3 mots, operator=or
+  attempts.push({
+    query: keywords.slice(0, 3).join(' '),
+    operator: 'or',
+    label: 'fallback-or',
+  })
+
+  const pubs = ['b', 'r', 'l', 'c']
 
   for (const attempt of attempts) {
     try {
@@ -1515,36 +1545,41 @@ export async function fetchJudilibreLive(
       url.searchParams.set('page_size', '5')
       url.searchParams.set('resolve_references', 'true')
       url.searchParams.set('date_start', '2010-01-01')
+      url.searchParams.set('sort', 'scorepub')
       // Pas de filtre publication → tous les arrêts CC + CA
-      // Pas de filtre chambre → LLM trie la pertinence
+      if (attempt.theme)   url.searchParams.set('theme', attempt.theme)
+      if (attempt.chamber) url.searchParams.set('chamber', attempt.chamber)
 
       const res = await fetchWithTimeout(url.toString(), {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       }).catch(() => null)
 
       if (!res || !res.ok) continue
-      const data = await res.json() as { results?: any[] }
+      const data = await res.json() as { results?: any[]; total?: number }
       const hits = data.results ?? []
+
+      console.info(
+        `[judilibre-live] ${attempt.label} theme=${attempt.theme ?? 'any'} `
+        + `query='${attempt.query}' → ${data.total ?? 0} total, ${hits.length} retournés`
+      )
 
       if (hits.length === 0) continue
 
-      const top3 = hits.slice(0, 3)
       const details = (await Promise.all(
-        top3.map(h => fetchDecisionDetail(token, h.id, attempt.query))
+        hits.slice(0, 3).map(h => fetchDecisionDetail(token, h.id, attempt.query))
       )).filter(Boolean)
 
-      if (details.length === 0) continue
+      const cases = details.map((d: any) => buildNormalizedCC(d, pubs))
 
-      const cases = details.map((d: any) => buildNormalizedCC(d, []))
-
-      console.info(
-        `[judilibre-live] query="${attempt.query}" → ${cases.length} arrêts | `
-        + cases.map(c => `${c.court} ${c.date} n°${c.number}`).join(', ')
-      )
-
-      return cases
+      if (cases.length > 0) {
+        console.info(
+          `[judilibre-live] ${attempt.label} → ${cases.length} arrêts | `
+          + cases.map(c => `${c.court} ${c.date} n°${c.number}`).join(', ')
+        )
+        return cases
+      }
     } catch (err) {
-      console.error('[judilibre] fetchJudilibreLive — exception :', err)
+      console.error(`[judilibre-live] ${attempt.label} erreur:`, err)
     }
   }
 

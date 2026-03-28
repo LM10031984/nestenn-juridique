@@ -10,7 +10,7 @@ import { getSystemPromptAugmented } from '@/lib/system-prompt'
 import { fetchRelevantSources } from '@/lib/sources'
 import type { JuriCase } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
-import { detectDomains } from '@/lib/domain-detector'
+import { detectDomains, detectDomain } from '@/lib/domain-detector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence } from '@/lib/auto-indexer'
@@ -73,11 +73,13 @@ export async function POST(req: NextRequest) {
 
   const domains = detectDomains(trimmedMessage)
   const primaryDomain = domains[0] ?? null
+  // DomainMatch complet (avec judilibreTheme + judilibreChamber) pour la tentative ciblée
+  const domainMatch = detectDomain(trimmedMessage)
 
   // Judilibre TOUJOURS appelé — avantage compétitif vs ChatGPT/Claude sans accès live
   const [embedding, liveJuriCases] = await Promise.all([
     embedQuestion(trimmedMessage),
-    fetchJudilibreLive(trimmedMessage, primaryDomain).then(cases =>
+    fetchJudilibreLive(trimmedMessage, domainMatch).then(cases =>
       cases.map((c): JuriCase => ({
         court: c.court,
         date: c.date,
