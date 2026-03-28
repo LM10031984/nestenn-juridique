@@ -1411,19 +1411,24 @@ export async function fetchJudilibreSimple(question: string): Promise<Normalized
 
   const pubs = ['b', 'r']
 
-  // Premier essai : operator=and — résultats précis
-  // Fallback : operator=or avec seulement les 3 premiers mots-clés
-  const attempts: Array<{ query: string; operator: string }> = [
-    { query: keywords.join(' '), operator: 'and' },
-    { query: keywords.slice(0, 3).join(' '), operator: 'or' },
+  // Trois tentatives progressivement relâchées :
+  // 1. operator=and, avec filtre publication b/r
+  // 2. operator=or (3 mots), avec filtre publication b/r
+  // 3. operator=or (3 mots), sans filtre publication (couvre tous les arrêts CC+CA)
+  const attempts: Array<{ query: string; operator: string; withPubFilter: boolean }> = [
+    { query: keywords.join(' '),        operator: 'and', withPubFilter: true },
+    { query: keywords.slice(0, 3).join(' '), operator: 'or', withPubFilter: true },
+    { query: keywords.slice(0, 3).join(' '), operator: 'or', withPubFilter: false },
   ]
 
   for (const attempt of attempts) {
     try {
       const url = new URL(`${API_URL}/search`)
       url.searchParams.set('query', attempt.query)
-      url.searchParams.append('publication', 'b')
-      url.searchParams.append('publication', 'r')
+      if (attempt.withPubFilter) {
+        url.searchParams.append('publication', 'b')
+        url.searchParams.append('publication', 'r')
+      }
       url.searchParams.set('operator', attempt.operator)
       url.searchParams.append('field', 'summary')
       url.searchParams.append('field', 'motivations')
@@ -1440,7 +1445,7 @@ export async function fetchJudilibreSimple(question: string): Promise<Normalized
       const hits = data.results ?? []
 
       console.info(
-        `[judilibre] simple search op=${attempt.operator} query='${attempt.query}' → ${hits.length} résultats`
+        `[judilibre] simple search op=${attempt.operator} pub=${attempt.withPubFilter ? 'b,r' : 'all'} query='${attempt.query}' → ${hits.length} résultats`
       )
       if (hits.length === 0) continue
 
