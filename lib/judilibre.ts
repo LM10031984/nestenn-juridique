@@ -1121,6 +1121,24 @@ function judilibreUrl(id: string): string {
   return `https://www.courdecassation.fr/decision/${id}`
 }
 
+async function summarizeHolding(rawHolding: string, number: string): Promise<string> {
+  if (!rawHolding || rawHolding.length < 50) return rawHolding
+
+  try {
+    const result = await openRouterChat(
+      [{
+        role: 'user',
+        content: `Résume en 1-2 phrases le principe juridique de cet arrêt de la Cour de cassation n° ${number}. Ne cite pas le numéro, donne uniquement le principe retenu.\n\nTexte : ${rawHolding.slice(0, 1500)}\n\nRésumé (1-2 phrases) :`,
+      }],
+      MODELS.FILTER,
+      100,
+    )
+    return result.trim()
+  } catch {
+    return rawHolding.slice(0, 200)
+  }
+}
+
 function buildNormalizedCC(detail: any, publications: string[]): NormalizedCase {
   const rank = publications.includes('b') || publications.includes('r') ? 1 : 2
   return {
@@ -1569,7 +1587,13 @@ export async function fetchJudilibreLive(
         hits.slice(0, 3).map(h => fetchDecisionDetail(token, h.id, attempt.query))
       )).filter(Boolean)
 
-      const cases = details.map((d: any) => buildNormalizedCC(d, pubs))
+      const cases = await Promise.all(
+        details.map(async (d: any) => {
+          const normalized = buildNormalizedCC(d, pubs)
+          normalized.holding = await summarizeHolding(normalized.holding, normalized.number)
+          return normalized
+        })
+      )
 
       if (cases.length > 0) {
         console.info(
