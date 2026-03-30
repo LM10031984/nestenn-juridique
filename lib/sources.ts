@@ -27,6 +27,7 @@ interface PgVectorRow {
   situation:   string | null
   principe:    string | null
   consequence: string | null
+  holding:     string | null  // champ ajouté par migration 019
   url:         string | null
   domain:      string
   similarity:  number
@@ -72,11 +73,16 @@ function rowToJuriCase(row: PgVectorRow): JuriCase | null {
   const court: 'cass' | 'ca' = row.title.startsWith('Cass') ? 'cass' : 'ca'
   const dateMatch = row.title.match(/(\d{1,2}\s+\w+\s+\d{4})/)
 
+  // Utiliser le holding indexé (migration 019) si disponible, sinon reconstruire
+  const holding = row.holding && row.holding.length > 20
+    ? row.holding
+    : parts.join(' — ')
+
   return {
     court,
     date:    dateMatch?.[1] ?? '',
     number:  caseNumber,
-    holding: parts.join(' — '),
+    holding,
     url:     row.url ?? undefined,
   }
 }

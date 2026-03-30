@@ -108,14 +108,17 @@ export async function POST(req: NextRequest) {
     + pgJuriCases.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
   )
 
-  // Judilibre live prioritaire — pgvector sert uniquement de fallback si aucun arrêt live
-  const juriCases: JuriCase[] = liveJuriCases.length > 0 ? liveJuriCases : pgJuriCases
+  // Mode fusionné : live en premier (récents + vérifiés), pgvector en complément
+  // Déduplication : exclure les arrêts pgvector déjà présents dans le live (même numéro)
+  const liveNumbers = new Set(liveJuriCases.map(c => c.number).filter(Boolean))
+  const filteredPgJuriCases = pgJuriCases.filter(c => !liveNumbers.has(c.number))
+
   const responseMode: 'sourced' | 'free' = chunks.length >= 2 ? 'sourced' : 'free'
 
   console.info(
     `[pipeline] domains=${domains.join(',') || '—'} `
     + `chunks=${chunks.length} `
-    + `judilibre=${liveJuriCases.length} arrêts live | pgvector=${pgJuriCases.length} arrêts indexés `
+    + `judilibre=${liveJuriCases.length} live | pgvector=${filteredPgJuriCases.length}/${pgJuriCases.length} (après dédup) `
     + `best=${chunks[0]?.similarity?.toFixed(3) ?? '—'}`
   )
 
@@ -146,7 +149,7 @@ export async function POST(req: NextRequest) {
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
 
-  const systemPrompt = getSystemPromptAugmented(chunks, juriCases)
+  const systemPrompt = getSystemPromptAugmented(chunks, filteredPgJuriCases, liveJuriCases)
   const history = sanitizeHistory(body.conversationHistory)
 
   const messages: OpenRouterMessage[] = [
@@ -203,7 +206,7 @@ export async function POST(req: NextRequest) {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'X-Sources-Count': String(chunks.length),
-        'X-Juri-Count': String(juriCases.length),
+        'X-Juri-Count': String(liveJuriCases.length + filteredPgJuriCases.length),
         'X-Domain': primaryDomain ?? '',
         'X-Response-Mode': responseMode,
       },

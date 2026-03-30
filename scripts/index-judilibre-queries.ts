@@ -522,6 +522,38 @@ function extractFullText(decision: any, highlightFallback: string): { text: stri
 }
 
 // ---------------------------------------------------------------------------
+// LLM — résumé holding (1-2 phrases)
+// ---------------------------------------------------------------------------
+
+async function summarizeHolding(rawMotivations: string, number: string): Promise<string> {
+  if (!rawMotivations || rawMotivations.length < 100) return rawMotivations.slice(0, 300)
+
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'HTTP-Referer':  'https://nestenn.com',
+      'X-Title':       'Nestenn Juridique - Indexation',
+    },
+    body: JSON.stringify({
+      model:      SUMMARY_MODEL,
+      messages:   [{
+        role:    'user',
+        content: `Résume en 1-2 phrases le principe juridique de cet arrêt n° ${number}. Donne uniquement le principe retenu, sans introduction.\n\nTexte : ${rawMotivations.slice(0, 2000)}\n\nRésumé :`,
+      }],
+      max_tokens:  100,
+      temperature: 0.1,
+    }),
+  })
+
+  if (!res.ok) return rawMotivations.slice(0, 300)
+  const data = await res.json()
+  const summary = (data?.choices?.[0]?.message?.content ?? '').trim()
+  return summary.length > 20 ? summary : rawMotivations.slice(0, 300)
+}
+
+// ---------------------------------------------------------------------------
 // LLM — résumé expert
 // ---------------------------------------------------------------------------
 
@@ -628,6 +660,7 @@ async function upsertDecision(record: {
   sub_themes:      string[]
   url:             string | null
   motivations_raw: string | null
+  holding:         string | null
   embedding:       number[]
 }) {
   if (DRY_RUN) return { error: null }
@@ -700,6 +733,10 @@ async function processResult(
   const summary = await summarizeWithLLM(fullText, domainId)
   if (!summary) { globalStats.skipped++; return }
 
+  const holding = motivationsRaw
+    ? await summarizeHolding(motivationsRaw, result.number ?? '')
+    : null
+
   const embeddingText = `${summary.situation} ${summary.principe} ${summary.consequence}`
   const embedding = await embedWithNomic(embeddingText)
   if (!embedding) { globalStats.skipped++; return }
@@ -723,6 +760,7 @@ async function processResult(
     sub_themes:      summary.sub_themes,
     url,
     motivations_raw: motivationsRaw,
+    holding,
     embedding,
   })
 
@@ -736,6 +774,7 @@ async function processResult(
       console.log(`    Situation  : ${summary.situation}`)
       console.log(`    Principe   : ${summary.principe}`)
       console.log(`    Consequence: ${summary.consequence}`)
+      console.log(`    Holding    : ${holding?.slice(0, 120) ?? '—'}`)
       console.log(`    Sub-themes : ${summary.sub_themes.join(', ')}`)
     }
   }
