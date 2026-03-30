@@ -80,6 +80,12 @@ const TO_INDEX: ArticleEntry[] = [
   // Garantie d'éviction
   { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1625', '1626', '1630'], domain: 'transactions' },
 
+  // Hypothèque et mainlevée
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['2393', '2395', '2440', '2441'], domain: 'transactions' },
+
+  // Succession et immobilier — 720=ouverture  724=saisine  756-757=droits conjoint survivant
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['720', '724', '756', '757'], domain: 'transactions' },
+
   // Prescription
   { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['2224', '2232'], domain: 'litiges' },
 
@@ -110,9 +116,15 @@ const TO_INDEX: ArticleEntry[] = [
   // Mitoyenneté
   { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['653', '654', '655', '657', '661'], domain: 'servitudes' },
 
+  // Troubles de voisinage — 544=droit propriété  651=obligations voisinage  1253=troubles anormaux
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['544', '651', '1253'], domain: 'servitudes' },
+
   // Usufruit — 578=définition  595=location  596=bail rural/commercial
   // 605-606=réparations (entretien vs grosses)
   { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['578', '595', '596', '599', '600', '605', '606'], domain: 'viager_demembrement' },
+
+  // Donation avec réserve d'usufruit — 893=libéralités  894=donation  931=forme  949=réduction
+  { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['893', '894', '931', '949'], domain: 'viager_demembrement' },
 
   // Viager
   { law: 'code civil', legitextId: 'LEGITEXT000006070721', fond: 'CODE_DATE', articles: ['1968', '1975', '1976', '1977', '1978', '1983'], domain: 'viager_demembrement' },
@@ -150,7 +162,11 @@ const TO_INDEX: ArticleEntry[] = [
     '22',                        // dépôt de garantie
     '23',                        // charges récupérables
     '24', '24-1',               // clause résolutoire, impayés
+    '1-1',                      // discrimination au logement
+    '17-2-1',                   // gel loyers passoires (F et G)
+    '22-1', '22-1-1', '22-2', // cautionnement / Visale / docs interdits
     '25-3', '25-7', '25-8',    // bail meublé
+    '25-9',                     // encadrement loyer meublé
     '25-12', '25-13', '25-18', // bail mobilité
   ], domain: 'baux_habitation' },
 
@@ -181,10 +197,21 @@ const TO_INDEX: ArticleEntry[] = [
   { law: 'cch', legitextId: 'LEGITEXT000006074096', fond: 'CODE_DATE', articles: [
     'L271-1', 'L271-2',         // rétractation SRU (10 jours)
     'L271-4', 'L271-5', 'L271-6', // DDT (dossier diagnostics)
-    'L126-26', 'L126-28',      // DPE
+    'L126-23', 'L126-26', 'L126-28', 'L126-29', 'L126-31', 'L126-32', 'L126-33', // DPE
+    'L173-2',                   // critère décence énergétique (450 kWh/m²/an)
     'L721-2', 'L721-3',        // documents vente copro (pré-état daté)
     'L631-7',                   // changement d'usage (meublé tourisme)
   ], domain: 'diagnostics' },
+
+  // VEFA — protection acquéreur
+  { law: 'cch', legitextId: 'LEGITEXT000006074096', fond: 'CODE_DATE', articles: [
+    'L261-1', 'L261-10', 'L261-11', 'L261-15',
+  ], domain: 'construction' },
+
+  // Permis de louer
+  { law: 'cch', legitextId: 'LEGITEXT000006074096', fond: 'CODE_DATE', articles: [
+    'L635-1', 'L635-3', 'L635-7',
+  ], domain: 'baux_habitation' },
 
 
   // ═══════════════════════════════════════════════════════════════
@@ -227,6 +254,11 @@ const TO_INDEX: ArticleEntry[] = [
     '1594 D',                    // taux départemental
     '964',                       // IFI
     '1380', '1383',              // taxe foncière
+    '35-bis',                    // exonération chambre meublée chez l'habitant
+    '50-0',                      // micro-BIC meublé (LMNP)
+    '151-septies',               // exonération plus-value LMP
+    '155-IV',                    // déficit LMNP
+    '261-D-4',                   // TVA location meublée
   ], domain: 'fiscalite' },
 
 
@@ -257,6 +289,11 @@ const TO_INDEX: ArticleEntry[] = [
     'L412-1', 'L412-3', 'L412-6', // délais expulsion, trêve hivernale
   ], domain: 'baux_habitation' },
 
+  // Saisie immobilière
+  { law: 'cpce', legitextId: 'LEGITEXT000025024948', fond: 'CODE_DATE', articles: [
+    'L311-1', 'L311-2', 'L311-6', 'L322-1',
+  ], domain: 'litiges' },
+
 
   // ═══════════════════════════════════════════════════════════════
   // CODE DE L'ENVIRONNEMENT
@@ -282,8 +319,8 @@ const TO_INDEX: ArticleEntry[] = [
   // Liste des charges récupérables
   { law: 'décret 87-713', legitextId: 'LEGITEXT000006063573', fond: 'LODA_DATE', articles: ['1'], domain: 'baux_habitation' },
 
-  // Décence du logement
-  { law: 'décret 2002-120', legitextId: 'LEGITEXT000005620810', fond: 'LODA_DATE', articles: ['1', '2', '3'], domain: 'baux_habitation' },
+  // Décence du logement (dont décence énergétique)
+  { law: 'décret 2002-120', legitextId: 'LEGITEXT000005620810', fond: 'LODA_DATE', articles: ['1', '2', '3', '3-1'], domain: 'baux_habitation' },
 
   // Grille de vétusté
   { law: 'décret 2016-382', legitextId: 'LEGITEXT000032324415', fond: 'LODA_DATE', articles: ['1', '2'], domain: 'baux_habitation' },
@@ -295,7 +332,17 @@ const TO_INDEX: ArticleEntry[] = [
   { law: 'loi 2018-1021', legitextId: 'LEGITEXT000037642121', fond: 'LODA_DATE', articles: ['107', '139', '157'], domain: 'baux_habitation' },
 
   // Climat et Résilience
-  { law: 'loi 2021-1104', legitextId: 'LEGITEXT000043957598', fond: 'LODA_DATE', articles: ['148', '158', '160'], domain: 'diagnostics' },
+  { law: 'loi 2021-1104', legitextId: 'LEGITEXT000043957598', fond: 'LODA_DATE', articles: [
+    '148',  // DPE opposable
+    '158',  // gel des loyers F et G
+    '159',  // interdiction augmentation loyer passoires
+    '160',  // calendrier interdiction location G/F/E
+    '162',  // obligation de travaux bailleur
+    '164',  // modification critère décence énergétique
+    '166',  // audit énergétique obligatoire vente F/G
+    '168',  // information acquéreur/locataire
+    '170',  // carnet d'information du logement
+  ], domain: 'diagnostics' },
 ]
 // =============================================================================
 
