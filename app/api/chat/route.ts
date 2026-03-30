@@ -99,6 +99,15 @@ export async function POST(req: NextRequest) {
     0.30, // threshold minimum
   )
 
+  console.info(
+    `[judilibre-live] ${liveJuriCases.length} arrêts : `
+    + liveJuriCases.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
+  )
+  console.info(
+    `[pgvector-juri] ${pgJuriCases.length} arrêts : `
+    + pgJuriCases.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
+  )
+
   // Judilibre live en premier : arrêts récents | pgvector : arrêts de référence stables
   const juriCases: JuriCase[] = [...liveJuriCases, ...pgJuriCases]
   const responseMode: 'sourced' | 'free' = chunks.length >= 2 ? 'sourced' : 'free'
