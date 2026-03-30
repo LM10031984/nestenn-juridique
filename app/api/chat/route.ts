@@ -99,8 +99,8 @@ export async function POST(req: NextRequest) {
     0.30, // threshold minimum
   )
 
-  // pgvector : arrêts de référence stables | Judilibre live : arrêts récents à jour
-  const juriCases: JuriCase[] = [...pgJuriCases, ...liveJuriCases]
+  // Judilibre live en premier : arrêts récents | pgvector : arrêts de référence stables
+  const juriCases: JuriCase[] = [...liveJuriCases, ...pgJuriCases]
   const responseMode: 'sourced' | 'free' = chunks.length >= 2 ? 'sourced' : 'free'
 
   console.info(
