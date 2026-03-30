@@ -1106,29 +1106,62 @@ function formatCAResult(result: any): string {
 // Builders NormalizedCase
 // ---------------------------------------------------------------------------
 
-function extractHolding(detail: any): string {
+function extractHolding(detail: any, query?: string): string {
+  // 1. Sommaire officiel — toujours bien formulé pour les arrêts publiés
+  if (detail.summary && String(detail.summary).length > 30) {
+    return String(detail.summary).slice(0, 300)
+  }
+
+  // 2. Highlights motivations — Judilibre surligne les passages pertinents pour la query
+  const hlMotivations = detail.highlights?.motivations
+  if (Array.isArray(hlMotivations) && hlMotivations.length > 0) {
+    const clean = hlMotivations
+      .map((h: string) => h.replace(/<\/?em>/g, '').trim())
+      .join(' ')
+      .slice(0, 300)
+    if (clean.length > 50) return clean
+  }
+
+  // 3. Titrage officiel — qualification de l'arrêt
+  const titrage = detail.titrage ?? (Array.isArray(detail.themes) ? detail.themes.join(' — ') : null)
+  if (titrage && String(titrage).length > 20) {
+    return String(titrage).slice(0, 300)
+  }
+
+  // 4. Fallback : phrase des motivations avec le plus de mots-clés de la query
   const motivations = extractZoneText(detail, 'motivations', 500)
   if (motivations) {
+    if (query) {
+      const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+      const sentences = motivations.split(/[.;]/).filter(s => s.trim().length > 30)
+      let best = sentences[0] ?? motivations.slice(0, 300)
+      let bestScore = 0
+      for (const sentence of sentences) {
+        const lower = sentence.toLowerCase()
+        const score = queryWords.filter(w => lower.includes(w)).length
+        if (score > bestScore) { bestScore = score; best = sentence }
+      }
+      return best.trim().replace(/\s+/g, ' ').slice(0, 300)
+    }
     const first = motivations.split(/\.\s+/)[0]?.trim() ?? ''
     return (first.length >= 20 ? first : motivations.slice(0, 200)).replace(/\s+/g, ' ') + '.'
   }
-  const hl = extractHighlights(detail)
-  if (hl) return hl.slice(0, 200)
-  return detail.summary ? String(detail.summary).slice(0, 200) : ''
+
+  return ''
 }
 
 function judilibreUrl(id: string): string {
   return `https://www.courdecassation.fr/decision/${id}`
 }
 
-function buildNormalizedCC(detail: any, publications: string[]): NormalizedCase {
+function buildNormalizedCC(detail: any, publications: string[], query?: string): NormalizedCase {
   const rank = publications.includes('b') || publications.includes('r') ? 1 : 2
   return {
     court: 'cass',
     date: detail.decision_date?.slice(0, 10) ?? '?',
     number: detail.number ?? '?',
     solution: detail.solution,
-    holding: extractHolding(detail),
+    holding: extractHolding(detail, query),
     authorityRank: rank,
     formattedText: formatDecision(detail),
     url: detail.id ? judilibreUrl(detail.id) : undefined,
@@ -1569,7 +1602,7 @@ export async function fetchJudilibreLive(
         hits.slice(0, 3).map(h => fetchDecisionDetail(token, h.id, attempt.query))
       )).filter(Boolean)
 
-      const cases = details.map((d: any) => buildNormalizedCC(d, pubs))
+      const cases = details.map((d: any) => buildNormalizedCC(d, pubs, attempt.query))
 
       if (cases.length > 0) {
         console.info(
