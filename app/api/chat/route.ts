@@ -108,8 +108,8 @@ export async function POST(req: NextRequest) {
     + pgJuriCases.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
   )
 
-  // Live en premier (récents), pgvector ensuite (complémentaires)
-  const juriCases: JuriCase[] = [...liveJuriCases, ...pgJuriCases]
+  // Judilibre live prioritaire — pgvector sert uniquement de fallback si aucun arrêt live
+  const juriCases: JuriCase[] = liveJuriCases.length > 0 ? liveJuriCases : pgJuriCases
   const responseMode: 'sourced' | 'free' = chunks.length >= 2 ? 'sourced' : 'free'
 
   console.info(
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
 
-  const systemPrompt = getSystemPromptAugmented(chunks, pgJuriCases, liveJuriCases)
+  const systemPrompt = getSystemPromptAugmented(chunks, juriCases)
   const history = sanitizeHistory(body.conversationHistory)
 
   const messages: OpenRouterMessage[] = [
