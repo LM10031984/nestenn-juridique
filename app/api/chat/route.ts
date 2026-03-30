@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
 
-  const systemPrompt = getSystemPromptAugmented(chunks, juriCases)
+  const systemPrompt = getSystemPromptAugmented(chunks, pgJuriCases, liveJuriCases)
   const history = sanitizeHistory(body.conversationHistory)
 
   const messages: OpenRouterMessage[] = [

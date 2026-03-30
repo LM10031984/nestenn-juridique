@@ -23,6 +23,7 @@ const DISCLAIMER = `⚠️ **Avertissement juridique** : Nestenn Juridique est u
 export function getSystemPromptAugmented(
   chunks: SourceChunk[],
   juriCases: JuriCase[],
+  liveJuriCases?: JuriCase[],
 ): string {
   const today = new Date().toLocaleDateString('fr-FR', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -30,7 +31,11 @@ export function getSystemPromptAugmented(
   const disclaimer = DISCLAIMER
 
   const sourcesBlock = formatSources(chunks)
-  const juriBlock = formatJurisprudence(juriCases)
+
+  // Si liveJuriCases est fourni, on sépare les deux sources ; sinon compat ascendante
+  const juriBlock = liveJuriCases !== undefined
+    ? formatJurisprudenceSplit(liveJuriCases, juriCases)
+    : formatJurisprudence(juriCases)
 
   return `Tu es l'assistant juridique de Nestenn, réseau immobilier français. Date : ${today}.
 
@@ -91,24 +96,33 @@ function formatSources(chunks: SourceChunk[]): string {
   return lines.join('\n') + '\n'
 }
 
+function formatJuriCase(c: JuriCase): string {
+  const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
+  const ref = c.date && c.number
+    ? `${courtLabel} ${c.date}, n° ${c.number}`
+    : `${courtLabel} — ${c.number}`
+  const header = c.url ? `[${ref}](${c.url})` : ref
+  return `\n${header}\n${c.holding}`
+}
+
 function formatJurisprudence(cases: JuriCase[]): string {
   if (cases.length === 0) return ''
+  return '\nJURISPRUDENCE :\n' + cases.map(formatJuriCase).join('\n') + '\n'
+}
 
-  const lines: string[] = ['\nJURISPRUDENCE :']
+function formatJurisprudenceSplit(liveCases: JuriCase[], pgCases: JuriCase[]): string {
+  let result = ''
 
-  for (const c of cases) {
-    const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
-    const ref = c.date && c.number
-      ? `${courtLabel} ${c.date}, n° ${c.number}`
-      : `${courtLabel} — ${c.number}`
-
-    if (c.url) {
-      lines.push(`\n[${ref}](${c.url})`)
-    } else {
-      lines.push(`\n${ref}`)
-    }
-    lines.push(c.holding)
+  if (liveCases.length > 0) {
+    result += '\nJURISPRUDENCE RÉCENTE (source : Judilibre — décisions vérifiées en temps réel) :\n'
+    result += 'PRIORITÉ : cite ces arrêts en premier, ils sont récents et vérifiés.\n'
+    result += liveCases.map(formatJuriCase).join('\n') + '\n'
   }
 
-  return lines.join('\n') + '\n'
+  if (pgCases.length > 0) {
+    result += '\nJURISPRUDENCE COMPLÉMENTAIRE (base indexée) :\n'
+    result += pgCases.map(formatJuriCase).join('\n') + '\n'
+  }
+
+  return result
 }
