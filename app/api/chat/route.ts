@@ -5,6 +5,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { openRouterStreamWithFallback, openRouterChat, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
 import { getSystemPromptAugmented } from '@/lib/system-prompt'
 import { fetchRelevantSources } from '@/lib/sources'
@@ -104,29 +105,34 @@ export async function POST(req: NextRequest) {
 
   console.info(
     `[pipeline] domains=${domains.join(',') || '—'} `
-    + `chunks=${chunks.length} juri=${juriCases.length} `
+    + `chunks=${chunks.length} `
+    + `judilibre=${liveJuriCases.length} arrêts live | pgvector=${pgJuriCases.length} arrêts indexés `
     + `best=${chunks[0]?.similarity?.toFixed(3) ?? '—'}`
   )
 
-  // Analytics fire-and-forget
+  // Analytics — waitUntil garantit l'exécution sur Vercel après l'envoi de la réponse
   if (messageId) {
     const topic = detectTopic(trimmedMessage)
-    saveMessageMetadata(messageId, conversationId ?? null, {
-      domain: primaryDomain,
-      topic,
-      sourcesCount: chunks.length,
-      responseMode,
-    }).catch(() => {})
+    waitUntil(
+      saveMessageMetadata(messageId, conversationId ?? null, {
+        domain: primaryDomain,
+        topic,
+        sourcesCount: chunks.length,
+        responseMode,
+      }).catch(() => {})
+    )
 
     // Classification sous-domaine IA — admin client pour bypasser RLS/cookies hors contexte
     const supabaseAdmin = createAdminClient()
-    classifySubDomain(trimmedMessage)
-      .then(subDomain => {
-        if (subDomain) {
-          void supabaseAdmin.from('messages').update({ sub_domain: subDomain }).eq('id', messageId)
-        }
-      })
-      .catch(() => {})
+    waitUntil(
+      classifySubDomain(trimmedMessage)
+        .then(subDomain => {
+          if (subDomain) {
+            return supabaseAdmin.from('messages').update({ sub_domain: subDomain }).eq('id', messageId)
+          }
+        })
+        .catch(err => console.error('[classify] erreur:', err))
+    )
   }
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
@@ -157,22 +163,24 @@ export async function POST(req: NextRequest) {
       const accumulated: string[] = []
       const [clientStream, captureStream] = llmStream.tee()
 
-      // Consommer le flux de capture en arrière-plan
-      ;(async () => {
-        try {
-          const reader = captureStream.getReader()
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            accumulated.push(decoder.decode(value, { stream: true }))
-          }
-          const fullText = accumulated.join('')
-          Promise.all([
-            autoIndexMissingArticles(fullText, chunksFound),
-            autoIndexMissingJurisprudence(fullText, chunksFound),
-          ]).catch(err => console.error('[auto-indexer]', err))
-        } catch { /* silencieux — ne bloque jamais la réponse */ }
-      })()
+      // waitUntil : garantit l'exécution sur Vercel après l'envoi de la réponse
+      waitUntil(
+        (async () => {
+          try {
+            const reader = captureStream.getReader()
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              accumulated.push(decoder.decode(value, { stream: true }))
+            }
+            const fullText = accumulated.join('')
+            await Promise.all([
+              autoIndexMissingArticles(fullText, chunksFound),
+              autoIndexMissingJurisprudence(fullText, chunksFound),
+            ])
+          } catch (err) { console.error('[auto-indexer]', err) }
+        })()
+      )
 
       outputStream = clientStream
     } else {
