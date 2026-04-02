@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     await supabaseAdmin.from('quality_alerts').insert({
       alert_type: 'corpus_update',
       details: JSON.stringify({ checked, updated, timestamp: new Date().toISOString() }),
-    }).catch(() => {})
+    })
 
     return Response.json({
       success: true,
