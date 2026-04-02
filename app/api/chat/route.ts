@@ -18,6 +18,26 @@ import { autoIndexMissingArticles, autoIndexMissingJurisprudence } from '@/lib/a
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// ── Whitelist dynamique (cache 5 min) ──
+
+let cachedKeywords: string[] = []
+let keywordCacheTime = 0
+
+async function getWhitelistKeywords(): Promise<string[]> {
+  if (Date.now() - keywordCacheTime < 5 * 60 * 1000 && cachedKeywords.length > 0) {
+    return cachedKeywords
+  }
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin.from('filter_keywords').select('keyword')
+    if (data?.length) {
+      cachedKeywords = data.map((d: { keyword: string }) => d.keyword)
+      keywordCacheTime = Date.now()
+    }
+  } catch { /* garder cache précédent si erreur DB */ }
+  return cachedKeywords.length > 0 ? cachedKeywords : IMMO_KEYWORDS
+}
+
 // ── Constantes ──
 
 const MAX_MESSAGE_LENGTH = 2000
@@ -145,6 +165,11 @@ export async function POST(req: NextRequest) {
         })
         .catch(err => console.error('[classify] erreur:', err))
     )
+
+    // Auto-enrichissement whitelist — ajouter des mots-clés si aucun domaine détecté
+    if (!primaryDomain) {
+      waitUntil(autoEnrichWhitelist(trimmedMessage))
+    }
   }
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
@@ -284,16 +309,17 @@ function matchesKeyword(text: string, keyword: string): boolean {
   return false
 }
 
-function isImmoKeywordMatch(message: string): boolean {
+async function isImmoKeywordMatch(message: string): Promise<boolean> {
   const lower = message.toLowerCase()
-  return IMMO_KEYWORDS.some(kw => matchesKeyword(lower, kw))
+  const keywords = await getWhitelistKeywords()
+  return keywords.some(kw => matchesKeyword(lower, kw))
 }
 
 // ── Helpers ──
 
 async function checkRelevance(message: string): Promise<boolean> {
-  // Pré-filtre keyword : 0ms, 0 coût, couvre ~95% des questions légitimes
-  if (isImmoKeywordMatch(message)) return true
+  // Pré-filtre keyword : ~0ms (cache 5min), 0 coût, couvre ~95% des questions légitimes
+  if (await isImmoKeywordMatch(message)) return true
 
   // Fallback LLM pour les cas ambigus sans keyword évident
   try {
@@ -308,6 +334,38 @@ async function checkRelevance(message: string): Promise<boolean> {
     return result.trim().toUpperCase().startsWith('OUI')
   } catch {
     return true // fail-open : en cas d'erreur, laisser passer
+  }
+}
+
+async function autoEnrichWhitelist(message: string): Promise<void> {
+  const AUTO_STOP = new Set([
+    'dans', 'avec', 'pour', 'quel', 'quoi', 'comment', 'quelle', 'quels',
+    'peut', 'doit', 'faut', 'sont', 'être', 'avoir', 'faire', 'cette',
+    'leur', 'leurs', 'mais', 'donc', 'aussi', 'plus', 'bien', 'tout',
+    'tous', 'même', 'aucun', 'quand', 'sans', 'sous', 'encore', 'entre',
+    'après', 'avant', 'elle', 'elles', 'nous', 'vous', 'mon', 'son',
+    'client', 'question', 'merci', 'bonjour', 'possible', 'savoir',
+    "aujourd", 'vraiment', 'quelqu',
+  ])
+
+  const significantWords = message
+    .toLowerCase()
+    .replace(/[^\w\sàâäéèêëîïôùûüç-]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 5 && !AUTO_STOP.has(w))
+    .slice(0, 3)
+
+  const admin = createAdminClient()
+  for (const kw of significantWords) {
+    try {
+      await admin
+        .from('filter_keywords')
+        .upsert(
+          { keyword: kw, domain: null, added_by: 'auto' },
+          { onConflict: 'keyword' }
+        )
+      console.info(`[auto-whitelist] Ajouté : "${kw}"`)
+    } catch { /* silencieux */ }
   }
 }
 
