@@ -2,6 +2,8 @@
 // Mise à jour hebdomadaire des articles existants depuis Légifrance
 // Déclenché par pg_cron de Supabase Pro (dimanche 3h UTC)
 
+export const maxDuration = 60 // secondes (Vercel Pro)
+
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { embedQuestion } from '@/lib/embedding'
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest) {
       .select('id, law_id, article_num, content')
       .is('deleted_at', null)
       .not('law_id', 'like', 'JURI_%') // Exclure la jurisprudence auto-indexée
-      .limit(50) // Max 50 par run (~10s) — le cron hebdo fait le reste en plusieurs passes
+      .limit(10) // Max 10 par run pour rester sous le timeout Vercel
 
     if (!articles?.length) {
       return Response.json({ checked: 0, updated: 0 })
@@ -76,8 +78,6 @@ export async function GET(req: NextRequest) {
         console.error(`[cron] Erreur ${article.id}:`, err)
       }
 
-      // Rate limiting Légifrance (200ms entre chaque appel)
-      await new Promise(r => setTimeout(r, 200))
     }
 
     // Logger le résultat dans quality_alerts
