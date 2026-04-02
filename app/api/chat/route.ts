@@ -339,20 +339,27 @@ async function checkRelevance(message: string): Promise<boolean> {
 
 async function autoEnrichWhitelist(message: string): Promise<void> {
   const AUTO_STOP = new Set([
+    // Mots grammaticaux
     'dans', 'avec', 'pour', 'quel', 'quoi', 'comment', 'quelle', 'quels',
     'peut', 'doit', 'faut', 'sont', 'être', 'avoir', 'faire', 'cette',
     'leur', 'leurs', 'mais', 'donc', 'aussi', 'plus', 'bien', 'tout',
     'tous', 'même', 'aucun', 'quand', 'sans', 'sous', 'encore', 'entre',
     'après', 'avant', 'elle', 'elles', 'nous', 'vous', 'mon', 'son',
-    'client', 'question', 'merci', 'bonjour', 'possible', 'savoir',
-    "aujourd", 'vraiment', 'quelqu',
+    'merci', 'bonjour', 'possible', 'savoir', 'vraiment', 'quelqu',
+    // Mots trop génériques pour le droit immo
+    'client', 'question', 'maison', 'époque', 'acheté', 'achat', 'années',
+    'année', 'temps', 'moment', 'chose', 'chose', 'point', 'suite',
+    'parti', 'partie', 'selon', 'votre', 'notre', 'celui', 'celle',
+    'cela', 'celui', 'objet', 'alors', 'avait', 'avons', 'serait',
+    'aurait', 'devra', 'devra', 'pourra', 'ainsi', 'comme', 'depuis',
+    'passe', 'passer', 'faire', 'faire', 'mieux', 'moins', 'quant',
   ])
 
   const significantWords = message
     .toLowerCase()
     .replace(/[^\w\sàâäéèêëîïôùûüç-]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length >= 5 && !AUTO_STOP.has(w))
+    .filter(w => w.length >= 7 && !AUTO_STOP.has(w))
     .slice(0, 3)
 
   const admin = createAdminClient()
