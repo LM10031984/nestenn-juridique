@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
       .select('id, law_id, article_num, content')
       .is('deleted_at', null)
       .not('law_id', 'like', 'JURI_%') // Exclure la jurisprudence auto-indexée
+      .limit(50) // Max 50 par run (~10s) — le cron hebdo fait le reste en plusieurs passes
 
     if (!articles?.length) {
       return Response.json({ checked: 0, updated: 0 })
