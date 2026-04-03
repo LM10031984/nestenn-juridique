@@ -22,14 +22,14 @@ SET search_path = public
 AS $$
   WITH week_series AS (
     SELECT
-      gs AS offset,
+      gs AS week_num,
       DATE_TRUNC('week', NOW()::timestamptz) - (gs * interval '1 week')       AS week_end,
       DATE_TRUNC('week', NOW()::timestamptz) - ((gs + 1) * interval '1 week') AS week_start
     FROM generate_series(0, p_weeks - 1) AS gs
   ),
   weekly AS (
     SELECT
-      w.offset,
+      w.week_num,
       w.week_start,
       COUNT(m.id) AS cnt
     FROM week_series w
@@ -37,14 +37,14 @@ AS $$
       m.role = 'user' AND
       m.created_at >= w.week_start AND
       m.created_at <  w.week_end
-    GROUP BY w.offset, w.week_start
+    GROUP BY w.week_num, w.week_start
     ORDER BY w.week_start
   )
   SELECT COALESCE(
     json_agg(
       json_build_object(
         'week_start', week_start,
-        'week_offset', offset,
+        'week_offset', week_num,
         'count', cnt
       ) ORDER BY week_start
     ),
