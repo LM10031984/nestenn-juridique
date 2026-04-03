@@ -6,8 +6,8 @@ import { Search, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, Minus } fr
 
 // ─── Constantes ROI ──────────────────────────────────────────────────────────
 
-const COST_PER_QUESTION = 0.03          // € — coût Nestenn par question
-const CALL_CENTER_RATE  = 0.16          // € — coût équivalent appel standard (10€/h, ~3.5 min)
+const COST_PER_QUESTION = 0.03   // € — coût Nestenn par question (pour calcul savings)
+const CALL_CENTER_RATE  = 0.16   // € — coût équivalent appel standard (10€/h, ~3.5 min)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -128,10 +128,8 @@ function NetworkBanner({ period }: { period: number }) {
     ? Math.round(((kpis.total_questions - kpis.prev_total_questions) / kpis.prev_total_questions) * 100)
     : null
 
-  const cost     = kpis ? Math.round(kpis.total_questions * COST_PER_QUESTION) : 0
-  const savings  = kpis ? Math.round(kpis.total_questions * (CALL_CENTER_RATE - COST_PER_QUESTION)) : 0
-  const costUp   = useCountUp(cost, 500)
-  const savingsUp = useCountUp(savings, 600)
+  const savings   = kpis ? Math.round(kpis.total_questions * (CALL_CENTER_RATE - COST_PER_QUESTION)) : 0
+  const savingsUp = useCountUp(savings, 500)
   const pctActive = kpis ? pct(kpis.active_agencies, kpis.total_agencies) : 0
 
   if (!kpis) return (
@@ -232,22 +230,10 @@ function NetworkBanner({ period }: { period: number }) {
       </div>
 
       {/* Bande ROI */}
-      <div className="border-t border-border bg-amber-50 dark:bg-amber-950/20 px-6 py-3 flex flex-wrap items-center gap-6">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-amber-700 dark:text-amber-400 font-medium uppercase tracking-wider">
-            Coût Nestenn Juridique
-          </span>
-          <span
-            className="text-xl font-bold text-amber-700 dark:text-amber-400"
-            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
-          >
-            {costUp.toLocaleString('fr-FR')} €
-          </span>
-        </div>
-        <div className="w-px h-5 bg-amber-300 hidden sm:block" />
+      <div className="border-t border-border bg-emerald-50 dark:bg-emerald-950/20 px-6 py-3 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium uppercase tracking-wider">
-            Économie vs call center
+            Économie estimée vs call center
           </span>
           <span
             className="text-xl font-bold text-emerald-700 dark:text-emerald-400"
@@ -257,7 +243,7 @@ function NetworkBanner({ period }: { period: number }) {
           </span>
         </div>
         <div className="ml-auto text-xs text-muted-foreground hidden sm:block">
-          Basé sur 0,16 € / appel équivalent · 0,03 € / question Nestenn
+          Basé sur 0,16 € / appel équivalent vs 0,03 € / question Nestenn
         </div>
       </div>
     </div>
