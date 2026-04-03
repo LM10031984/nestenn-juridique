@@ -44,12 +44,14 @@ interface ArticleRef {
 
 const REF_PATTERNS = [
   // Priorité 1 : "art. 24 de la loi n° 89-462" / "art. X du décret n° 67-223"
-  // En premier pour éviter que les groupes optionnels des patterns suivants capturent "de la"
-  /art(?:icle)?\.?\s+((?:[LRDA]\.?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la |l')?|du )?(?:loi|décret)\s+n[o°]\s*(\d{2,4}-\d+)/gi,
-  // Priorité 2 : "l'article 1589 du code civil" / "art. L.271-1 du CCH"
-  /l'?art(?:icle)?\.?\s+((?:[LRDA]\.?)?\d[\d.-]*)\s+(?:du |de la |de l')?([^\s,\.]{3,30}(?:\s[\w-]+)?)/gi,
-  // Priorité 3 : "article 24 de la loi" (loi sans nom → sera skippé par resolveLegitext)
-  /(?:^|\s)art(?:icle)?\.?\s+((?:[LRDA]\.?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))/gi,
+  // En premier pour éviter que les groupes optionnels capturent "de la"
+  /art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la |l')?|du )?(?:loi|décret)\s+n[o°]\s*(\d{2,4}-\d+)/gi,
+  // Priorité 2 : "art. L. 1331-1-1 du Code de la santé publique" (code nommé explicitement)
+  /art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:du |de la |de l')(code[^,\.\n]{2,60})/gi,
+  // Priorité 3 : "l'article 1589 du code civil" / "art. L.271-1 du CCH"
+  /l'?art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:du |de la |de l')?([^\s,\.]{3,30}(?:\s[\w-]+)?)/gi,
+  // Priorité 4 : "article 24 de la loi" (loi sans nom → skippé par resolveLegitext)
+  /(?:^|\s)art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))/gi,
 ]
 
 export function extractArticleReferences(text: string): ArticleRef[] {
@@ -59,7 +61,8 @@ export function extractArticleReferences(text: string): ArticleRef[] {
   for (const pattern of REF_PATTERNS) {
     const matches = [...text.matchAll(pattern)]
     for (const m of matches) {
-      const articleNum = m[1]?.trim()
+      // Normaliser "L. 1331-1-1" → "L.1331-1-1" (espace après le préfixe lettre)
+      const articleNum = m[1]?.trim().replace(/^([LRDA])\.\s+/, '$1.') ?? ''
       const lawHint    = m[2]?.trim().toLowerCase() ?? ''
       if (!articleNum) continue
 
@@ -255,17 +258,28 @@ async function fetchDecisionFromJudilibre(token: string, number: string): Promis
   text: string; date: string; url: string; id: string
 } | null> {
   try {
-    const url = new URL(`${JUDILIBRE_API_URL}/search`)
-    url.searchParams.set('number', number)
-    url.searchParams.set('page_size', '1')
+    // Essayer plusieurs formats car Judilibre est sensible à la ponctuation
+    const searchQueries = [
+      number,                            // "09-10.218"
+      number.replace(/\./g, ''),         // "09-10218"
+      number.replace(/[-\.]/g, ' '),     // "09 10 218"
+    ]
 
-    const searchRes = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!searchRes.ok) return null
-    const searchData = await searchRes.json() as { results?: Array<{ id: string }> }
-    const id = searchData.results?.[0]?.id
+    let id: string | undefined
+    for (const query of searchQueries) {
+      const url = new URL(`${JUDILIBRE_API_URL}/search`)
+      url.searchParams.set('number', query)
+      url.searchParams.set('page_size', '1')
+
+      const searchRes = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!searchRes.ok) continue
+      const searchData = await searchRes.json() as { results?: Array<{ id: string }> }
+      id = searchData.results?.[0]?.id
+      if (id) break
+    }
     if (!id) return null
 
     const decUrl = new URL(`${JUDILIBRE_API_URL}/decision`)
@@ -398,10 +412,10 @@ export async function autoIndexMissingArticles(
   chunksFound: number,
 ): Promise<void> {
   console.info(`[auto-indexer] Appelé — responseText=${responseText.length} chars, chunks=${chunksFound}`)
+  console.info(`[auto-indexer] Texte à analyser (500 premiers chars) : ${responseText.slice(0, 500)}`)
 
   const refs = extractArticleReferences(responseText)
-  if (refs.length === 0) return
-  console.info(`[auto-indexer] Références trouvées : ${refs.map(r => `${r.law} art. ${r.article}`).join(', ')}`)
+  console.info(`[auto-indexer] Références trouvées : ${refs.map(r => `${r.law} art. ${r.article}`).join(', ') || 'aucune'}`)
 
   const token = await getPisteToken()
   if (!token) {
