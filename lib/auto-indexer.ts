@@ -101,7 +101,7 @@ export function extractArticleReferences(text: string): ArticleRef[] {
   const seen = new Set<string>()
 
   // Pattern simple : capturer tous les "art. XXX" / "article XXX"
-  const articlePattern = /art(?:icle)?\.?\s*([LRDA]\.?\s*\d[\d.\-]+|\d[\d.\-]*)/gi
+  const articlePattern = /\bart(?:icle)?\.?\s*([LRDA]\.?\s*\d[\d.\-]+|\d[\d.\-]*)/gi
 
   for (const match of text.matchAll(articlePattern)) {
     const article = match[1].trim().replace(/^([LRDA])\.\s+/, '$1.')
@@ -548,7 +548,7 @@ export async function autoIndexMissingArticles(
 
   console.info(`[auto-indexer] Texte à analyser (500 premiers chars) : ${cleanText.slice(0, 500)}`)
   console.info(`[auto-indexer] Matches bruts :`, JSON.stringify(
-    [...cleanText.matchAll(/art(?:icle)?\.?\s*([\w\d.\-\s]+?)(?:\s+(?:du|de la|de l')|[),;])/gi)]
+    [...cleanText.matchAll(/\bart(?:icle)?\.?\s*([\w\d.\-\s]+?)(?:\s+(?:du|de la|de l')|[),;])/gi)]
       .map(m => m[0].slice(0, 60))
   ))
 
