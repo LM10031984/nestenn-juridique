@@ -100,8 +100,8 @@ export function extractArticleReferences(text: string): ArticleRef[] {
   const refs: ArticleRef[] = []
   const seen = new Set<string>()
 
-  // Pattern simple : capturer tous les "art. XXX" / "article XXX"
-  const articlePattern = /\bart(?:icle)?\.?\s*([LRDA]\.?\s*\d[\d.\-]+|\d[\d.\-]*)/gi
+  // Pattern élargi : capture aussi les suffixes CGI ("150 U II 1°", "199 novovicies", "261 D")
+  const articlePattern = /\bart(?:icle)?\.?\s*([LRDA]\.?\s*\d[\d.\-]+(?:\s+[A-Z]+(?:\s+[IVX]+)?(?:\s+\d+°?)?)?|\d[\d.\-]*(?:\s+[A-Z][a-z]*)?(?:\s+[A-Z]+(?:\s+[IVX]+)?(?:\s+\d+°?)?)?)/gi
 
   for (const match of text.matchAll(articlePattern)) {
     const article = match[1].trim().replace(/^([LRDA])\.\s+/, '$1.')
