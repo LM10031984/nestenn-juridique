@@ -147,52 +147,109 @@ async function getPisteToken(): Promise<string | null> {
   }
 }
 
-// ── 4. Fetch article via getArticleWithIdAndNum (même pipeline que index-new-articles.ts) ──
+// ── 4. Fetch article — pipeline éprouvé de index-new-articles.ts ─────────────
+// tableMatieres → LEGIARTI ID → getArticle (+ fallback /search NUM_ARTICLE)
+
+// Map LEGITEXT → NOM_CODE pour le fallback /search
+const CODE_NAMES: Record<string, string> = {
+  'LEGITEXT000006070721': 'Code civil',
+  'LEGITEXT000006074096': "Code de la construction et de l'habitation",
+  'LEGITEXT000006074075': "Code de l'urbanisme",
+  'LEGITEXT000006069565': 'Code de la consommation',
+  'LEGITEXT000006069577': 'Code général des impôts',
+  'LEGITEXT000006070716': 'Code de procédure civile',
+  'LEGITEXT000025024948': "Code des procédures civiles d'exécution",
+  'LEGITEXT000006074220': "Code de l'environnement",
+  'LEGITEXT000005634379': 'Code de commerce',
+  'LEGITEXT000006072665': 'Code de la santé publique',
+}
+
+function collectSectionArticles(node: { articles?: Array<{ id: string; num: string }>; sections?: unknown[] }, out: Array<{ id: string; num: string }> = []): Array<{ id: string; num: string }> {
+  for (const art of (node?.articles ?? [])) {
+    if (art.id) out.push({ id: art.id, num: art.num ?? '' })
+  }
+  for (const sub of (node?.sections ?? [])) collectSectionArticles(sub as typeof node, out)
+  return out
+}
+
+async function findLegiartiId(token: string, legitextId: string, articleNum: string): Promise<string | null> {
+  const today = new Date().toISOString().split('T')[0]
+  const noDot = articleNum.replace(/^([LRDA])\./, '$1')
+  const candidates = [articleNum, noDot, articleNum.toUpperCase(), noDot.toUpperCase()]
+
+  // Tentative 1 : tableMatieres
+  try {
+    console.info(`[auto-indexer] tableMatieres : textId=${legitextId} searchArticle=${articleNum}`)
+    const res = await fetch(`${PISTE_API_BASE}/consult/code/tableMatieres`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ textId: legitextId, date: today, pageSize: 200, searchArticle: articleNum }),
+      signal: AbortSignal.timeout(12000),
+    })
+    if (res.ok) {
+      const data = await res.json() as { sections?: unknown[] }
+      const allArts = collectSectionArticles({ sections: data.sections ?? [] })
+      console.info(`[auto-indexer] tableMatieres retourne ${allArts.length} articles`)
+      const found = allArts.find(a => candidates.includes(a.num))
+      if (found) { console.info(`[auto-indexer] LEGIARTI trouvé : ${found.id}`); return found.id }
+    } else {
+      console.warn(`[auto-indexer] tableMatieres HTTP ${res.status}`)
+    }
+  } catch (e) { console.warn('[auto-indexer] tableMatieres erreur :', e) }
+
+  // Tentative 2 : /search NUM_ARTICLE + NOM_CODE
+  const codeName = CODE_NAMES[legitextId]
+  if (codeName) {
+    try {
+      console.info(`[auto-indexer] /search fallback : articleNum=${articleNum} codeName=${codeName}`)
+      const res = await fetch(`${PISTE_API_BASE}/search`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fond: 'CODE_DATE',
+          recherche: {
+            champs: [{ typeChamp: 'NUM_ARTICLE', criteres: [{ typeRecherche: 'EXACTE', valeur: articleNum, operateur: 'ET' }], operateur: 'ET' }],
+            filtres: [{ facette: 'TEXT_LEGAL_STATUS', valeur: 'VIGUEUR' }, { facette: 'NOM_CODE', valeur: codeName }],
+            pageNumber: 1, pageSize: 5, operateur: 'ET', typePagination: 'DEFAUT',
+          },
+        }),
+        signal: AbortSignal.timeout(12000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { results?: Array<{ sections?: Array<{ extracts?: Array<{ id: string }> }> }> }
+        const artId = data.results?.[0]?.sections?.[0]?.extracts?.[0]?.id
+        if (artId) { console.info(`[auto-indexer] /search LEGIARTI trouvé : ${artId}`); return artId }
+        console.warn('[auto-indexer] /search : aucun résultat')
+      }
+    } catch (e) { console.warn('[auto-indexer] /search erreur :', e) }
+  }
+
+  return null
+}
 
 async function fetchArticleFromLegifrance(
   token: string,
   legitextId: string,
   articleNum: string,
 ): Promise<{ texte: string; url: string } | null> {
-  // Essayer plusieurs variantes du numéro : "L.271-4", "L271-4", majuscules
-  const noDot = articleNum.replace(/^([LRDA])\./, '$1')
-  const candidates = [
-    articleNum,
-    noDot,
-    articleNum.toUpperCase(),
-    noDot.toUpperCase(),
-  ]
+  const legiartiId = await findLegiartiId(token, legitextId, articleNum)
+  if (!legiartiId) return null
 
-  for (const num of candidates) {
-    try {
-      const res = await fetch(`${PISTE_API_BASE}/consult/getArticleWithIdAndNum`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ textId: legitextId, articleNum: num }),
-      })
-      if (!res.ok) continue
-
-      const data = await res.json() as { article?: { id?: string; texte?: string; etat?: string } }
-      if (data?.article?.etat === 'ABROGE') continue
-
-      const texte = data?.article?.texte
-        ?.replace(/<[^>]+>/g, ' ')
-        ?.replace(/\s+/g, ' ')
-        ?.trim()
-
-      if (texte && texte.length > 20) {
-        const articleId = data.article?.id ?? ''
-        return {
-          texte,
-          url: `https://www.legifrance.gouv.fr/codes/article_lc/${articleId}`,
-        }
-      }
-    } catch { /* essayer le candidat suivant */ }
+  try {
+    const res = await fetch(`${PISTE_API_BASE}/consult/getArticle`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: legiartiId }),
+    })
+    if (!res.ok) { console.warn(`[auto-indexer] getArticle HTTP ${res.status}`); return null }
+    const data = await res.json() as { article?: { texte?: string; etat?: string } }
+    if (data.article?.etat === 'ABROGE') return null
+    const texte = data.article?.texte?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() ?? ''
+    if (texte.length < 20) return null
+    return { texte, url: `https://www.legifrance.gouv.fr/codes/article_lc/${legiartiId}` }
+  } catch {
+    return null
   }
-  return null
 }
 
 // ── 5. Summarize (GPT-4o-mini, même prompt que index-legifrance) ──────────
