@@ -12,6 +12,7 @@ import { fetchRelevantSources } from '@/lib/sources'
 import type { JuriCase } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
 import { detectDomains, detectDomain } from '@/lib/domain-detector'
+import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence } from '@/lib/auto-indexer'
@@ -82,8 +83,10 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Étape 1 : Filtre hors-sujet (GPT-4o-mini, ~500ms) ──
+  // Correction typos uniquement pour la détection — le LLM reçoit le message original
+  const correctedMessage = correctTypos(trimmedMessage)
 
-  const isRelevant = await checkRelevance(trimmedMessage)
+  const isRelevant = await checkRelevance(correctedMessage)
   if (!isRelevant) {
     return streamTextResponse(REFUSAL_MESSAGE)
   }
@@ -93,10 +96,10 @@ export async function POST(req: NextRequest) {
   // - Embedding + Judilibre live : en parallèle
   // - pgvector : après embedding
 
-  const domains = detectDomains(trimmedMessage)
+  const domains = detectDomains(correctedMessage)
   const primaryDomain = domains[0] ?? null
   // DomainMatch complet (avec judilibreTheme + judilibreChamber) pour la tentative ciblée
-  const domainMatch = detectDomain(trimmedMessage)
+  const domainMatch = detectDomain(correctedMessage)
 
   // Judilibre TOUJOURS appelé — avantage compétitif vs ChatGPT/Claude sans accès live
   const [embedding, liveJuriCases] = await Promise.all([
@@ -168,7 +171,7 @@ export async function POST(req: NextRequest) {
 
     // Auto-enrichissement whitelist — ajouter des mots-clés si aucun domaine détecté
     if (!primaryDomain) {
-      waitUntil(autoEnrichWhitelist(trimmedMessage))
+      waitUntil(autoEnrichWhitelist(correctedMessage))
     }
   }
 

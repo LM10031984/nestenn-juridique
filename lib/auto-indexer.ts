@@ -434,9 +434,18 @@ export async function autoIndexMissingArticles(
   chunksFound: number,
 ): Promise<void> {
   console.info(`[auto-indexer] Appelé — responseText=${responseText.length} chars, chunks=${chunksFound}`)
-  console.info(`[auto-indexer] Texte à analyser (500 premiers chars) : ${responseText.slice(0, 500)}`)
 
-  const refs = extractArticleReferences(responseText)
+  // Nettoyer le markdown avant l'extraction — évite de capturer **bold** ou *note* comme nom de loi
+  const cleanText = responseText
+    .replace(/\*\*([^*]+)\*\*/g, '$1')           // **bold** → bold
+    .replace(/\*([^*]+)\*/g, '$1')               // *italic* → italic
+    .replace(/__([^_]+)__/g, '$1')               // __bold__ → bold
+    .replace(/#{1,3}\s/g, '')                    // ### headers
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')    // [text](url) → text
+
+  console.info(`[auto-indexer] Texte à analyser (500 premiers chars) : ${cleanText.slice(0, 500)}`)
+
+  const refs = extractArticleReferences(cleanText)
   console.info(`[auto-indexer] Références trouvées : ${refs.map(r => `${r.law} art. ${r.article}`).join(', ') || 'aucune'}`)
 
   const token = await getPisteToken()
