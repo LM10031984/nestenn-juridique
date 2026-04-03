@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Scale, ChevronLeft, User, BarChart2, Users, Building2 } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Scale, ChevronLeft, User, BarChart2, Users, Building2, LogOut } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import {
   Sidebar,
   SidebarContent,
@@ -33,7 +34,14 @@ const roleLabels: Record<string, string> = {
 export function AppSidebar({ user }: { user: AuthUser }) {
   const { state, toggleSidebar } = useSidebar()
   const pathname = usePathname()
+  const router = useRouter()
   const collapsed = state === 'collapsed'
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   const nav = allNav.filter(item => item.roles.includes(user.role))
 
@@ -85,19 +93,26 @@ export function AppSidebar({ user }: { user: AuthUser }) {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        {!collapsed && (
-          <div className="flex items-center gap-3 px-2 py-2">
-            <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-              <User className="h-4 w-4 text-sidebar-foreground/70" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-medium text-sidebar-foreground">
+        <div className="flex items-center gap-2 px-2 py-2">
+          <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
+            <User className="h-4 w-4 text-sidebar-foreground/70" />
+          </div>
+          {!collapsed && (
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="text-xs font-medium text-sidebar-foreground truncate">
                 {user.full_name ?? user.email}
               </span>
               <span className="text-[10px] text-sidebar-foreground/50">{roleLabels[user.role]}</span>
             </div>
-          </div>
-        )}
+          )}
+          <button
+            onClick={handleSignOut}
+            title="Se déconnecter"
+            className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors shrink-0"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )
