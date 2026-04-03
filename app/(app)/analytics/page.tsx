@@ -6,8 +6,8 @@ import { Search, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, Minus } fr
 
 // ─── Constantes ROI ──────────────────────────────────────────────────────────
 
-const COST_PER_QUESTION = 0.03   // € — coût Nestenn par question (pour calcul savings)
-const CALL_CENTER_RATE  = 0.16   // € — coût équivalent appel standard (10€/h, ~3.5 min)
+const CALL_CENTER_COST_PER_AGENCY = 89  // €/mois — coût call center juridique
+const NESTENN_COST_PER_AGENCY     = 40  // €/mois — coût Nestenn Juridique
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,15 @@ interface PainPointDetail {
   theme: string
   by_agency: Array<{ agency_name: string; agency_slug: string; cnt: number }>
   recent: Array<{ preview: string; created_at: string; agency_name: string }>
+}
+
+interface InactiveAgency {
+  agency_name: string
+  agency_slug: string
+  city: string | null
+  email: string | null
+  last_question: string | null
+  days_inactive: number | null
 }
 
 interface AnalyticsData {
@@ -110,15 +119,63 @@ function formatDate(d: string) {
 
 function pct(a: number, b: number) { return b > 0 ? Math.round((a / b) * 100) : 0 }
 
+// ─── Sparkline activité ────────────────────────────────────────────────────
+
+function ActivitySparkline({ data }: { data: Array<{ day: string; cnt: number }> }) {
+  const days: Array<{ day: string; cnt: number }> = []
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    const found = data.find(r => r.day.slice(0, 10) === key)
+    days.push({ day: key, cnt: found?.cnt ?? 0 })
+  }
+  const max = Math.max(...days.map(d => d.cnt), 1)
+
+  return (
+    <div className="flex items-end gap-0.5 h-12">
+      {days.map((d, i) => (
+        <div
+          key={i}
+          title={`${d.day.slice(5).replace('-', '/')} : ${d.cnt}`}
+          className="flex-1 rounded-sm cursor-default transition-colors"
+          style={{
+            height: `${Math.max((d.cnt / max) * 100, d.cnt > 0 ? 10 : 2)}%`,
+            backgroundColor: d.cnt > 0
+              ? `hsl(185 100% 37% / ${0.25 + (d.cnt / max) * 0.75})`
+              : 'hsl(var(--muted))',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // ─── Section 01 — Santé réseau ───────────────────────────────────────────────
 
 function NetworkBanner({ period }: { period: number }) {
-  const [kpis, setKpis] = useState<NetworkKPIs | null>(null)
+  const [kpis, setKpis]                   = useState<NetworkKPIs | null>(null)
+  const [showInactive, setShowInactive]   = useState(false)
+  const [inactiveAgencies, setInactiveA]  = useState<InactiveAgency[] | null>(null)
+  const [networkActivity, setNetActivity] = useState<Array<{ day: string; cnt: number }>>([])
 
   useEffect(() => {
     fetch(`/api/admin/analytics/network?period=${period}`)
       .then(r => r.json()).then(d => { if (!d.error) setKpis(d) })
   }, [period])
+
+  useEffect(() => {
+    fetch('/api/admin/analytics/network-activity')
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setNetActivity(d) })
+  }, [])
+
+  const handleInactiveClick = () => {
+    setShowInactive(v => !v)
+    if (!inactiveAgencies) {
+      fetch('/api/admin/analytics/inactive-agencies')
+        .then(r => r.json())
+        .then(d => { if (Array.isArray(d)) setInactiveA(d) })
+    }
+  }
 
   const totalQ    = useCountUp(kpis?.total_questions ?? 0, 100)
   const activeA   = useCountUp(kpis?.active_agencies ?? 0, 200)
@@ -128,9 +185,12 @@ function NetworkBanner({ period }: { period: number }) {
     ? Math.round(((kpis.total_questions - kpis.prev_total_questions) / kpis.prev_total_questions) * 100)
     : null
 
-  const savings   = kpis ? Math.round(kpis.total_questions * (CALL_CENTER_RATE - COST_PER_QUESTION)) : 0
-  const savingsUp = useCountUp(savings, 500)
-  const pctActive = kpis ? pct(kpis.active_agencies, kpis.total_agencies) : 0
+  const savingsMonthly = kpis
+    ? kpis.active_agencies * (CALL_CENTER_COST_PER_AGENCY - NESTENN_COST_PER_AGENCY)
+    : 0
+  const savingsYearly  = savingsMonthly * 12
+  const savingsUp      = useCountUp(savingsMonthly, 500)
+  const pctActive      = kpis ? pct(kpis.active_agencies, kpis.total_agencies) : 0
 
   if (!kpis) return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden mb-8 animate-pulse">
@@ -210,40 +270,117 @@ function NetworkBanner({ period }: { period: number }) {
           )}
         </div>
 
-        {/* Alertes */}
+        {/* Alertes inactivité — cliquable */}
         <div className="p-6">
           <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
             Alertes inactivité
           </div>
-          <div
-            className={`text-5xl font-bold leading-none mb-1 transition-colors ${inactiveC > 0 ? 'text-red-500' : 'text-foreground'}`}
-            style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontVariantNumeric: 'tabular-nums' }}
+          <button
+            onClick={kpis.inactive_count > 0 ? handleInactiveClick : undefined}
+            className={`text-left ${kpis.inactive_count > 0 ? 'cursor-pointer group' : 'cursor-default'}`}
           >
-            {inactiveC}
-          </div>
-          <div className="text-xs text-muted-foreground mt-2">
-            {kpis.inactive_count > 0
-              ? `agence${kpis.inactive_count > 1 ? 's' : ''} sans activité depuis 7j+`
-              : 'aucune alerte'}
-          </div>
+            <div
+              className={`text-5xl font-bold leading-none mb-1 transition-colors ${
+                inactiveC > 0
+                  ? 'text-red-500 group-hover:text-red-600'
+                  : 'text-foreground'
+              }`}
+              style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontVariantNumeric: 'tabular-nums' }}
+            >
+              {inactiveC}
+            </div>
+            <div className="text-xs mt-2">
+              {kpis.inactive_count > 0 ? (
+                <span className="text-red-500 underline underline-offset-2 decoration-dotted">
+                  agence{kpis.inactive_count > 1 ? 's' : ''} sans activité depuis 7j+
+                </span>
+              ) : (
+                <span className="text-muted-foreground">aucune alerte</span>
+              )}
+            </div>
+          </button>
         </div>
       </div>
 
-      {/* Bande ROI */}
+      {/* Sparkline réseau — 30 derniers jours */}
+      <div className="border-t border-border px-6 py-4">
+        <div className="text-xs text-muted-foreground mb-2">Activité réseau — 30 derniers jours</div>
+        {networkActivity.length > 0
+          ? <ActivitySparkline data={networkActivity} />
+          : <div className="h-12 flex items-center">
+              <div className="flex items-end gap-0.5 h-12 w-full">
+                {Array.from({ length: 30 }).map((_, i) => (
+                  <div key={i} className="flex-1 rounded-sm bg-muted" style={{ height: '2%' }} />
+                ))}
+              </div>
+            </div>
+        }
+      </div>
+
+      {/* Panel agences inactives */}
+      {showInactive && (
+        <div className="border-t border-border bg-red-50/50 dark:bg-red-950/10">
+          <div className="px-6 py-3 flex items-center justify-between">
+            <span className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wider">
+              Agences inactives
+            </span>
+            <button
+              onClick={() => setShowInactive(false)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Fermer ✕
+            </button>
+          </div>
+          {!inactiveAgencies ? (
+            <div className="px-6 pb-4 text-xs text-muted-foreground">Chargement…</div>
+          ) : inactiveAgencies.length === 0 ? (
+            <div className="px-6 pb-4 text-xs text-muted-foreground">Aucune agence inactive.</div>
+          ) : (
+            <div className="divide-y divide-border/50">
+              {inactiveAgencies.map((a, i) => (
+                <div key={i} className="flex items-center gap-4 px-6 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium text-foreground truncate block">{a.agency_name}</span>
+                    {a.city && <span className="text-xs text-muted-foreground">{a.city}</span>}
+                  </div>
+                  <span className="text-xs text-red-500 shrink-0">
+                    {a.days_inactive != null
+                      ? `inactif depuis ${a.days_inactive}j`
+                      : 'jamais connecté'}
+                  </span>
+                  {a.email ? (
+                    <a
+                      href={`mailto:${a.email}`}
+                      className="text-xs px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted transition-colors shrink-0"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      Contacter
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground shrink-0 w-[72px]" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bande ROI — économie réseau */}
       <div className="border-t border-border bg-emerald-50 dark:bg-emerald-950/20 px-6 py-3 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium uppercase tracking-wider">
-            Économie estimée vs call center
+            Économie réseau vs call center
           </span>
           <span
             className="text-xl font-bold text-emerald-700 dark:text-emerald-400"
             style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
           >
-            {savingsUp.toLocaleString('fr-FR')} €
+            {savingsUp.toLocaleString('fr-FR')} €/mois
           </span>
         </div>
-        <div className="ml-auto text-xs text-muted-foreground hidden sm:block">
-          Basé sur 0,16 € / appel équivalent vs 0,03 € / question Nestenn
+        <div className="ml-auto text-xs text-emerald-600 dark:text-emerald-500 font-medium hidden sm:block">
+          soit {savingsYearly.toLocaleString('fr-FR')} €/an
         </div>
       </div>
     </div>
@@ -279,8 +416,29 @@ function PainPointsSection({
     ? pct(painPoints[0].question_count, totalQuestions)
     : 0
 
-  const suggestion = topPct >= 15 && painPoints[0]
-    ? `Les "${painPoints[0].sub_domain}" représentent ${topPct}% des questions ce mois. Envisagez une formation réseau sur ce sujet.`
+  function generateSuggestion(theme: string, sharePct: number): string | null {
+    if (sharePct < 10) return null
+    const t = theme.toLowerCase()
+    const suggestions: Array<[string, string]> = [
+      ['impay',    `Les impayés représentent ${sharePct}% des questions. Envisagez une formation réseau sur la procédure d'expulsion et la clause résolutoire.`],
+      ['expuls',   `L'expulsion est le sujet n°1 de vos agents (${sharePct}%). Un webinaire sur la procédure complète (commandement → tribunal → trêve hivernale) réduirait la charge.`],
+      ['dpe',      `Le DPE et la performance énergétique concernent ${sharePct}% des questions. Avec le calendrier Climat-Résilience (F interdit en 2028), une note réseau serait utile.`],
+      ['diagnos',  `Les diagnostics représentent ${sharePct}% des demandes. Vérifiez que vos agences ont un partenaire diagnostiqueur fiable et à jour.`],
+      ['mandat',   `${sharePct}% des questions portent sur les mandats. Un rappel réseau sur la durée irrévocable (3 mois max) et les clauses essentielles éviterait des litiges.`],
+      ['copro',    `La copropriété génère ${sharePct}% des questions. Les charges et l'AG sont les sujets récurrents — une fiche pratique réseau serait pertinente.`],
+      ['vice',     `Les vices cachés représentent ${sharePct}% des questions. Rappelez à vos agents l'importance du DDT complet et de la transparence vendeur.`],
+      ['dépôt',    `Le dépôt de garantie concentre ${sharePct}% des demandes. Un modèle de lettre de restitution standardisé pour le réseau limiterait les litiges.`],
+      ['sous-loc', `La sous-location (dont Airbnb) génère ${sharePct}% des questions — sujet en forte hausse. Une note réseau sur les règles applicables serait opportune.`],
+      ['préempt',  `Le droit de préemption représente ${sharePct}% des questions. Un rappel sur les délais et les options du vendeur aiderait vos agents.`],
+    ]
+    for (const [key, text] of suggestions) {
+      if (t.includes(key)) return text
+    }
+    return `Le thème "${theme}" représente ${sharePct}% des questions de vos agents ce mois. C'est un sujet de formation prioritaire.`
+  }
+
+  const suggestion = topPct >= 10 && painPoints[0]
+    ? generateSuggestion(painPoints[0].sub_domain, topPct)
     : null
 
   const now = new Date()
@@ -475,6 +633,26 @@ function AgencyRanking({ period }: { period: number }) {
             {pagination && <p className="text-xs text-muted-foreground">{pagination.totalCount} agences</p>}
           </div>
         </div>
+        {agencies.length > 0 && (
+          <button
+            onClick={() => {
+              const header = 'Agence,Ville,Questions,Dernière activité\n'
+              const rows = agencies.map(a =>
+                `"${a.agency_name}","${a.city ?? ''}",${a.question_count},"${a.last_question ? new Date(a.last_question).toLocaleDateString('fr-FR') : 'Jamais'}"`
+              ).join('\n')
+              const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
+              const url = URL.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.href = url
+              link.download = `nestenn-agences-${new Date().toISOString().slice(0, 10)}.csv`
+              link.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors flex items-center gap-1.5"
+          >
+            <span>↓</span> Exporter CSV
+          </button>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
