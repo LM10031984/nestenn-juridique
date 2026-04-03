@@ -130,5 +130,6 @@ export async function GET(req: NextRequest) {
     topQuestions: topQuestionsRes.data ?? [],
     painPoints: painPointsRes.data ?? [],
     recentQuestions,
+    isAdmin,
   })
 }
