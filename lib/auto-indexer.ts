@@ -270,7 +270,29 @@ async function fetchArticleFromLegifrance(
   }
 }
 
-// ── 5. Summarize (GPT-4o-mini, même prompt que index-legifrance) ──────────
+// ── 5. Classification domaine ─────────────────────────────────────────────
+
+const VALID_DOMAINS = ['baux_habitation', 'copropriete', 'agent_immobilier', 'vente_immobiliere', 'urbanisme', 'diagnostics', 'construction', 'bail_commercial', 'fiscalite', 'servitudes', 'viager_demembrement', 'litiges']
+
+async function classifyArticleDomain(text: string): Promise<string> {
+  try {
+    const result = await openRouterChat([{
+      role: 'user',
+      content: `Classe cet article de loi dans UN seul de ces domaines. Réponds uniquement avec le domaine exact :
+baux_habitation, copropriete, agent_immobilier, vente_immobiliere, urbanisme, diagnostics, construction, bail_commercial, fiscalite, servitudes, viager_demembrement, litiges
+
+Texte : ${text.slice(0, 500)}
+
+Domaine :`,
+    }], MODELS.FILTER, 20)
+    const domain = result.trim().toLowerCase().replace(/[^a-z_]/g, '')
+    return VALID_DOMAINS.includes(domain) ? domain : 'autres'
+  } catch {
+    return 'autres'
+  }
+}
+
+// ── 6. Summarize (GPT-4o-mini, même prompt que index-legifrance) ──────────
 
 async function summarizeArticle(articleNum: string, lawLabel: string, texte: string): Promise<{
   situation: string; principe: string; consequence: string
@@ -491,7 +513,7 @@ export async function autoIndexMissingJurisprudence(
         consequence:     summary.consequence,
         holding:         summary.principe,
         motivations_raw: decision.text.slice(0, 5000),
-        domain:          'auto_indexed',
+        domain:          await classifyArticleDomain(decision.text),
         sub_themes:      [],
         url:             decision.url,
         embedding,
@@ -576,7 +598,7 @@ export async function autoIndexMissingArticles(
           content_summary: JSON.stringify(summary),
           date_version:    new Date().toISOString().split('T')[0],
           url:             articleData.url,
-          domain:          'auto_indexed',
+          domain:          await classifyArticleDomain(articleData.texte),
           sub_themes:      [],
           in_force:        true,
           embedding,
