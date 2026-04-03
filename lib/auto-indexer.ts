@@ -22,14 +22,16 @@ const LEGITEXT_MAP: Record<string, string> = {
   '70-9':   'LEGITEXT000006068387', 'loi 70-9':   'LEGITEXT000006068387',
   '67-223': 'LEGITEXT000006061423', '72-678':     'LEGITEXT000006063791',
   'civil':  'LEGITEXT000006070721', 'code civil':  'LEGITEXT000006070721',
-  'cch':    'LEGITEXT000006074096',
-  'cgi':    'LEGITEXT000006069577',
+  'cch':    'LEGITEXT000006074096', 'construction': 'LEGITEXT000006074096',
+  'cgi':    'LEGITEXT000006069577', 'fiscal':       'LEGITEXT000006069577',
   'cpc':    'LEGITEXT000006070716',
   'cpce':   'LEGITEXT000025024948',
   'consommation': 'LEGITEXT000006069565', 'code consommation': 'LEGITEXT000006069565',
   'commerce':     'LEGITEXT000005634379',
   'urbanisme':    'LEGITEXT000006074075',
   'pénal':        'LEGITEXT000006069719', 'code pénal': 'LEGITEXT000006069719',
+  'santé':        'LEGITEXT000006072665', 'santé publique': 'LEGITEXT000006072665', 'csp': 'LEGITEXT000006072665',
+  'travail':      'LEGITEXT000006072050', 'code travail': 'LEGITEXT000006072050',
 }
 
 // ── 1. Extraction des références d'articles ──────────────────────────────
@@ -41,12 +43,13 @@ interface ArticleRef {
 }
 
 const REF_PATTERNS = [
-  // "art. 14 de la loi 89-462" / "article 14 loi du 89-462"
-  /art(?:icle)?\.?\s+(\d[\d-]*(?:-\d+)?)\s+(?:de (?:la )?)?(?:loi|décret|code)?\s*([\w\s-]{3,40})/gi,
-  // "l'article 1589 du code civil" / "art. L271-1 du CCH"
-  /l'?art(?:icle)?\.?\s+((?:L|R|D|A)?\d[\d-]*(?:-\d+)?)\s+(?:du |de la |de l')?([^\s,\.]{3,30}(?:\s[\w-]+)?)/gi,
-  // "article 24 de la loi" (loi sans nom → contexte)
-  /(?:^|\s)art(?:icle)?\.?\s+((?:L|R|D|A)?\d[\d-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))/gi,
+  // Priorité 1 : "art. 24 de la loi n° 89-462" / "art. X du décret n° 67-223"
+  // En premier pour éviter que les groupes optionnels des patterns suivants capturent "de la"
+  /art(?:icle)?\.?\s+((?:[LRDA]\.?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la |l')?|du )?(?:loi|décret)\s+n[o°]\s*(\d{2,4}-\d+)/gi,
+  // Priorité 2 : "l'article 1589 du code civil" / "art. L.271-1 du CCH"
+  /l'?art(?:icle)?\.?\s+((?:[LRDA]\.?)?\d[\d.-]*)\s+(?:du |de la |de l')?([^\s,\.]{3,30}(?:\s[\w-]+)?)/gi,
+  // Priorité 3 : "article 24 de la loi" (loi sans nom → sera skippé par resolveLegitext)
+  /(?:^|\s)art(?:icle)?\.?\s+((?:[LRDA]\.?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))/gi,
 ]
 
 export function extractArticleReferences(text: string): ArticleRef[] {
@@ -343,10 +346,9 @@ export async function autoIndexMissingJurisprudence(
   for (const ref of refs) {
     try {
       const { count } = await supabase
-        .from('legal_articles')
+        .from('jurisprudence')
         .select('*', { count: 'exact', head: true })
-        .eq('law_id', ref.court === 'cass' ? 'JURI_CASS' : 'JURI_CA')
-        .ilike('article_num', ref.number)
+        .ilike('number', ref.number)
 
       if ((count ?? 0) > 0) continue
 
@@ -363,19 +365,21 @@ export async function autoIndexMissingJurisprudence(
       const embedding = await embedText(embeddingText)
       if (!embedding) continue
 
-      const { error } = await supabase.from('legal_articles').upsert({
-        law_id:          ref.court === 'cass' ? 'JURI_CASS' : 'JURI_CA',
-        article_num:     ref.number,
-        title:           `${ref.court === 'cass' ? 'Cass.' : 'CA'} n° ${ref.number} (${decision.date})`,
-        content:         decision.text.slice(0, 3000),
-        content_summary: JSON.stringify(summary),
-        date_version:    decision.date,
-        url:             decision.url,
-        domain:          'auto_indexed_jurisprudence',
+      const { error } = await supabase.from('jurisprudence').upsert({
+        source_id:       decision.id,
+        court:           ref.court === 'cass' ? 'cc' : 'ca',
+        number:          ref.number,
+        date:            decision.date,
+        situation:       summary.situation,
+        principle:       summary.principe,
+        consequence:     summary.consequence,
+        holding:         summary.principe,
+        motivations_raw: decision.text.slice(0, 5000),
+        domain:          'auto_indexed',
         sub_themes:      [],
-        in_force:        true,
+        url:             decision.url,
         embedding,
-      }, { onConflict: 'law_id,article_num' })
+      }, { onConflict: 'source_id' })
 
       if (error) {
         console.error(`[auto-indexer] Upsert juri ${ref.number}:`, error.message)
@@ -399,6 +403,7 @@ export async function autoIndexMissingArticles(
 
   const refs = extractArticleReferences(responseText)
   if (refs.length === 0) return
+  console.info(`[auto-indexer] Références trouvées : ${refs.map(r => `${r.law} art. ${r.article}`).join(', ')}`)
 
   const token = await getPisteToken()
   if (!token) {
