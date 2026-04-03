@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Scale, ChevronLeft, User, BarChart2, Users } from 'lucide-react'
+import { Scale, ChevronLeft, User, BarChart2, Users, Building2 } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +20,7 @@ import type { AuthUser } from '@/lib/auth'
 const allNav = [
   { title: 'Assistant Juridique', url: '/chat', icon: Scale, roles: ['super_admin', 'responsable_agence', 'conseiller'] },
   { title: 'Analytics', url: '/analytics', icon: BarChart2, roles: ['super_admin', 'responsable_agence'] },
+  { title: 'Agences', url: '/admin/agencies', icon: Building2, roles: ['super_admin'] },
   { title: 'Utilisateurs', url: '/admin/users', icon: Users, roles: ['super_admin'] },
 ]
 
