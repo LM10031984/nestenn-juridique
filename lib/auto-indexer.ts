@@ -56,14 +56,15 @@ const REF_PATTERNS = [
 
 export function extractArticleReferences(text: string): ArticleRef[] {
   const seen = new Set<string>()
-  const refs: ArticleRef[] = []
+  const raw: ArticleRef[] = []
 
   for (const pattern of REF_PATTERNS) {
     const matches = [...text.matchAll(pattern)]
     for (const m of matches) {
       // Normaliser "L. 1331-1-1" → "L.1331-1-1" (espace après le préfixe lettre)
       const articleNum = m[1]?.trim().replace(/^([LRDA])\.\s+/, '$1.') ?? ''
-      const lawHint    = m[2]?.trim().toLowerCase() ?? ''
+      // Retirer les parenthèses/crochets parasites capturés en fin de nom de loi
+      const lawHint    = (m[2]?.trim().replace(/[()[\]]/g, '').trim().toLowerCase()) ?? ''
       if (!articleNum) continue
 
       // Résoudre le LEGITEXT
@@ -72,11 +73,20 @@ export function extractArticleReferences(text: string): ArticleRef[] {
       if (seen.has(key)) continue
       seen.add(key)
 
-      refs.push({ law: lawHint, article: articleNum, legitextId })
+      raw.push({ law: lawHint, article: articleNum, legitextId })
     }
   }
 
-  return refs
+  // Déduplication : si même article avec et sans nom de loi, garder celui avec nom
+  const byArticle = new Map<string, ArticleRef>()
+  for (const ref of raw) {
+    const existing = byArticle.get(ref.article)
+    if (!existing || (!existing.legitextId && ref.legitextId)) {
+      byArticle.set(ref.article, ref)
+    }
+  }
+
+  return [...byArticle.values()]
 }
 
 function resolveLegitext(hint: string): string | null {
@@ -258,17 +268,19 @@ async function fetchDecisionFromJudilibre(token: string, number: string): Promis
   text: string; date: string; url: string; id: string
 } | null> {
   try {
-    // Essayer plusieurs formats car Judilibre est sensible à la ponctuation
-    const searchQueries = [
-      number,                            // "09-10.218"
-      number.replace(/\./g, ''),         // "09-10218"
-      number.replace(/[-\.]/g, ' '),     // "09 10 218"
+    // Essayer d'abord par filtre `number` (exact), puis par `query` full-text
+    // Le live search utilise query= et trouve 09-10.218 — number= échoue si format non exact
+    const searchAttempts: Array<[string, string]> = [
+      ['number', number],                          // filtre exact "09-10.218"
+      ['number', number.replace(/\./g, '-')],      // "09-10-218"
+      ['query',  number],                          // full-text "09-10.218"
+      ['query',  number.replace(/[-\.]/g, ' ')],   // full-text "09 10 218"
     ]
 
     let id: string | undefined
-    for (const query of searchQueries) {
+    for (const [param, value] of searchAttempts) {
       const url = new URL(`${JUDILIBRE_API_URL}/search`)
-      url.searchParams.set('number', query)
+      url.searchParams.set(param, value)
       url.searchParams.set('page_size', '1')
 
       const searchRes = await fetch(url.toString(), {
@@ -278,7 +290,10 @@ async function fetchDecisionFromJudilibre(token: string, number: string): Promis
       if (!searchRes.ok) continue
       const searchData = await searchRes.json() as { results?: Array<{ id: string }> }
       id = searchData.results?.[0]?.id
-      if (id) break
+      if (id) {
+        console.info(`[auto-indexer] Judilibre hit avec ${param}=${value}`)
+        break
+      }
     }
     if (!id) return null
 
