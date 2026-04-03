@@ -190,56 +190,72 @@ function collectSectionArticles(node: { articles?: Array<{ id: string; num: stri
   return out
 }
 
+// Génère les variantes du plus précis au plus large pour les articles CGI
+// "150 U II 1°" → ["150 U II 1°", "150 U II", "150 U", "150"]
+function getArticleCandidates(articleNum: string): string[] {
+  const noDot = articleNum.replace(/^([LRDA])\./, '$1')
+  const base = noDot !== articleNum ? [articleNum, noDot] : [articleNum]
+  const parts = noDot.split(/\s+/)
+  const shorterVariants: string[] = []
+  for (let i = parts.length - 1; i >= 1; i--) {
+    shorterVariants.push(parts.slice(0, i).join(' '))
+  }
+  return [...new Set([...base, ...shorterVariants])]
+}
+
 async function findLegiartiId(token: string, legitextId: string, articleNum: string): Promise<string | null> {
   const today = new Date().toISOString().split('T')[0]
-  const noDot = articleNum.replace(/^([LRDA])\./, '$1')
-  const candidates = [articleNum, noDot, articleNum.toUpperCase(), noDot.toUpperCase()]
+  const candidates = getArticleCandidates(articleNum)
 
-  // Tentative 1 : tableMatieres
-  try {
-    console.info(`[auto-indexer] tableMatieres : textId=${legitextId} searchArticle=${articleNum}`)
-    const res = await fetch(`${PISTE_API_BASE}/consult/code/tableMatieres`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ textId: legitextId, date: today, pageSize: 200, searchArticle: articleNum }),
-      signal: AbortSignal.timeout(12000),
-    })
-    if (res.ok) {
-      const data = await res.json() as { sections?: unknown[] }
-      const allArts = collectSectionArticles({ sections: data.sections ?? [] })
-      console.info(`[auto-indexer] tableMatieres retourne ${allArts.length} articles`)
-      const found = allArts.find(a => candidates.includes(a.num))
-      if (found) { console.info(`[auto-indexer] LEGIARTI trouvé : ${found.id}`); return found.id }
-    } else {
-      console.warn(`[auto-indexer] tableMatieres HTTP ${res.status}`)
-    }
-  } catch (e) { console.warn('[auto-indexer] tableMatieres erreur :', e) }
-
-  // Tentative 2 : /search NUM_ARTICLE + NOM_CODE
-  const codeName = CODE_NAMES[legitextId]
-  if (codeName) {
+  // Tentative 1 : tableMatieres — essaye searchArticle du plus précis au plus large
+  for (const candidate of candidates) {
     try {
-      console.info(`[auto-indexer] /search fallback : articleNum=${articleNum} codeName=${codeName}`)
-      const res = await fetch(`${PISTE_API_BASE}/search`, {
+      console.info(`[auto-indexer] tableMatieres : textId=${legitextId} searchArticle=${candidate}`)
+      const res = await fetch(`${PISTE_API_BASE}/consult/code/tableMatieres`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fond: 'CODE_DATE',
-          recherche: {
-            champs: [{ typeChamp: 'NUM_ARTICLE', criteres: [{ typeRecherche: 'EXACTE', valeur: articleNum, operateur: 'ET' }], operateur: 'ET' }],
-            filtres: [{ facette: 'TEXT_LEGAL_STATUS', valeur: 'VIGUEUR' }, { facette: 'NOM_CODE', valeur: codeName }],
-            pageNumber: 1, pageSize: 5, operateur: 'ET', typePagination: 'DEFAUT',
-          },
-        }),
+        body: JSON.stringify({ textId: legitextId, date: today, pageSize: 200, searchArticle: candidate }),
         signal: AbortSignal.timeout(12000),
       })
       if (res.ok) {
-        const data = await res.json() as { results?: Array<{ sections?: Array<{ extracts?: Array<{ id: string }> }> }> }
-        const artId = data.results?.[0]?.sections?.[0]?.extracts?.[0]?.id
-        if (artId) { console.info(`[auto-indexer] /search LEGIARTI trouvé : ${artId}`); return artId }
-        console.warn('[auto-indexer] /search : aucun résultat')
+        const data = await res.json() as { sections?: unknown[] }
+        const allArts = collectSectionArticles({ sections: data.sections ?? [] })
+        console.info(`[auto-indexer] tableMatieres retourne ${allArts.length} articles (searchArticle=${candidate})`)
+        const found = allArts.find(a => candidates.includes(a.num))
+        if (found) { console.info(`[auto-indexer] LEGIARTI trouvé : ${found.id}`); return found.id }
+      } else {
+        console.warn(`[auto-indexer] tableMatieres HTTP ${res.status}`)
       }
-    } catch (e) { console.warn('[auto-indexer] /search erreur :', e) }
+    } catch (e) { console.warn('[auto-indexer] tableMatieres erreur :', e) }
+  }
+
+  // Tentative 2 : /search NUM_ARTICLE + NOM_CODE — essaye du plus précis au plus large
+  const codeName = CODE_NAMES[legitextId]
+  if (codeName) {
+    for (const candidate of candidates) {
+      try {
+        console.info(`[auto-indexer] /search fallback : articleNum=${candidate} codeName=${codeName}`)
+        const res = await fetch(`${PISTE_API_BASE}/search`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fond: 'CODE_DATE',
+            recherche: {
+              champs: [{ typeChamp: 'NUM_ARTICLE', criteres: [{ typeRecherche: 'EXACTE', valeur: candidate, operateur: 'ET' }], operateur: 'ET' }],
+              filtres: [{ facette: 'TEXT_LEGAL_STATUS', valeur: 'VIGUEUR' }, { facette: 'NOM_CODE', valeur: codeName }],
+              pageNumber: 1, pageSize: 5, operateur: 'ET', typePagination: 'DEFAUT',
+            },
+          }),
+          signal: AbortSignal.timeout(12000),
+        })
+        if (res.ok) {
+          const data = await res.json() as { results?: Array<{ sections?: Array<{ extracts?: Array<{ id: string }> }> }> }
+          const artId = data.results?.[0]?.sections?.[0]?.extracts?.[0]?.id
+          if (artId) { console.info(`[auto-indexer] /search LEGIARTI trouvé : ${artId} (candidate=${candidate})`); return artId }
+          console.warn(`[auto-indexer] /search : aucun résultat (candidate=${candidate})`)
+        }
+      } catch (e) { console.warn('[auto-indexer] /search erreur :', e) }
+    }
   }
 
   return null
