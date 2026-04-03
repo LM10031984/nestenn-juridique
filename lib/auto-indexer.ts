@@ -42,22 +42,30 @@ interface ArticleRef {
   legitextId: string | null
 }
 
+// Numéro d'article : [LRDA] optionnel + point + espaces + chiffres
+// Exemples couverts : L. 1331-1-1 | L.1331-1-1 | L1331-1-1 | 1641 | L. 216-6
+// \s* (zéro ou plus) remplace \s? (zéro ou un) pour gérer les espacements variables
+const ARTICLE_NUM = '([LRDA]\\.?\\s*\\d[\\d.\\-]+|\\d[\\d.\\-]*)'
+
 // Patterns format direct : groupe 1 = article, groupe 2 = loi
 const REF_PATTERNS = [
   // Priorité 1 : "art. 24 de la loi n° 89-462" / "art. X du décret n° 67-223"
-  // En premier pour éviter que les groupes optionnels capturent "de la"
-  /art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la |l')?|du )?(?:loi|décret)\s+n[o°]\s*(\d{2,4}-\d+)/gi,
+  new RegExp(`art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:al\\.\\s*\\d+\\s+)?(?:de (?:la |l')?|du )?(?:loi|décret)\\s+n[o°]\\s*(\\d{2,4}-\\d+)`, 'gi'),
   // Priorité 2 : "art. L. 1331-1-1 du Code de la santé publique" (code nommé explicitement)
-  /art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:du |de la |de l')(code[^,\.\n]{2,60})/gi,
+  new RegExp(`art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:du |de la |de l')(code[^,.\\n]{2,60})`, 'gi'),
   // Priorité 3 : "l'article 1589 du code civil" / "art. L.271-1 du CCH"
-  /l'?art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:du |de la |de l')?([^\s,\.]{3,30}(?:\s[\w-]+)?)/gi,
+  new RegExp(`l'?art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:du |de la |de l')?([^\\s,.]{3,30}(?:\\s[\\w-]+)?)`, 'gi'),
   // Priorité 4 : "article 24 de la loi" (loi sans nom → skippé par resolveLegitext)
-  /(?:^|\s)art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))/gi,
+  new RegExp(`(?:^|\\s)art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:al\\.\\s*\\d+\\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))`, 'gi'),
 ]
 
 // Pattern format inversé : groupe 1 = loi, groupe 2 = article
-// "Code de la santé publique (art. L. 1331-1-1)" / "loi n° 89-462 (art. 24)"
-const INVERTED_PATTERN = /(Code\s+[\w\s'-]+|loi\s+n[o°]?\s*[\d-]+)[^(]{0,30}\(\s*art(?:icle)?\.?\s*((?:[LRDA]\.?\s?)?\d[\d.-]*)/gi
+// Gère "Le Code de la santé publique (art. L. 1331-1-1)" / "la loi n° 89-462 (art. 24)"
+// (?:le|la|les|du|de)? couvre le déterminant avant "Code"
+const INVERTED_PATTERN = new RegExp(
+  `(?:(?:le|la|les|du|de)\\s+)?(Code[\\w\\s'-]+|loi\\s+n[o°]?\\s*[\\d-]+)[^(]{0,30}\\(\\s*art(?:icle)?\\.?\\s*${ARTICLE_NUM}`,
+  'gi'
+)
 
 export function extractArticleReferences(text: string): ArticleRef[] {
   const seen = new Set<string>()
@@ -463,6 +471,10 @@ export async function autoIndexMissingArticles(
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')    // [text](url) → text
 
   console.info(`[auto-indexer] Texte à analyser (500 premiers chars) : ${cleanText.slice(0, 500)}`)
+  console.info(`[auto-indexer] Matches bruts :`, JSON.stringify(
+    [...cleanText.matchAll(/art(?:icle)?\.?\s*([\w\d.\-\s]+?)(?:\s+(?:du|de la|de l')|[),;])/gi)]
+      .map(m => m[0].slice(0, 60))
+  ))
 
   const refs = extractArticleReferences(cleanText)
   console.info(`[auto-indexer] Références trouvées : ${refs.map(r => `${r.law} art. ${r.article}`).join(', ') || 'aucune'}`)
