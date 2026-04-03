@@ -193,8 +193,6 @@ export async function POST(req: NextRequest) {
     // Auto-indexer : tee systématique pour capturer la réponse et indexer
     // les articles/arrêts cités mais absents de pgvector, quel que soit le nombre de chunks
     const chunksFound = chunks.length
-    const decoder = new TextDecoder()
-    const accumulated: string[] = []
     const [clientStream, captureStream] = llmStream.tee()
 
     // waitUntil : garantit l'exécution sur Vercel après l'envoi de la réponse
@@ -202,15 +200,33 @@ export async function POST(req: NextRequest) {
       (async () => {
         try {
           const reader = captureStream.getReader()
+          const decoder = new TextDecoder()
+          const rawChunks: string[] = []
+
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            accumulated.push(decoder.decode(value, { stream: true }))
+            rawChunks.push(decoder.decode(value, { stream: true }))
           }
-          const fullText = accumulated.join('')
+
+          // Extraire le texte de la réponse depuis le flux SSE brut
+          const rawSSE = rawChunks.join('')
+          const responseText = rawSSE
+            .split('\n')
+            .filter(line => line.startsWith('data: ') && !line.includes('[DONE]'))
+            .map(line => {
+              try {
+                const json = JSON.parse(line.slice(6))
+                return json.choices?.[0]?.delta?.content ?? ''
+              } catch { return '' }
+            })
+            .join('')
+
+          console.info(`[auto-indexer] Texte extrait : ${responseText.length} chars`)
+
           await Promise.all([
-            autoIndexMissingArticles(fullText, chunksFound),
-            autoIndexMissingJurisprudence(fullText, chunksFound),
+            autoIndexMissingArticles(responseText, chunksFound),
+            autoIndexMissingJurisprudence(responseText, chunksFound),
           ])
         } catch (err) { console.error('[auto-indexer]', err) }
       })()
