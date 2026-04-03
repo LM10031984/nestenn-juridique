@@ -332,7 +332,6 @@ export async function autoIndexMissingJurisprudence(
   responseText: string,
   chunksFound: number,
 ): Promise<void> {
-  if (chunksFound >= 3) return
 
   const refs = extractCaseReferences(responseText)
   if (refs.length === 0) return
@@ -398,8 +397,6 @@ export async function autoIndexMissingArticles(
   responseText: string,
   chunksFound: number,
 ): Promise<void> {
-  // Ne se déclenche que si peu ou pas de sources trouvées
-  if (chunksFound >= 3) return
 
   const refs = extractArticleReferences(responseText)
   if (refs.length === 0) return

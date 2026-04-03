@@ -190,39 +190,33 @@ export async function POST(req: NextRequest) {
   try {
     const llmStream = await openRouterStreamWithFallback(messages, 2000)
 
-    // Auto-indexer : si peu de sources, on tee le stream pour capturer la réponse
-    // et indexer automatiquement les articles cités mais absents de pgvector
+    // Auto-indexer : tee systématique pour capturer la réponse et indexer
+    // les articles/arrêts cités mais absents de pgvector, quel que soit le nombre de chunks
     const chunksFound = chunks.length
-    let outputStream: ReadableStream<Uint8Array>
+    const decoder = new TextDecoder()
+    const accumulated: string[] = []
+    const [clientStream, captureStream] = llmStream.tee()
 
-    if (chunksFound < 3) {
-      const decoder = new TextDecoder()
-      const accumulated: string[] = []
-      const [clientStream, captureStream] = llmStream.tee()
+    // waitUntil : garantit l'exécution sur Vercel après l'envoi de la réponse
+    waitUntil(
+      (async () => {
+        try {
+          const reader = captureStream.getReader()
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            accumulated.push(decoder.decode(value, { stream: true }))
+          }
+          const fullText = accumulated.join('')
+          await Promise.all([
+            autoIndexMissingArticles(fullText, chunksFound),
+            autoIndexMissingJurisprudence(fullText, chunksFound),
+          ])
+        } catch (err) { console.error('[auto-indexer]', err) }
+      })()
+    )
 
-      // waitUntil : garantit l'exécution sur Vercel après l'envoi de la réponse
-      waitUntil(
-        (async () => {
-          try {
-            const reader = captureStream.getReader()
-            while (true) {
-              const { done, value } = await reader.read()
-              if (done) break
-              accumulated.push(decoder.decode(value, { stream: true }))
-            }
-            const fullText = accumulated.join('')
-            await Promise.all([
-              autoIndexMissingArticles(fullText, chunksFound),
-              autoIndexMissingJurisprudence(fullText, chunksFound),
-            ])
-          } catch (err) { console.error('[auto-indexer]', err) }
-        })()
-      )
-
-      outputStream = clientStream
-    } else {
-      outputStream = llmStream
-    }
+    const outputStream = clientStream
 
     return new Response(outputStream, {
       status: 200,
