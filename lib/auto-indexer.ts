@@ -274,7 +274,7 @@ async function fetchArticleFromLegifrance(
 
 const VALID_DOMAINS = ['baux_habitation', 'copropriete', 'agent_immobilier', 'vente_immobiliere', 'urbanisme', 'diagnostics', 'construction', 'bail_commercial', 'fiscalite', 'servitudes', 'viager_demembrement', 'litiges']
 
-async function classifyArticleDomain(text: string): Promise<string> {
+export async function classifyArticleDomain(text: string): Promise<string> {
   try {
     const result = await openRouterChat([{
       role: 'user',

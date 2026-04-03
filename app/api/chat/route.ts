@@ -15,7 +15,7 @@ import { detectDomains, detectDomain } from '@/lib/domain-detector'
 import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
-import { autoIndexMissingArticles, autoIndexMissingJurisprudence } from '@/lib/auto-indexer'
+import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
               number:    juri.number,
               date:      juri.date || null,
               holding,
-              domain:    'auto_indexed',
+              domain:    await classifyArticleDomain(holding),
               url:       juri.url ?? null,
               embedding: emb,
             })
