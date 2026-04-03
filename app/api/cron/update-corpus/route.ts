@@ -1,6 +1,7 @@
 // app/api/cron/update-corpus/route.ts
-// Mise à jour hebdomadaire des articles existants depuis Légifrance
-// Déclenché par pg_cron de Supabase Pro (dimanche 3h UTC)
+// Mise à jour progressive des articles depuis Légifrance
+// Déclenché par pg_cron 4×/jour (0h, 6h, 12h, 18h UTC)
+// 4 runs/jour × 7 jours = 28 runs × 10 articles = 280 articles/semaine → couvre ~256 articles
 
 export const maxDuration = 60 // secondes (Vercel Pro)
 
@@ -28,12 +29,19 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Offset basé sur le jour et le créneau horaire pour couvrir le corpus progressivement
+    const now = new Date()
+    const dayOfWeek = now.getUTCDay()                        // 0-6
+    const hourSlot  = Math.floor(now.getUTCHours() / 6)     // 0-3 (4 slots de 6h)
+    const offset    = (dayOfWeek * 4 + hourSlot) * 10       // 0, 10, 20, …, 270
+
     const { data: articles } = await supabaseAdmin
       .from('legal_articles')
       .select('id, law_id, article_num, content')
       .is('deleted_at', null)
       .not('law_id', 'like', 'JURI_%') // Exclure la jurisprudence auto-indexée
-      .limit(10) // Max 10 par run pour rester sous le timeout Vercel
+      .order('id')
+      .range(offset, offset + 9) // 10 articles à partir de l'offset
 
     if (!articles?.length) {
       return Response.json({ checked: 0, updated: 0 })
@@ -88,6 +96,7 @@ export async function GET(req: NextRequest) {
 
     return Response.json({
       success: true,
+      offset,
       checked,
       updated,
       timestamp: new Date().toISOString(),
