@@ -63,8 +63,12 @@ export function extractArticleReferences(text: string): ArticleRef[] {
     for (const m of matches) {
       // Normaliser "L. 1331-1-1" → "L.1331-1-1" (espace après le préfixe lettre)
       const articleNum = m[1]?.trim().replace(/^([LRDA])\.\s+/, '$1.') ?? ''
-      // Retirer les parenthèses/crochets parasites capturés en fin de nom de loi
-      const lawHint    = (m[2]?.trim().replace(/[()[\]]/g, '').trim().toLowerCase()) ?? ''
+      // Nettoyer le nom de loi : retirer parenthèses/crochets et notes LLM (*à vérifier…)
+      const lawHint    = (m[2]?.trim()
+        .replace(/\s*[*].*$/, '')   // tronquer au premier astérisque (notes LLM)
+        .replace(/[()[\]]/g, '')
+        .trim()
+        .toLowerCase()) ?? ''
       if (!articleNum) continue
 
       // Résoudre le LEGITEXT
@@ -153,8 +157,11 @@ async function findLegiartiId(token: string, legitextId: string, articleNum: str
     })
     if (!res.ok) return null
     const data = await res.json() as { sections?: Array<{ articles?: Array<{ id: string; num: string }> }> }
+    // Légifrance stocke parfois "L271-4" sans point après la lettre
+    const noDot = articleNum.replace(/^([LRDA])\./, '$1')
+    const candidates = [articleNum, articleNum.toUpperCase(), noDot, noDot.toUpperCase()]
     for (const section of data.sections ?? []) {
-      const found = section.articles?.find(a => a.num === articleNum || a.num === articleNum.toUpperCase())
+      const found = section.articles?.find(a => candidates.includes(a.num))
       if (found) return found.id
     }
   } catch { /* silencieux */ }
