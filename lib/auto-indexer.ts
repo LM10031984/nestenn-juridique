@@ -397,6 +397,7 @@ export async function autoIndexMissingArticles(
   responseText: string,
   chunksFound: number,
 ): Promise<void> {
+  console.info(`[auto-indexer] Appelé — responseText=${responseText.length} chars, chunks=${chunksFound}`)
 
   const refs = extractArticleReferences(responseText)
   if (refs.length === 0) return
