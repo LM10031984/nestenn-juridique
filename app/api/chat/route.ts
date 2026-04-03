@@ -126,6 +126,54 @@ export async function POST(req: NextRequest) {
     `[judilibre-live] ${liveJuriCases.length} arrêts : `
     + liveJuriCases.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
   )
+
+  // Indexer les arrêts Judilibre live manquants dans pgvector (fire-and-forget)
+  if (liveJuriCases.length > 0) {
+    const supabaseAdminForIndex = createAdminClient()
+    waitUntil(
+      (async () => {
+        for (const juri of liveJuriCases) {
+          try {
+            const { count } = await supabaseAdminForIndex
+              .from('jurisprudence')
+              .select('*', { count: 'exact', head: true })
+              .ilike('number', `%${juri.number}%`)
+            if (count && count > 0) continue
+
+            // Résumer le holding si trop long
+            let holding = juri.holding ?? ''
+            if (holding.length > 100) {
+              try {
+                const summary = await openRouterChat(
+                  [{ role: 'user', content: `Résume en 1-2 phrases le principe juridique de cet arrêt n° ${juri.number}.\n\nTexte : ${holding.slice(0, 2000)}\n\nRésumé :` }],
+                  MODELS.FILTER,
+                  150
+                )
+                if (summary?.trim().length > 20) holding = summary.trim()
+              } catch { /* non-bloquant */ }
+            }
+
+            const emb = await embedQuestion(holding.slice(0, 500))
+            if (!emb?.length) continue
+
+            await supabaseAdminForIndex.from('jurisprudence').insert({
+              source_id: juri.number,
+              court:     juri.court === 'cass' ? 'cc' : 'ca',
+              number:    juri.number,
+              date:      juri.date || null,
+              holding,
+              domain:    'auto_indexed',
+              url:       juri.url ?? null,
+              embedding: emb,
+            })
+            console.info(`[auto-indexer-live] ✅ Arrêt indexé : ${juri.court} n° ${juri.number}`)
+          } catch (err) {
+            console.error(`[auto-indexer-live] Erreur ${juri.number}:`, err)
+          }
+        }
+      })()
+    )
+  }
   console.info(
     `[pgvector-juri] ${pgJuriCases.length} arrêts : `
     + pgJuriCases.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
