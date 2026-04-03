@@ -42,6 +42,7 @@ interface ArticleRef {
   legitextId: string | null
 }
 
+// Patterns format direct : groupe 1 = article, groupe 2 = loi
 const REF_PATTERNS = [
   // Priorité 1 : "art. 24 de la loi n° 89-462" / "art. X du décret n° 67-223"
   // En premier pour éviter que les groupes optionnels capturent "de la"
@@ -53,6 +54,10 @@ const REF_PATTERNS = [
   // Priorité 4 : "article 24 de la loi" (loi sans nom → skippé par resolveLegitext)
   /(?:^|\s)art(?:icle)?\.?\s+((?:[LRDA]\.?\s?)?\d[\d.-]*)\s+(?:al\.\s*\d+\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))/gi,
 ]
+
+// Pattern format inversé : groupe 1 = loi, groupe 2 = article
+// "Code de la santé publique (art. L. 1331-1-1)" / "loi n° 89-462 (art. 24)"
+const INVERTED_PATTERN = /(Code\s+[\w\s'-]+|loi\s+n[o°]?\s*[\d-]+)[^(]{0,30}\(\s*art(?:icle)?\.?\s*((?:[LRDA]\.?\s?)?\d[\d.-]*)/gi
 
 export function extractArticleReferences(text: string): ArticleRef[] {
   const seen = new Set<string>()
@@ -79,6 +84,20 @@ export function extractArticleReferences(text: string): ArticleRef[] {
 
       raw.push({ law: lawHint, article: articleNum, legitextId })
     }
+  }
+
+  // Format inversé : "Code de la santé publique (art. L. 1331-1-1)" — groupes inversés
+  for (const m of [...text.matchAll(INVERTED_PATTERN)]) {
+    const lawHint    = (m[1]?.trim().replace(/\s*[*].*$/, '').replace(/[()[\]]/g, '').trim().toLowerCase()) ?? ''
+    const articleNum = m[2]?.trim().replace(/^([LRDA])\.\s+/, '$1.') ?? ''
+    if (!articleNum || !lawHint) continue
+
+    const legitextId = resolveLegitext(lawHint)
+    const key = `${legitextId ?? lawHint}:${articleNum}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    raw.push({ law: lawHint, article: articleNum, legitextId })
   }
 
   // Déduplication : si même article avec et sans nom de loi, garder celui avec nom
