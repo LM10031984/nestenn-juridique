@@ -104,7 +104,11 @@ export function extractArticleReferences(text: string): ArticleRef[] {
   const articlePattern = /\bart(?:icle)?\.?\s*([LRDA]\.?\s*\d[\d.\-]+(?:\s+[A-Z]+(?:\s+[IVX]+)?(?:\s+\d+°?)?)?|\d[\d.\-]*(?:\s+[A-Z][a-z]*)?(?:\s+[A-Z]+(?:\s+[IVX]+)?(?:\s+\d+°?)?)?)/gi
 
   for (const match of text.matchAll(articlePattern)) {
-    const article = match[1].trim().replace(/^([LRDA])\.\s+/, '$1.')
+    const article = match[1]
+      .trim()
+      .replace(/^([LRDA])\.\s+/, '$1.')
+      .replace(/\s+(de|du|des|la|le|les|l'|et|à|au|aux)\b.*$/i, '')
+      .trim()
     if (!article) continue
     const position = match.index ?? 0
 
@@ -223,6 +227,27 @@ async function findLegiartiId(token: string, legitextId: string, articleNum: str
         console.info(`[auto-indexer] tableMatieres retourne ${allArts.length} articles (searchArticle=${candidate})`)
         const found = allArts.find(a => candidates.includes(a.num))
         if (found) { console.info(`[auto-indexer] LEGIARTI trouvé : ${found.id}`); return found.id }
+      } else if (res.status === 400) {
+        // tableMatieres ne fonctionne pas pour les lois numérotées (ex: loi 65-557) — fallback direct
+        console.info(`[auto-indexer] tableMatieres HTTP 400, fallback getArticleWithIdAndNum (textId=${legitextId} articleNum=${candidate})`)
+        try {
+          const fallbackRes = await fetch(`${PISTE_API_BASE}/consult/getArticleWithIdAndNum`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ textId: legitextId, articleNum: candidate }),
+            signal: AbortSignal.timeout(12000),
+          })
+          if (fallbackRes.ok) {
+            const data = await fallbackRes.json() as { article?: { id?: string; etat?: string } }
+            if (data.article?.id && data.article?.etat !== 'ABROGE') {
+              console.info(`[auto-indexer] getArticleWithIdAndNum trouvé : ${data.article.id}`)
+              return data.article.id
+            }
+          } else {
+            console.warn(`[auto-indexer] getArticleWithIdAndNum HTTP ${fallbackRes.status}`)
+          }
+        } catch (e) { console.warn('[auto-indexer] getArticleWithIdAndNum erreur :', e) }
+        break // 400 = pas un code, inutile d'essayer les autres candidats via tableMatieres
       } else {
         console.warn(`[auto-indexer] tableMatieres HTTP ${res.status}`)
       }
