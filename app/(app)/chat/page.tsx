@@ -17,7 +17,7 @@ import {
   generateTitle,
   type StoredConversation,
 } from '@/lib/conversation-storage'
-import { getOrCreateConversation, saveMessage, resetConversation } from '@/lib/chat-persistence'
+import { getOrCreateConversation, saveMessage } from '@/lib/chat-persistence'
 
 interface LetterSuggestion {
   needed: boolean
@@ -77,9 +77,11 @@ function ThinkingBar() {
 }
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([])
+  // Messages et loading scopés par conversationId
+  const [conversationMessages, setConversationMessages] = useState<Record<string, Message[]>>({})
+  const [conversationLoading, setConversationLoading] = useState<Record<string, boolean>>({})
+
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const [feedbacks, setFeedbacks] = useState<Record<string, 1 | -1>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -91,16 +93,33 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const [uploadedDoc, setUploadedDoc] = useState<{ fileName: string; extractedText: string } | null>(null)
-  const supabaseConvId = useRef<string | null>(null)
+  // Un AbortController et un supabaseConvId par conversation
+  const abortControllers = useRef<Record<string, AbortController>>({})
+  const supabaseConvIds = useRef<Record<string, string>>({})
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
 
   const [isListening, setIsListening] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
+
+  // Valeurs dérivées pour la conversation active
+  const messages = conversationMessages[activeConvId ?? ''] ?? []
+  const isLoading = conversationLoading[activeConvId ?? ''] ?? false
+
+  // Helper : mettre à jour les messages d'une conversation spécifique
+  function setMsgs(convId: string, updater: Message[] | ((prev: Message[]) => Message[])) {
+    setConversationMessages(prev => ({
+      ...prev,
+      [convId]: typeof updater === 'function' ? updater(prev[convId] ?? []) : updater,
+    }))
+  }
+
+  function setLoading(convId: string, value: boolean) {
+    setConversationLoading(prev => ({ ...prev, [convId]: value }))
+  }
 
   useEffect(() => {
     const SRClass = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
@@ -136,7 +155,6 @@ export default function ChatPage() {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    // Reset input pour permettre le même fichier
     if (fileInputRef.current) fileInputRef.current.value = ''
 
     setIsUploading(true)
@@ -164,52 +182,35 @@ export default function ChatPage() {
     if (stored.length > 0) {
       const last = stored[0]
       setActiveConvId(last.id)
-      setMessages(last.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
+      setMsgs(last.id, last.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
     } else {
       setActiveConvId(genId())
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function saveCurrentConversationIfNeeded() {
-    if (!activeConvId || messages.length === 0) return
-    // Garder les messages avec du contenu (ignorer les placeholders vides)
-    const msgsToSave = messages.filter(m => m.content.trim().length > 0)
-    if (msgsToSave.length === 0) return
-    const firstUser = msgsToSave.find(m => m.role === 'user')
-    const title = firstUser ? generateTitle(firstUser.content) : 'Nouvelle conversation'
-    saveConversation({
-      id: activeConvId,
-      title,
-      messages: msgsToSave.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: m.timestamp.toISOString() })),
-      createdAt: msgsToSave[0].timestamp.toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-    setConversations(loadConversations())
-  }
-
   function handleNewConversation() {
-    saveCurrentConversationIfNeeded()
-    abortControllerRef.current?.abort()
-    setMessages([])
-    setActiveConvId(genId())
-    setIsLoading(false)
-    supabaseConvId.current = null
-    resetConversation()
+    const newId = genId()
+    setActiveConvId(newId)
+    // Pas d'abort — les streams en cours continuent en arrière-plan
     setIsSidebarOpen(false)
   }
 
   function handleSelectConversation(id: string) {
     const conv = conversations.find(c => c.id === id)
     if (!conv) return
-    saveCurrentConversationIfNeeded()
-    abortControllerRef.current?.abort()
-    setIsLoading(false)
     setActiveConvId(id)
-    setMessages(conv.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
+    // Charger depuis localStorage uniquement si pas déjà en mémoire (streaming en cours possible)
+    if (!conversationMessages[id]) {
+      setMsgs(id, conv.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
+    }
     setIsSidebarOpen(false)
   }
 
   function handleDeleteConversation(id: string) {
+    // Annuler le stream si actif pour cette conversation
+    abortControllers.current[id]?.abort()
+    delete abortControllers.current[id]
     deleteConversation(id)
     const updated = loadConversations()
     setConversations(updated)
@@ -217,7 +218,6 @@ export default function ChatPage() {
       if (updated.length > 0) {
         handleSelectConversation(updated[0].id)
       } else {
-        setMessages([])
         setActiveConvId(genId())
       }
     }
@@ -241,10 +241,12 @@ export default function ChatPage() {
     if (!question.trim() || isLoading) return
     setInput('')
 
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = new AbortController()
-    const signal = abortControllerRef.current.signal
-    const convIdAtStart = activeConvId
+    const convId = activeConvId!
+
+    // Annuler tout stream précédent pour CETTE conversation seulement
+    abortControllers.current[convId]?.abort()
+    abortControllers.current[convId] = new AbortController()
+    const signal = abortControllers.current[convId].signal
 
     // Injecter le document si présent
     let fullMessage = question
@@ -258,29 +260,31 @@ export default function ChatPage() {
     const userMsg: Message = {
       id: genId(),
       role: 'user',
-      // Afficher uniquement la question + mention doc pour l'utilisateur
       content: docLabel ? `📎 ${docLabel}\n\n${question}` : question,
       timestamp: new Date(),
     }
-    setMessages(prev => [...prev, userMsg])
-    setIsLoading(true)
+    setMsgs(convId, prev => [...prev, userMsg])
+    setLoading(convId, true)
 
     const assistantId = genId()
     let finalContent = ''
     let isRejection = false
 
-    // Persistance Supabase — crée conversation + sauvegarde message user
+    // Persistance Supabase
     let dbMessageId: string | null = null
     try {
-      const firstUserMsg = messages.find(m => m.role === 'user')
+      const currentMsgs = conversationMessages[convId] ?? []
+      const firstUserMsg = currentMsgs.find(m => m.role === 'user')
       const title = firstUserMsg ? generateTitle(firstUserMsg.content) : generateTitle(question)
-      if (!supabaseConvId.current) {
-        supabaseConvId.current = await getOrCreateConversation(title)
+      if (!supabaseConvIds.current[convId]) {
+        const newSbId = await getOrCreateConversation(title)
+        if (newSbId) supabaseConvIds.current[convId] = newSbId
       }
-      if (supabaseConvId.current) {
-        dbMessageId = await saveMessage(supabaseConvId.current, 'user', question)
+      const sbConvId = supabaseConvIds.current[convId]
+      if (sbConvId) {
+        dbMessageId = await saveMessage(sbConvId, 'user', question)
       }
-    } catch { /* silencieux — ne bloque jamais le chat */ }
+    } catch { /* silencieux */ }
 
     try {
       const res = await fetch('/api/chat', {
@@ -289,15 +293,15 @@ export default function ChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: fullMessage,
-          conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+          conversationHistory: (conversationMessages[convId] ?? []).slice(-10).map(m => ({ role: m.role, content: m.content })),
           messageId: dbMessageId ?? undefined,
-          conversationId: supabaseConvId.current ?? undefined,
+          conversationId: supabaseConvIds.current[convId] ?? undefined,
         }),
       })
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Erreur inconnue' }))
-        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: err.error ?? 'Erreur survenue.', isRejection: true, timestamp: new Date() }])
+        setMsgs(convId, prev => [...prev, { id: assistantId, role: 'assistant', content: err.error ?? 'Erreur survenue.', isRejection: true, timestamp: new Date() }])
         return
       }
 
@@ -306,14 +310,14 @@ export default function ChatPage() {
         const data = await res.json()
         finalContent = data.content ?? data.error ?? 'Réponse indisponible.'
         isRejection = data.rejection === true
-        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: finalContent, isRejection, timestamp: new Date() }])
+        setMsgs(convId, prev => [...prev, { id: assistantId, role: 'assistant', content: finalContent, isRejection, timestamp: new Date() }])
       } else {
         const reader = res.body?.getReader()
         if (!reader) throw new Error('Pas de body')
         const decoder = new TextDecoder()
         let accumulated = ''
 
-        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', isStreaming: true, timestamp: new Date() }])
+        setMsgs(convId, prev => [...prev, { id: assistantId, role: 'assistant', content: '', isStreaming: true, timestamp: new Date() }])
 
         while (true) {
           const { done, value } = await reader.read()
@@ -328,7 +332,7 @@ export default function ChatPage() {
               const token: string = parsed.choices?.[0]?.delta?.content ?? parsed.content ?? parsed.token ?? ''
               if (token) {
                 accumulated += token
-                setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
+                setMsgs(convId, prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
               }
             } catch { /* chunk partiel */ }
           }
@@ -345,23 +349,23 @@ export default function ChatPage() {
         }
 
         finalContent = accumulated
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated, isStreaming: false } : m))
+        setMsgs(convId, prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated, isStreaming: false } : m))
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // Streaming annulé — nettoyer le placeholder de streaming
-        setMessages(prev => prev.filter(m => m.id !== assistantId))
+        // Stream annulé — supprimer le placeholder de streaming mais garder la question
+        setMsgs(convId, prev => prev.filter(m => m.id !== assistantId))
         return
       }
-      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: 'Erreur de connexion. Vérifiez votre réseau et réessayez.', isRejection: true, timestamp: new Date() }])
+      setMsgs(convId, prev => [...prev, { id: assistantId, role: 'assistant', content: 'Erreur de connexion. Vérifiez votre réseau et réessayez.', isRejection: true, timestamp: new Date() }])
     } finally {
-      setIsLoading(false)
-      if (finalContent && convIdAtStart) {
-        setMessages(prev => {
+      setLoading(convId, false)
+      if (finalContent) {
+        setMsgs(convId, prev => {
           const firstUser = prev.find(m => m.role === 'user')
           const title = firstUser ? generateTitle(firstUser.content) : 'Nouvelle conversation'
           const conv: StoredConversation = {
-            id: convIdAtStart,
+            id: convId,
             title,
             messages: prev.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: m.timestamp.toISOString() })),
             createdAt: prev[0]?.timestamp.toISOString() ?? new Date().toISOString(),
