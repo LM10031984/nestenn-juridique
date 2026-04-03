@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  BarChart2, MessageSquare, Building2, TrendingUp,
-  AlertCircle, Search, ChevronLeft, ChevronRight,
-  ArrowUpDown, Activity,
-} from 'lucide-react'
+import { Search, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+
+// ─── Constantes ROI ──────────────────────────────────────────────────────────
+
+const COST_PER_QUESTION = 0.03          // € — coût Nestenn par question
+const CALL_CENTER_RATE  = 0.16          // € — coût équivalent appel standard (10€/h, ~3.5 min)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,116 +30,435 @@ interface AgencyRow {
   total_count: number
 }
 
-interface Pagination {
-  page: number
-  totalPages: number
-  totalCount: number
-  limit: number
+interface WeekData {
+  week_start: string
+  week_offset: number
+  count: number
+}
+
+interface PainPointDetail {
+  theme: string
+  by_agency: Array<{ agency_name: string; agency_slug: string; cnt: number }>
+  recent: Array<{ preview: string; created_at: string; agency_name: string }>
 }
 
 interface AnalyticsData {
   period: number
   totalQuestions: number
-  byDomain: Array<{ domain: string; count: number }>
-  byTopic: Array<{ topic: string; count: number }>
-  topQuestions: Array<{ domain: string; question_preview: string; ask_count: number }>
   painPoints: Array<{ domain: string; sub_domain: string; question_count: number }>
   recentQuestions: Array<{ question_preview: string; sub_domain: string | null; domain: string | null; created_at: string }>
+  topQuestions: Array<{ domain: string; question_preview: string; ask_count: number }>
   isAdmin: boolean
 }
 
-// ─── Composant bannière réseau (super_admin) ─────────────────────────────────
+// ─── Hooks ───────────────────────────────────────────────────────────────────
+
+function useCountUp(target: number, delay = 0, duration = 1400) {
+  const [value, setValue] = useState(0)
+  const ref = useRef(target)
+  ref.current = target
+
+  useEffect(() => {
+    if (!target) { setValue(0); return }
+    const timer = setTimeout(() => {
+      const start = performance.now()
+      const animate = (now: number) => {
+        const t = Math.min((now - start) / duration, 1)
+        const eased = 1 - Math.pow(1 - t, 4) // ease-out-quart
+        setValue(Math.round(eased * ref.current))
+        if (t < 1) requestAnimationFrame(animate)
+      }
+      requestAnimationFrame(animate)
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [target, delay, duration])
+
+  return value
+}
+
+// ─── Utilitaires ─────────────────────────────────────────────────────────────
+
+function getPainEmoji(theme: string): string {
+  const t = theme.toLowerCase()
+  if (t.includes('impay') || t.includes('expuls') || t.includes('loyer')) return '🔥'
+  if (t.includes('diagnos') || t.includes('dpe') || t.includes('énerg')) return '📋'
+  if (t.includes('mandat') || t.includes('commis') || t.includes('exclus')) return '🏠'
+  if (t.includes('vice') || t.includes('caché') || t.includes('garanti')) return '⚖️'
+  if (t.includes('dépôt') || t.includes('caution') || t.includes('restitut')) return '🔑'
+  if (t.includes('copro') || t.includes('syndic') || t.includes('charge')) return '🏢'
+  if (t.includes('travaux') || t.includes('rénov')) return '🔨'
+  if (t.includes('bail') || t.includes('location') || t.includes('locataire')) return '🔐'
+  if (t.includes('vente') || t.includes('compromis') || t.includes('promesse')) return '📝'
+  if (t.includes('assur')) return '🛡️'
+  if (t.includes('préavis') || t.includes('congé')) return '📬'
+  return '💬'
+}
+
+function getAgencyStatus(lastQuestion: string | null): {
+  dot: string; label: string; days: number | null
+} {
+  if (!lastQuestion) return { dot: '#94a3b8', label: 'Jamais utilisé', days: null }
+  const days = Math.floor((Date.now() - new Date(lastQuestion).getTime()) / 86400000)
+  if (days < 7)  return { dot: '#22c55e', label: `il y a ${days === 0 ? "aujourd'hui" : days + 'j'}`, days }
+  if (days < 14) return { dot: '#f59e0b', label: `il y a ${days}j`, days }
+  return { dot: '#ef4444', label: `il y a ${days}j`, days }
+}
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function pct(a: number, b: number) { return b > 0 ? Math.round((a / b) * 100) : 0 }
+
+// ─── Section 01 — Santé réseau ───────────────────────────────────────────────
 
 function NetworkBanner({ period }: { period: number }) {
   const [kpis, setKpis] = useState<NetworkKPIs | null>(null)
 
   useEffect(() => {
     fetch(`/api/admin/analytics/network?period=${period}`)
-      .then(r => r.json())
-      .then(d => { if (!d.error) setKpis(d) })
+      .then(r => r.json()).then(d => { if (!d.error) setKpis(d) })
   }, [period])
 
-  if (!kpis) return (
-    <div className="bg-card border border-border rounded-xl p-5 mb-8 animate-pulse h-24" />
-  )
+  const totalQ    = useCountUp(kpis?.total_questions ?? 0, 100)
+  const activeA   = useCountUp(kpis?.active_agencies ?? 0, 200)
+  const inactiveC = useCountUp(kpis?.inactive_count ?? 0, 300)
 
-  const pctChange = kpis.prev_total_questions > 0
+  const pctChange = kpis && kpis.prev_total_questions > 0
     ? Math.round(((kpis.total_questions - kpis.prev_total_questions) / kpis.prev_total_questions) * 100)
     : null
 
-  const pctActive = kpis.total_agencies > 0
-    ? Math.round((kpis.active_agencies / kpis.total_agencies) * 100)
-    : 0
+  const cost     = kpis ? Math.round(kpis.total_questions * COST_PER_QUESTION) : 0
+  const savings  = kpis ? Math.round(kpis.total_questions * (CALL_CENTER_RATE - COST_PER_QUESTION)) : 0
+  const costUp   = useCountUp(cost, 500)
+  const savingsUp = useCountUp(savings, 600)
+  const pctActive = kpis ? pct(kpis.active_agencies, kpis.total_agencies) : 0
+
+  if (!kpis) return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden mb-8 animate-pulse">
+      <div className="h-36" />
+    </div>
+  )
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <Activity className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold text-foreground">Vue réseau — {period} derniers jours</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden mb-8">
+      {/* Bande supérieure — 4 KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
+
         {/* Total questions */}
-        <div>
-          <div className="text-2xl font-bold text-foreground">
-            {kpis.total_questions.toLocaleString('fr-FR')}
+        <div className="p-6 relative">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            Questions ce mois
           </div>
-          <div className="text-xs text-muted-foreground">questions</div>
+          <div
+            className="text-5xl font-bold leading-none mb-1"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontVariantNumeric: 'tabular-nums' }}
+          >
+            {totalQ.toLocaleString('fr-FR')}
+          </div>
           {pctChange !== null && (
-            <div className={`text-xs font-medium mt-0.5 ${pctChange >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-              {pctChange >= 0 ? '+' : ''}{pctChange}% vs période préc.
+            <div className={`flex items-center gap-1 text-xs font-medium mt-2 ${pctChange >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+              {pctChange > 0 ? <TrendingUp className="h-3 w-3" /> : pctChange < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+              {pctChange > 0 ? '+' : ''}{pctChange}% vs période préc.
             </div>
           )}
         </div>
 
         {/* Agences actives */}
-        <div>
-          <div className="text-2xl font-bold text-foreground">
-            {kpis.active_agencies}
-            <span className="text-sm font-normal text-muted-foreground">/{kpis.total_agencies}</span>
+        <div className="p-6">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            Agences actives
           </div>
-          <div className="text-xs text-muted-foreground">agences actives ({pctActive}%)</div>
+          <div
+            className="text-5xl font-bold leading-none mb-1"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontVariantNumeric: 'tabular-nums' }}
+          >
+            {activeA}
+            <span className="text-2xl text-muted-foreground font-normal">/{kpis.total_agencies}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex-1 bg-muted rounded-full h-1.5">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-1000"
+                style={{ width: `${pctActive}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground font-medium">{pctActive}%</span>
+          </div>
         </div>
 
         {/* Top thème */}
-        <div>
-          <div className="text-sm font-semibold text-foreground line-clamp-2 leading-tight">
-            {kpis.top_theme ?? '—'}
+        <div className="p-6">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            Top thème
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            top thème{kpis.top_theme_count ? ` · ${kpis.top_theme_count} questions` : ''}
+          <div className="text-lg font-bold leading-tight text-foreground line-clamp-2">
+            {kpis.top_theme ? (
+              <>
+                <span className="mr-1.5">{getPainEmoji(kpis.top_theme)}</span>
+                {kpis.top_theme}
+              </>
+            ) : '—'}
           </div>
+          {kpis.top_theme_count > 0 && (
+            <div className="text-xs text-muted-foreground mt-2">
+              {kpis.top_theme_count.toLocaleString('fr-FR')} questions
+              {kpis.total_questions > 0 && (
+                <span className="ml-1 text-primary font-medium">
+                  ({pct(kpis.top_theme_count, kpis.total_questions)}%)
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Alertes inactivité */}
-        <div>
-          <div className={`text-2xl font-bold ${kpis.inactive_count > 0 ? 'text-amber-500' : 'text-foreground'}`}>
-            {kpis.inactive_count}
+        {/* Alertes */}
+        <div className="p-6">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            Alertes inactivité
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div
+            className={`text-5xl font-bold leading-none mb-1 transition-colors ${inactiveC > 0 ? 'text-red-500' : 'text-foreground'}`}
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontVariantNumeric: 'tabular-nums' }}
+          >
+            {inactiveC}
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
             {kpis.inactive_count > 0
-              ? 'agences inactives +7j'
-              : 'aucune alerte inactivité'}
+              ? `agence${kpis.inactive_count > 1 ? 's' : ''} sans activité depuis 7j+`
+              : 'aucune alerte'}
           </div>
+        </div>
+      </div>
+
+      {/* Bande ROI */}
+      <div className="border-t border-border bg-amber-50 dark:bg-amber-950/20 px-6 py-3 flex flex-wrap items-center gap-6">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-amber-700 dark:text-amber-400 font-medium uppercase tracking-wider">
+            Coût Nestenn Juridique
+          </span>
+          <span
+            className="text-xl font-bold text-amber-700 dark:text-amber-400"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
+            {costUp.toLocaleString('fr-FR')} €
+          </span>
+        </div>
+        <div className="w-px h-5 bg-amber-300 hidden sm:block" />
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium uppercase tracking-wider">
+            Économie vs call center
+          </span>
+          <span
+            className="text-xl font-bold text-emerald-700 dark:text-emerald-400"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
+            {savingsUp.toLocaleString('fr-FR')} €
+          </span>
+        </div>
+        <div className="ml-auto text-xs text-muted-foreground hidden sm:block">
+          Basé sur 0,16 € / appel équivalent · 0,03 € / question Nestenn
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Composant liste agences paginée (super_admin) ───────────────────────────
+// ─── Section 02 — Problématiques terrain ─────────────────────────────────────
 
-function AgencyList({ period }: { period: number }) {
+function PainPointsSection({
+  painPoints, period, totalQuestions,
+}: {
+  painPoints: Array<{ domain: string; sub_domain: string; question_count: number }>
+  period: number
+  totalQuestions: number
+}) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const [detail, setDetail] = useState<PainPointDetail | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  const handleClick = useCallback((theme: string) => {
+    if (selected === theme) { setSelected(null); setDetail(null); return }
+    setSelected(theme)
+    setDetail(null)
+    setLoadingDetail(true)
+    fetch(`/api/admin/analytics/painpoint?theme=${encodeURIComponent(theme)}&period=${period}`)
+      .then(r => r.json())
+      .then(d => { if (!d.error) setDetail(d) })
+      .finally(() => setLoadingDetail(false))
+  }, [selected, period])
+
+  const max = painPoints[0]?.question_count ?? 1
+  const topPct = totalQuestions > 0 && painPoints[0]
+    ? pct(painPoints[0].question_count, totalQuestions)
+    : 0
+
+  const suggestion = topPct >= 15 && painPoints[0]
+    ? `Les "${painPoints[0].sub_domain}" représentent ${topPct}% des questions ce mois. Envisagez une formation réseau sur ce sujet.`
+    : null
+
+  const now = new Date()
+  const monthName = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+
+  return (
+    <section className="mb-8">
+      {/* En-tête section */}
+      <div className="flex items-end justify-between mb-5">
+        <div className="flex items-end gap-3">
+          <span
+            className="text-6xl font-bold text-border leading-none select-none"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+            aria-hidden
+          >02</span>
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Ce que vos agents demandent</h2>
+            <p className="text-xs text-muted-foreground capitalize">{monthName}</p>
+          </div>
+        </div>
+        <span className="text-xs text-muted-foreground hidden sm:block">Cliquez pour explorer</span>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        {painPoints.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">Aucun pain point sur cette période.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {painPoints.slice(0, 10).map((p, i) => {
+              const barPct = (p.question_count / max) * 100
+              const sharePct = pct(p.question_count, totalQuestions)
+              const isOpen = selected === p.sub_domain
+
+              return (
+                <div key={i}>
+                  <button
+                    onClick={() => handleClick(p.sub_domain)}
+                    className={`w-full text-left px-5 py-4 transition-colors ${isOpen ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Emoji + Rank */}
+                      <div className="flex items-center gap-2 w-8 shrink-0">
+                        <span className="text-lg leading-none">{getPainEmoji(p.sub_domain)}</span>
+                      </div>
+
+                      {/* Label + barre */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className={`text-sm font-medium ${isOpen ? 'text-primary' : 'text-foreground'}`}>
+                            {p.sub_domain}
+                          </span>
+                          <div className="flex items-center gap-3 shrink-0 ml-4">
+                            {sharePct >= 15 && (
+                              <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">
+                                {sharePct}%
+                              </span>
+                            )}
+                            <span
+                              className="text-sm font-bold text-foreground tabular-nums"
+                              style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+                            >
+                              {p.question_count}
+                            </span>
+                            <ChevronRight
+                              className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                            />
+                          </div>
+                        </div>
+                        <div className="bg-muted rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all duration-700"
+                            style={{
+                              width: `${barPct}%`,
+                              animationDelay: `${i * 80}ms`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Panel détail pain point */}
+                  {isOpen && (
+                    <div className="border-t border-border bg-muted/30 px-5 py-4 animate-fade-in">
+                      {loadingDetail ? (
+                        <div className="text-xs text-muted-foreground py-2">Chargement…</div>
+                      ) : detail ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          {/* Agences concernées */}
+                          <div>
+                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                              Top agences
+                            </div>
+                            <div className="space-y-1.5">
+                              {detail.by_agency.slice(0, 6).map((a, j) => (
+                                <div key={j} className="flex items-center gap-2">
+                                  <span className="text-xs text-foreground flex-1 truncate">{a.agency_name}</span>
+                                  <span className="text-xs font-semibold tabular-nums text-muted-foreground shrink-0">
+                                    {a.cnt}
+                                  </span>
+                                  <div className="w-16 bg-border rounded-full h-1">
+                                    <div
+                                      className="bg-primary h-full rounded-full"
+                                      style={{ width: `${(a.cnt / (detail.by_agency[0]?.cnt ?? 1)) * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Questions récentes */}
+                          <div>
+                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                              Questions récentes
+                            </div>
+                            <div className="space-y-2">
+                              {detail.recent.slice(0, 5).map((r, j) => (
+                                <div key={j} className="text-xs text-foreground/80 leading-relaxed">
+                                  <span className="text-muted-foreground mr-1.5">•</span>
+                                  <span className="italic">{r.preview}</span>
+                                  <span className="text-muted-foreground ml-1.5 not-italic">
+                                    — {r.agency_name}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Aucune donnée disponible.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Suggestion automatique */}
+        {suggestion && (
+          <div className="border-t border-border bg-primary/5 px-5 py-3 flex items-start gap-2.5">
+            <span className="text-base mt-0.5">💡</span>
+            <p className="text-xs text-foreground/80 leading-relaxed">{suggestion}</p>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ─── Section 03 — Classement agences ─────────────────────────────────────────
+
+function AgencyRanking({ period }: { period: number }) {
   const router = useRouter()
   const [agencies, setAgencies] = useState<AgencyRow[]>([])
-  const [pagination, setPagination] = useState<Pagination | null>(null)
+  const [pagination, setPagination] = useState<{ page: number; totalPages: number; totalCount: number } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch]   = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [filter, setFilter] = useState('all')
-  const [sort, setSort] = useState('questions')
-  const [page, setPage] = useState(1)
+  const [filter, setFilter]   = useState('all')
+  const [sort, setSort]       = useState('questions')
+  const [page, setPage]       = useState(1)
 
-  // Debounce search
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 350)
     return () => clearTimeout(t)
@@ -146,164 +466,371 @@ function AgencyList({ period }: { period: number }) {
 
   const load = useCallback(() => {
     setLoading(true)
-    const params = new URLSearchParams({
-      page: String(page),
-      filter,
-      sort,
-      ...(debouncedSearch ? { search: debouncedSearch } : {}),
-    })
-    fetch(`/api/admin/analytics/agencies?${params}`)
+    const p = new URLSearchParams({ page: String(page), filter, sort, ...(debouncedSearch ? { search: debouncedSearch } : {}) })
+    fetch(`/api/admin/analytics/agencies?${p}`)
       .then(r => r.json())
-      .then(d => {
-        if (!d.error) {
-          setAgencies(d.agencies)
-          setPagination(d.pagination)
-        }
-      })
+      .then(d => { if (!d.error) { setAgencies(d.agencies); setPagination(d.pagination) } })
       .finally(() => setLoading(false))
   }, [page, filter, sort, debouncedSearch])
 
   useEffect(() => { load() }, [load])
 
-  // Reset page on filter/sort change
-  const handleFilter = (v: string) => { setFilter(v); setPage(1) }
-  const handleSort   = (v: string) => { setSort(v);   setPage(1) }
+  return (
+    <section className="mb-8">
+      <div className="flex items-end justify-between mb-5">
+        <div className="flex items-end gap-3">
+          <span
+            className="text-6xl font-bold text-border leading-none select-none"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+            aria-hidden
+          >03</span>
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Classement des agences</h2>
+            {pagination && <p className="text-xs text-muted-foreground">{pagination.totalCount} agences</p>}
+          </div>
+        </div>
+      </div>
 
-  const formatDate = (d: string | null) => {
-    if (!d) return 'jamais'
-    const dt = new Date(d)
-    const diff = Math.floor((Date.now() - dt.getTime()) / 86400000)
-    if (diff === 0) return "aujourd'hui"
-    if (diff === 1) return 'hier'
-    if (diff < 7) return `il y a ${diff}j`
-    return dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        {/* Contrôles */}
+        <div className="flex flex-col sm:flex-row gap-2 p-4 border-b border-border">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher une agence ou une ville…"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <select
+            value={filter}
+            onChange={e => { setFilter(e.target.value); setPage(1) }}
+            className="text-xs rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">Toutes</option>
+            <option value="active">Actives (&lt; 7j)</option>
+            <option value="inactive">Inactives (+ 7j)</option>
+          </select>
+          <select
+            value={sort}
+            onChange={e => { setSort(e.target.value); setPage(1) }}
+            className="text-xs rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="questions">Trier : questions</option>
+            <option value="activity">Trier : activité récente</option>
+            <option value="name">Trier : nom</option>
+            <option value="city">Trier : ville</option>
+          </select>
+        </div>
+
+        {/* Légende statuts */}
+        <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-muted/30 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Actif (&lt; 7j)</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Peu actif (7–14j)</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Inactif (14j+)</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-300 inline-block" /> Jamais utilisé</span>
+        </div>
+
+        {/* Liste */}
+        {loading ? (
+          <div className="p-4 space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : agencies.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-10">Aucune agence trouvée.</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {agencies.map((a, i) => {
+              const status = getAgencyStatus(a.last_question)
+              const rank = (page - 1) * 20 + i + 1
+              return (
+                <button
+                  key={a.agency_slug}
+                  onClick={() => router.push(`/analytics/agency/${a.agency_slug}`)}
+                  className="w-full flex items-center gap-4 px-4 py-3 hover:bg-muted/40 transition-colors text-left group"
+                >
+                  {/* Rang */}
+                  <span
+                    className="text-xs font-bold text-muted-foreground tabular-nums w-6 shrink-0 text-right"
+                    style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+                  >
+                    {rank}
+                  </span>
+
+                  {/* Statut dot */}
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: status.dot }}
+                  />
+
+                  {/* Nom + ville */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                      {a.agency_name}
+                    </div>
+                    {a.city && <div className="text-xs text-muted-foreground">{a.city}</div>}
+                  </div>
+
+                  {/* Questions */}
+                  <span
+                    className="text-sm font-bold text-foreground tabular-nums shrink-0"
+                    style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+                  >
+                    {a.question_count.toLocaleString('fr-FR')}
+                    <span className="text-xs font-normal text-muted-foreground ml-0.5">q.</span>
+                  </span>
+
+                  {/* Dernière activité */}
+                  <span className="text-xs text-muted-foreground w-24 text-right shrink-0 hidden sm:block">
+                    {status.label}
+                  </span>
+
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="flex items-center gap-1 text-xs text-muted-foreground disabled:opacity-40 hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Précédent
+            </button>
+            <span className="text-xs text-muted-foreground">Page {page} / {pagination.totalPages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+              disabled={page === pagination.totalPages}
+              className="flex items-center gap-1 text-xs text-muted-foreground disabled:opacity-40 hover:text-foreground transition-colors"
+            >
+              Suivant <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ─── Section 04 — Tendances ───────────────────────────────────────────────────
+
+function WeeklyTrends() {
+  const [weeks, setWeeks] = useState<WeekData[]>([])
+
+  useEffect(() => {
+    fetch('/api/admin/analytics/trends?weeks=5')
+      .then(r => r.json())
+      .then(d => { if (!d.error) setWeeks(d.weeks ?? []) })
+  }, [])
+
+  const data = weeks.filter((_, i) => i > 0) // Exclure la semaine en cours (partielle)
+  const max = Math.max(...data.map(w => w.count), 1)
+
+  const getGrowthLabel = (cur: number, prev: number) => {
+    if (!prev) return null
+    const g = Math.round(((cur - prev) / prev) * 100)
+    return { value: g, label: `${g > 0 ? '+' : ''}${g}%` }
+  }
+
+  const lastWeek = data[data.length - 1]
+  const firstWeek = data[0]
+  const overallGrowth = firstWeek && lastWeek && firstWeek.count > 0
+    ? Math.round(((lastWeek.count - firstWeek.count) / firstWeek.count) * 100)
+    : null
+
+  const weekLabel = (w: WeekData, i: number) => {
+    const d = new Date(w.week_start)
+    return `Sem ${i + 1} · ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6 mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <Building2 className="h-4 w-4 text-primary" />
-        <h2 className="text-sm font-semibold text-foreground">Activité par agence</h2>
-        {pagination && (
-          <span className="text-xs text-muted-foreground ml-auto">
-            {pagination.totalCount} agence{pagination.totalCount !== 1 ? 's' : ''}
-          </span>
+    <section className="mb-8">
+      <div className="flex items-end justify-between mb-5">
+        <div className="flex items-end gap-3">
+          <span
+            className="text-6xl font-bold text-border leading-none select-none"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+            aria-hidden
+          >04</span>
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Tendances</h2>
+            <p className="text-xs text-muted-foreground">Évolution semaine par semaine</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-6">
+        {data.length === 0 ? (
+          <div className="text-xs text-muted-foreground text-center py-6">Données insuffisantes.</div>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {data.map((w, i) => {
+                const prev = data[i - 1]
+                const growth = prev ? getGrowthLabel(w.count, prev.count) : null
+                const barWidth = (w.count / max) * 100
+
+                return (
+                  <div key={i} className="flex items-center gap-4">
+                    {/* Label semaine */}
+                    <div className="text-xs text-muted-foreground w-32 shrink-0">
+                      {weekLabel(w, i)}
+                    </div>
+
+                    {/* Barre */}
+                    <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden relative">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-700 flex items-center justify-end pr-2"
+                        style={{
+                          width: `${barWidth}%`,
+                          animationDelay: `${i * 100}ms`,
+                          minWidth: w.count > 0 ? '2.5rem' : '0',
+                        }}
+                      />
+                    </div>
+
+                    {/* Valeur + croissance */}
+                    <div className="flex items-center gap-2 w-24 justify-end shrink-0">
+                      <span
+                        className="text-sm font-bold tabular-nums text-foreground"
+                        style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+                      >
+                        {w.count.toLocaleString('fr-FR')}
+                      </span>
+                      {growth && (
+                        <span className={`text-xs font-medium ${growth.value > 0 ? 'text-emerald-600' : growth.value < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                          {growth.label}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Résumé */}
+            {overallGrowth !== null && (
+              <div className="mt-5 pt-4 border-t border-border flex items-center gap-2 text-xs">
+                <span className="text-base">
+                  {overallGrowth > 5 ? '📈' : overallGrowth < -5 ? '📉' : '➡️'}
+                </span>
+                <span className="text-foreground/80">
+                  {overallGrowth > 0
+                    ? `Adoption en croissance sur la période (+${overallGrowth}%)`
+                    : overallGrowth < 0
+                    ? `Légère baisse sur la période (${overallGrowth}%)`
+                    : `Activité stable sur la période`}
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
+    </section>
+  )
+}
 
-      {/* Contrôles */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        {/* Recherche */}
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher une agence ou une ville…"
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+// ─── Vue agence manager (non-admin) ──────────────────────────────────────────
+
+function AgencyManagerView({ data }: { data: AnalyticsData }) {
+  const max = data.painPoints[0]?.question_count ?? 1
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Questions</div>
+          <div
+            className="text-4xl font-bold"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
+            {data.totalQuestions.toLocaleString('fr-FR')}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">sur {data.period} jours</p>
         </div>
-
-        {/* Filtre activité */}
-        <select
-          value={filter}
-          onChange={e => handleFilter(e.target.value)}
-          className="text-xs rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="all">Toutes</option>
-          <option value="active">Actives (30j)</option>
-          <option value="inactive">Inactives (+7j)</option>
-        </select>
-
-        {/* Tri */}
-        <select
-          value={sort}
-          onChange={e => handleSort(e.target.value)}
-          className="text-xs rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="questions">Tri : questions</option>
-          <option value="activity">Tri : dernière activité</option>
-          <option value="name">Tri : nom</option>
-          <option value="city">Tri : ville</option>
-        </select>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Thèmes identifiés</div>
+          <div
+            className="text-4xl font-bold"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
+            {data.painPoints.length}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">pain points distincts</p>
+        </div>
       </div>
 
-      {/* Tableau */}
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-9 rounded-lg bg-muted animate-pulse" />
-          ))}
-        </div>
-      ) : agencies.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-8">Aucune agence trouvée.</p>
-      ) : (
-        <div className="divide-y divide-border">
-          {agencies.map(a => (
-            <button
-              key={a.agency_slug}
-              onClick={() => router.push(`/analytics/agency/${a.agency_slug}`)}
-              className="w-full flex items-center gap-3 py-2.5 hover:bg-muted/40 transition-colors rounded-sm px-1 text-left"
-            >
-              <div className="flex-1 min-w-0">
-                <span className="text-xs font-medium text-foreground truncate block">{a.agency_name}</span>
-                {a.city && <span className="text-xs text-muted-foreground">{a.city}</span>}
+      {data.painPoints.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl overflow-hidden mb-8">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold">Ce que vos agents demandent</h2>
+          </div>
+          <div className="divide-y divide-border">
+            {data.painPoints.slice(0, 15).map((p, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-3">
+                <span className="text-base">{getPainEmoji(p.sub_domain)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-foreground mb-1 truncate">{p.sub_domain}</div>
+                  <div className="bg-muted rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-full rounded-full"
+                      style={{ width: `${(p.question_count / max) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-sm font-bold tabular-nums shrink-0" style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}>
+                  {p.question_count}
+                </span>
               </div>
-              <span className="text-xs font-semibold text-foreground shrink-0">
-                {a.question_count.toLocaleString('fr-FR')} q.
-              </span>
-              <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
-                {formatDate(a.last_question)}
-              </span>
-              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            </button>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="flex items-center gap-1 text-xs text-muted-foreground disabled:opacity-40 hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" /> Précédent
-          </button>
-          <span className="text-xs text-muted-foreground">
-            Page {page} / {pagination.totalPages}
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
-            disabled={page === pagination.totalPages}
-            className="flex items-center gap-1 text-xs text-muted-foreground disabled:opacity-40 hover:text-foreground transition-colors"
-          >
-            Suivant <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+      {data.recentQuestions.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold">Questions récentes</h2>
+          </div>
+          <div className="divide-y divide-border">
+            {data.recentQuestions.slice(0, 12).map((q, i) => (
+              <div key={i} className="flex items-center gap-3 px-5 py-3">
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded min-w-[140px] text-center truncate">
+                  {q.sub_domain ?? 'Non classé'}
+                </span>
+                <span className="flex-1 text-xs truncate text-foreground/80">{q.question_preview}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(q.created_at).toLocaleDateString('fr-FR')}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-// ─── Page principale ─────────────────────────────────────────────────────────
+// ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null)
+  const [data, setData]     = useState<AnalyticsData | null>(null)
   const [period, setPeriod] = useState(30)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
 
   useEffect(() => {
-    setData(null)
-    setError(null)
+    setData(null); setError(null)
     fetch(`/api/admin/analytics?period=${period}`)
       .then(r => r.json())
-      .then(d => {
-        if (d.error) setError(d.error)
-        else setData(d as AnalyticsData)
-      })
+      .then(d => { if (d.error) setError(d.error); else setData(d) })
       .catch(() => setError('Erreur réseau'))
   }, [period])
 
@@ -321,20 +848,26 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8">
+      {/* En-tête */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Questions juridiques posées par les agents</p>
+          <h1
+            className="text-2xl font-bold text-foreground"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
+            {data.isAdmin ? 'Tableau de bord réseau' : 'Analytics'}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {data.isAdmin ? 'Vue directeur réseau Nestenn' : 'Questions juridiques de votre agence'}
+          </p>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1">
           {[7, 30, 90].map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                period === p
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                period === p ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             >
               {p}j
@@ -343,128 +876,28 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Bannière réseau — super_admin uniquement */}
-      {data.isAdmin && <NetworkBanner period={period} />}
+      {data.isAdmin ? (
+        <>
+          {/* Section 01 */}
+          <NetworkBanner period={period} />
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground mb-3">
-            <MessageSquare className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wide">Questions totales</span>
-          </div>
-          <div className="text-3xl font-bold text-foreground">{data.totalQuestions}</div>
-          <p className="text-xs text-muted-foreground mt-1">sur {period} jours</p>
-        </div>
+          {/* Section 02 */}
+          {data.painPoints.length > 0 && (
+            <PainPointsSection
+              painPoints={data.painPoints}
+              period={period}
+              totalQuestions={data.totalQuestions}
+            />
+          )}
 
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground mb-3">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wide">Pain points</span>
-          </div>
-          <div className="text-3xl font-bold text-foreground">{data.painPoints.length}</div>
-          <p className="text-xs text-muted-foreground mt-1">thèmes identifiés</p>
-        </div>
+          {/* Section 03 */}
+          <AgencyRanking period={period} />
 
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground mb-3">
-            <Building2 className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wide">
-              {data.isAdmin ? 'Vue réseau' : 'Agences actives'}
-            </span>
-          </div>
-          <div className="text-3xl font-bold text-foreground">
-            {data.isAdmin ? '450' : '1'}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {data.isAdmin ? 'agences dans le réseau' : 'votre agence'}
-          </p>
-        </div>
-      </div>
-
-      {/* Pain points */}
-      {data.painPoints.length > 0 && (
-        <div className="bg-card border rounded-xl p-6 mb-8">
-          <h2 className="text-lg font-semibold mb-2">Problématiques des agents</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Ce sur quoi vos agents ont le plus besoin d&apos;aide
-          </p>
-          <div className="space-y-3">
-            {data.painPoints.slice(0, 20).map((p, i) => {
-              const maxCount = data.painPoints[0]?.question_count ?? 1
-              const pct = (p.question_count / maxCount) * 100
-              return (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="w-8 text-right text-sm font-bold text-primary">
-                    {p.question_count}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium">{p.sub_domain}</span>
-                    </div>
-                    <div className="bg-muted rounded-full h-2 overflow-hidden">
-                      <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Questions récentes */}
-      {data.recentQuestions.length > 0 && (
-        <div className="bg-card border rounded-xl p-6 mb-8">
-          <h2 className="font-semibold mb-4">Dernières questions posées</h2>
-          <div className="space-y-2">
-            {data.recentQuestions.slice(0, 15).map((q, i) => (
-              <div key={i} className="flex items-center gap-3 py-2 border-b last:border-0">
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded min-w-[160px] text-center">
-                  {q.sub_domain ?? 'Non classé'}
-                </span>
-                <span className="flex-1 text-sm truncate">{q.question_preview}</span>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {new Date(q.created_at).toLocaleDateString('fr-FR')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Top questions */}
-        {data.topQuestions.length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              Questions les plus fréquentes
-            </h2>
-            <div className="space-y-1">
-              {data.topQuestions.slice(0, 15).map((q, i) => (
-                <div key={i} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <span className="flex-1 text-xs text-foreground/80 truncate">{q.question_preview}</span>
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0">{q.ask_count}×</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Placeholder pour garder la grille si pas de top questions */}
-        {data.topQuestions.length === 0 && <div />}
-      </div>
-
-      {/* Liste agences paginée — super_admin uniquement */}
-      {data.isAdmin && <AgencyList period={period} />}
-
-      {data.totalQuestions === 0 && (
-        <div className="text-center py-16">
-          <BarChart2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Aucune donnée sur cette période.</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">Les analytics se remplissent au fur et à mesure des questions posées.</p>
-        </div>
+          {/* Section 04 */}
+          <WeeklyTrends />
+        </>
+      ) : (
+        <AgencyManagerView data={data} />
       )}
     </div>
   )

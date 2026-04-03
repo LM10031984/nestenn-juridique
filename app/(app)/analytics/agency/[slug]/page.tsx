@@ -2,27 +2,25 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import {
-  ArrowLeft, Building2, MessageSquare, Users,
-  TrendingUp, AlertCircle, Calendar,
-} from 'lucide-react'
+import { ArrowLeft, MapPin } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface AgencyInfo {
-  id: string
-  name: string
-  slug: string
-  city: string | null
-  is_active: boolean
+type AgentRow = {
+  full_name: string
+  user_id: string
+  cnt: number
+  last_in_period: string | null
+  last_ever: string | null
 }
 
 interface AgencyDetail {
-  agency: AgencyInfo
+  agency: { id: string; name: string; slug: string; city: string | null; is_active: boolean }
   total_questions: number
+  total_users: number
   by_domain: Array<{ label: string; cnt: number }> | null
   pain_points: Array<{ label: string; cnt: number }> | null
-  by_agent: Array<{ full_name: string; cnt: number }> | null
+  by_agent: AgentRow[] | null
   daily_activity: Array<{ day: string; cnt: number }> | null
   recent_questions: Array<{
     question_preview: string
@@ -32,48 +30,66 @@ interface AgencyDetail {
   }> | null
 }
 
-// ─── Mini graphe d'activité 30 jours ─────────────────────────────────────────
+// ─── Utilitaires ─────────────────────────────────────────────────────────────
 
-function ActivityChart({ data }: { data: Array<{ day: string; cnt: number }> }) {
-  // Compléter les 30 derniers jours avec des 0
+function getPainEmoji(theme: string): string {
+  const t = theme.toLowerCase()
+  if (t.includes('impay') || t.includes('expuls') || t.includes('loyer')) return '🔥'
+  if (t.includes('diagnos') || t.includes('dpe') || t.includes('énerg')) return '📋'
+  if (t.includes('mandat') || t.includes('commis') || t.includes('exclus')) return '🏠'
+  if (t.includes('vice') || t.includes('caché') || t.includes('garanti')) return '⚖️'
+  if (t.includes('dépôt') || t.includes('caution') || t.includes('restitut')) return '🔑'
+  if (t.includes('copro') || t.includes('syndic')) return '🏢'
+  if (t.includes('travaux') || t.includes('rénov')) return '🔨'
+  if (t.includes('bail') || t.includes('location') || t.includes('locataire')) return '🔐'
+  if (t.includes('vente') || t.includes('compromis')) return '📝'
+  return '💬'
+}
+
+function daysAgo(d: string | null): number | null {
+  if (!d) return null
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+}
+
+function agentStatus(agent: AgentRow) {
+  if (agent.cnt > 0) {
+    const d = daysAgo(agent.last_in_period)
+    return { color: '#22c55e', label: d === 0 ? "aujourd'hui" : d === 1 ? 'hier' : `il y a ${d}j` }
+  }
+  if (!agent.last_ever) {
+    return { color: '#94a3b8', label: 'jamais connecté' }
+  }
+  const d = daysAgo(agent.last_ever)!
+  return { color: '#ef4444', label: `inactif depuis ${d}j` }
+}
+
+// ─── Graphe d'activité 30 jours ───────────────────────────────────────────────
+
+function ActivitySparkline({ data }: { data: Array<{ day: string; cnt: number }> }) {
   const days: Array<{ day: string; cnt: number }> = []
   for (let i = 29; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
+    const d = new Date(); d.setDate(d.getDate() - i)
     const key = d.toISOString().slice(0, 10)
     const found = data.find(r => r.day.slice(0, 10) === key)
     days.push({ day: key, cnt: found?.cnt ?? 0 })
   }
-
   const max = Math.max(...days.map(d => d.cnt), 1)
 
   return (
-    <div className="flex items-end gap-0.5 h-16">
+    <div className="flex items-end gap-0.5 h-12">
       {days.map((d, i) => (
         <div
           key={i}
-          title={`${d.day.slice(5)}: ${d.cnt} question${d.cnt !== 1 ? 's' : ''}`}
-          className="flex-1 bg-primary/20 hover:bg-primary/50 transition-colors rounded-sm cursor-default"
-          style={{ height: `${Math.max((d.cnt / max) * 100, d.cnt > 0 ? 8 : 2)}%` }}
+          title={`${d.day.slice(5).replace('-', '/')} : ${d.cnt}`}
+          className="flex-1 rounded-sm cursor-default transition-colors"
+          style={{
+            height: `${Math.max((d.cnt / max) * 100, d.cnt > 0 ? 10 : 2)}%`,
+            backgroundColor: d.cnt > 0
+              ? `hsl(185 100% 37% / ${0.25 + (d.cnt / max) * 0.75})`
+              : 'hsl(var(--muted))',
+          }}
         />
       ))}
-    </div>
-  )
-}
-
-// ─── Barre horizontale avec label ────────────────────────────────────────────
-
-function BarRow({ label, count, max }: { label: string; count: number; max: number }) {
-  const pct = (count / max) * 100
-  return (
-    <div className="flex items-center gap-3">
-      <div className="w-6 text-right text-xs font-bold text-primary shrink-0">{count}</div>
-      <div className="flex-1">
-        <div className="text-xs mb-1 truncate">{label}</div>
-        <div className="bg-muted rounded-full h-1.5 overflow-hidden">
-          <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
-        </div>
-      </div>
     </div>
   )
 }
@@ -83,30 +99,24 @@ function BarRow({ label, count, max }: { label: string; count: number; max: numb
 export default function AgencyDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const slug = params.slug as string
+  const slug   = params.slug as string
 
-  const [detail, setDetail] = useState<AgencyDetail | null>(null)
-  const [period, setPeriod] = useState(30)
-  const [error, setError] = useState<string | null>(null)
+  const [detail, setDetail]   = useState<AgencyDetail | null>(null)
+  const [period, setPeriod]   = useState(30)
+  const [error, setError]     = useState<string | null>(null)
 
   useEffect(() => {
-    setDetail(null)
-    setError(null)
+    setDetail(null); setError(null)
     fetch(`/api/admin/analytics/agency/${slug}?period=${period}`)
       .then(r => r.json())
-      .then(d => {
-        if (d.error) setError(d.error)
-        else setDetail(d as AgencyDetail)
-      })
+      .then(d => { if (d.error) setError(d.error); else setDetail(d) })
       .catch(() => setError('Erreur réseau'))
   }, [slug, period])
 
   if (error) return (
     <div className="flex flex-col items-center justify-center h-screen gap-4">
       <p className="text-sm text-red-500">{error}</p>
-      <button onClick={() => router.back()} className="text-xs text-muted-foreground underline">
-        Retour
-      </button>
+      <button onClick={() => router.back()} className="text-xs text-muted-foreground underline">Retour</button>
     </div>
   )
 
@@ -125,40 +135,41 @@ export default function AgencyDetailPage() {
 
   const maxDomain = byDomain[0]?.cnt   ?? 1
   const maxPain   = painPoints[0]?.cnt ?? 1
-  const maxAgent  = byAgent[0]?.cnt    ?? 1
+  const maxAgent  = byAgent.length > 0 ? Math.max(...byAgent.map(a => a.cnt), 1) : 1
+  const activeAgents = byAgent.filter(a => a.cnt > 0).length
 
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8">
+
       {/* En-tête */}
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-start gap-4 mb-8">
         <button
           onClick={() => router.back()}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+          className="mt-1 p-2 rounded-xl hover:bg-muted transition-colors shrink-0"
+          aria-label="Retour"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-bold text-foreground">{agency.name}</h1>
-            {agency.city && (
-              <span className="text-sm text-muted-foreground">— {agency.city}</span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {agency.is_active ? 'Agence active' : 'Agence inactive'} · slug: {agency.slug}
-          </p>
+          <h1
+            className="text-2xl font-bold text-foreground leading-tight"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
+            {agency.name}
+          </h1>
+          {agency.city && (
+            <p className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+              <MapPin className="h-3 w-3" />{agency.city}
+            </p>
+          )}
         </div>
-        {/* Sélecteur période */}
-        <div className="flex gap-1.5">
+        <div className="flex gap-1">
           {[7, 30, 90].map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                period === p
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                period === p ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             >
               {p}j
@@ -167,138 +178,191 @@ export default function AgencyDetailPage() {
         </div>
       </div>
 
-      {/* KPI principal */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      {/* KPIs principaux */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <MessageSquare className="h-3.5 w-3.5" />
-            <span className="text-xs">Questions</span>
-          </div>
-          <div className="text-3xl font-bold text-foreground">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Questions</div>
+          <div
+            className="text-4xl font-bold"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
             {detail.total_questions.toLocaleString('fr-FR')}
           </div>
           <p className="text-xs text-muted-foreground mt-1">sur {period} jours</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span className="text-xs">Top domaine</span>
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Agents actifs</div>
+          <div
+            className="text-4xl font-bold"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+          >
+            {activeAgents}
+            <span className="text-xl font-normal text-muted-foreground">/{detail.total_users}</span>
           </div>
-          <div className="text-sm font-semibold text-foreground line-clamp-2 leading-tight">
-            {byDomain[0]?.label ?? '—'}
-          </div>
-          {byDomain[0] && (
-            <p className="text-xs text-muted-foreground mt-1">{byDomain[0].cnt} questions</p>
-          )}
+          <p className="text-xs text-muted-foreground mt-1">conseillers inscrits</p>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <AlertCircle className="h-3.5 w-3.5" />
-            <span className="text-xs">Top pain point</span>
-          </div>
-          <div className="text-sm font-semibold text-foreground line-clamp-2 leading-tight">
-            {painPoints[0]?.label ?? '—'}
+        <div className="bg-card border border-border rounded-xl p-5 col-span-2 sm:col-span-1">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Top problématique</div>
+          <div className="text-sm font-semibold text-foreground leading-tight line-clamp-2">
+            {painPoints[0] ? (
+              <><span className="mr-1">{getPainEmoji(painPoints[0].label)}</span>{painPoints[0].label}</>
+            ) : '—'}
           </div>
           {painPoints[0] && (
             <p className="text-xs text-muted-foreground mt-1">{painPoints[0].cnt} questions</p>
           )}
         </div>
-
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <Users className="h-3.5 w-3.5" />
-            <span className="text-xs">Agents actifs</span>
-          </div>
-          <div className="text-3xl font-bold text-foreground">{byAgent.length}</div>
-          <p className="text-xs text-muted-foreground mt-1">sur la période</p>
-        </div>
       </div>
 
-      {/* Graphe d'activité 30 jours */}
-      <div className="bg-card border border-border rounded-xl p-6 mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="h-4 w-4 text-primary" />
+      {/* Graphe 30 jours */}
+      <div className="bg-card border border-border rounded-2xl p-5 mb-8">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-foreground">Activité — 30 derniers jours</h2>
+          <span className="text-xs text-muted-foreground">Survolez pour le détail</span>
         </div>
-        {dailyAct.length > 0 ? (
-          <ActivityChart data={dailyAct} />
-        ) : (
-          <div className="h-16 flex items-center justify-center">
-            <p className="text-xs text-muted-foreground">Aucune activité sur cette période.</p>
-          </div>
-        )}
+        {dailyAct.length > 0
+          ? <ActivitySparkline data={dailyAct} />
+          : <div className="h-12 flex items-center justify-center text-xs text-muted-foreground">Aucune activité.</div>
+        }
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Par domaine */}
-        {byDomain.length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Par domaine</h2>
-            <div className="space-y-3">
-              {byDomain.map((d, i) => (
-                <BarRow key={i} label={d.label} count={d.cnt} max={maxDomain} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Pain points */}
-        {painPoints.length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Pain points</h2>
-            <div className="space-y-3">
-              {painPoints.map((p, i) => (
-                <BarRow key={i} label={p.label} count={p.cnt} max={maxPain} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Par agent */}
+      {/* Agents */}
       {byAgent.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-6 mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Activité par agent</h2>
+        <div className="bg-card border border-border rounded-2xl overflow-hidden mb-8">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold">Activité par agent</h2>
           </div>
-          <div className="space-y-2">
-            {byAgent.map((a, i) => (
-              <div key={i} className="flex items-center gap-3 py-1.5 border-b border-border last:border-0">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-primary">
+          <div className="divide-y divide-border">
+            {byAgent.map((a, i) => {
+              const st = agentStatus(a)
+              const barPct = (a.cnt / maxAgent) * 100
+
+              return (
+                <div key={i} className="flex items-center gap-4 px-5 py-3">
+                  {/* Avatar initiale */}
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                    style={{
+                      backgroundColor: a.cnt > 0 ? 'hsl(185 100% 37% / 0.15)' : 'hsl(var(--muted))',
+                      color: a.cnt > 0 ? 'hsl(185 100% 30%)' : 'hsl(var(--muted-foreground))',
+                    }}
+                  >
                     {a.full_name?.charAt(0)?.toUpperCase() ?? '?'}
+                  </div>
+
+                  {/* Nom */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-foreground truncate">{a.full_name}</span>
+                      <span
+                        className="text-xs"
+                        style={{ color: st.color }}
+                      >
+                        {st.label}
+                      </span>
+                    </div>
+                    {a.cnt > 0 && (
+                      <div className="bg-muted rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${barPct}%`,
+                            backgroundColor: 'hsl(185 100% 37%)',
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nb questions */}
+                  <span
+                    className="text-sm font-bold tabular-nums shrink-0"
+                    style={{
+                      fontFamily: "'Source Serif 4', Georgia, serif",
+                      color: a.cnt > 0 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+                    }}
+                  >
+                    {a.cnt > 0 ? `${a.cnt} q.` : '0'}
                   </span>
                 </div>
-                <span className="flex-1 text-xs text-foreground">{a.full_name}</span>
-                <span className="text-xs font-semibold text-muted-foreground">{a.cnt} q.</span>
-                <div className="w-20 bg-muted rounded-full h-1.5">
-                  <div
-                    className="bg-primary h-full rounded-full"
-                    style={{ width: `${(a.cnt / maxAgent) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
+        </div>
+      )}
+
+      {/* Domaines + Pain points */}
+      {(byDomain.length > 0 || painPoints.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {byDomain.length > 0 && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h2 className="text-sm font-semibold">Par domaine juridique</h2>
+              </div>
+              <div className="divide-y divide-border">
+                {byDomain.map((d, i) => (
+                  <div key={i} className="flex items-center gap-3 px-5 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-foreground mb-1 truncate">{d.label}</div>
+                      <div className="bg-muted rounded-full h-1.5">
+                        <div className="bg-primary h-full rounded-full" style={{ width: `${(d.cnt / maxDomain) * 100}%` }} />
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold tabular-nums shrink-0" style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}>
+                      {d.cnt}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {painPoints.length > 0 && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h2 className="text-sm font-semibold">Pain points</h2>
+              </div>
+              <div className="divide-y divide-border">
+                {painPoints.map((p, i) => (
+                  <div key={i} className="flex items-center gap-3 px-5 py-3">
+                    <span className="text-base shrink-0">{getPainEmoji(p.label)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-foreground mb-1 truncate">{p.label}</div>
+                      <div className="bg-muted rounded-full h-1.5">
+                        <div className="bg-primary h-full rounded-full" style={{ width: `${(p.cnt / maxPain) * 100}%` }} />
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold tabular-nums shrink-0" style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}>
+                      {p.cnt}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Questions récentes */}
       {recentQ.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="font-semibold mb-4">Questions récentes</h2>
-          <div className="space-y-2">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold">Questions récentes</h2>
+          </div>
+          <div className="divide-y divide-border">
             {recentQ.map((q, i) => (
-              <div key={i} className="flex items-center gap-3 py-2 border-b last:border-0">
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded min-w-[140px] text-center truncate">
-                  {q.sub_domain ?? q.domain ?? 'Non classé'}
-                </span>
-                <span className="flex-1 text-sm truncate">{q.question_preview}</span>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {new Date(q.created_at).toLocaleDateString('fr-FR')}
+              <div key={i} className="flex items-start gap-3 px-5 py-3">
+                <span className="text-muted-foreground text-sm mt-0.5 shrink-0">•</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-foreground/80 leading-relaxed italic">{q.question_preview}</p>
+                  {(q.sub_domain || q.domain) && (
+                    <span className="text-xs text-primary mt-1 block">{q.sub_domain ?? q.domain}</span>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 ml-2">
+                  {new Date(q.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </span>
               </div>
             ))}
