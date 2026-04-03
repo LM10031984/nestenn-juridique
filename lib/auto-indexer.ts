@@ -147,55 +147,52 @@ async function getPisteToken(): Promise<string | null> {
   }
 }
 
-// ── 4. Recherche LEGIARTI via Légifrance ──────────────────────────────────
+// ── 4. Fetch article via getArticleWithIdAndNum (même pipeline que index-new-articles.ts) ──
 
-async function findLegiartiId(token: string, legitextId: string, articleNum: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${PISTE_API_BASE}/consult/code/tableMatieres`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        textId: legitextId,
-        date: new Date().toISOString().split('T')[0],
-        pageSize: 200,
-        searchArticle: articleNum,
-      }),
-    })
-    if (!res.ok) return null
-    const data = await res.json() as { sections?: Array<{ articles?: Array<{ id: string; num: string }> }> }
-    // Légifrance stocke parfois "L271-4" sans point après la lettre
-    const noDot = articleNum.replace(/^([LRDA])\./, '$1')
-    const candidates = [articleNum, articleNum.toUpperCase(), noDot, noDot.toUpperCase()]
-    for (const section of data.sections ?? []) {
-      const found = section.articles?.find(a => candidates.includes(a.num))
-      if (found) return found.id
-    }
-  } catch { /* silencieux */ }
-  return null
-}
+async function fetchArticleFromLegifrance(
+  token: string,
+  legitextId: string,
+  articleNum: string,
+): Promise<{ texte: string; url: string } | null> {
+  // Essayer plusieurs variantes du numéro : "L.271-4", "L271-4", majuscules
+  const noDot = articleNum.replace(/^([LRDA])\./, '$1')
+  const candidates = [
+    articleNum,
+    noDot,
+    articleNum.toUpperCase(),
+    noDot.toUpperCase(),
+  ]
 
-async function fetchArticleText(token: string, legiartiId: string): Promise<{ texte: string; url: string } | null> {
-  try {
-    const res = await fetch(`${PISTE_API_BASE}/consult/getArticle`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ id: legiartiId }),
-    })
-    if (!res.ok) return null
-    const data = await res.json() as { article?: { texte?: string; etat?: string } }
-    const texte = data.article?.texte?.replace(/<[^>]+>/g, ' ').trim() ?? ''
-    if (texte.length < 20 || data.article?.etat === 'ABROGE') return null
-    const url = `https://www.legifrance.gouv.fr/codes/article_lc/${legiartiId}`
-    return { texte, url }
-  } catch {
-    return null
+  for (const num of candidates) {
+    try {
+      const res = await fetch(`${PISTE_API_BASE}/consult/getArticleWithIdAndNum`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ textId: legitextId, articleNum: num }),
+      })
+      if (!res.ok) continue
+
+      const data = await res.json() as { article?: { id?: string; texte?: string; etat?: string } }
+      if (data?.article?.etat === 'ABROGE') continue
+
+      const texte = data?.article?.texte
+        ?.replace(/<[^>]+>/g, ' ')
+        ?.replace(/\s+/g, ' ')
+        ?.trim()
+
+      if (texte && texte.length > 20) {
+        const articleId = data.article?.id ?? ''
+        return {
+          texte,
+          url: `https://www.legifrance.gouv.fr/codes/article_lc/${articleId}`,
+        }
+      }
+    } catch { /* essayer le candidat suivant */ }
   }
+  return null
 }
 
 // ── 5. Summarize (GPT-4o-mini, même prompt que index-legifrance) ──────────
@@ -477,16 +474,12 @@ export async function autoIndexMissingArticles(
       // Vérif existence
       if (await isIndexed(ref.legitextId, ref.article)) continue
 
-      // Chercher le LEGIARTI ID
-      const legiartiId = await findLegiartiId(token, ref.legitextId, ref.article)
-      if (!legiartiId) {
-        console.warn(`[auto-indexer] LEGIARTI introuvable : ${ref.law} art. ${ref.article}`)
+      // Fetch texte via getArticleWithIdAndNum (pipeline éprouvé)
+      const articleData = await fetchArticleFromLegifrance(token, ref.legitextId, ref.article)
+      if (!articleData) {
+        console.warn(`[auto-indexer] Article introuvable : ${ref.law} art. ${ref.article}`)
         continue
       }
-
-      // Fetch texte
-      const articleData = await fetchArticleText(token, legiartiId)
-      if (!articleData) continue
 
       // Résumé LLM
       const summary = await summarizeArticle(ref.article, ref.law, articleData.texte)
