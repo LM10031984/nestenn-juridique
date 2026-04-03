@@ -94,6 +94,7 @@ export default function ChatPage() {
   const supabaseConvId = useRef<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const [isListening, setIsListening] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
@@ -170,8 +171,10 @@ export default function ChatPage() {
   }, [])
 
   function handleNewConversation() {
+    abortControllerRef.current?.abort()
     setMessages([])
     setActiveConvId(genId())
+    setIsLoading(false)
     supabaseConvId.current = null
     resetConversation()
     setIsSidebarOpen(false)
@@ -180,6 +183,8 @@ export default function ChatPage() {
   function handleSelectConversation(id: string) {
     const conv = conversations.find(c => c.id === id)
     if (!conv) return
+    abortControllerRef.current?.abort()
+    setIsLoading(false)
     setActiveConvId(id)
     setMessages(conv.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
     setIsSidebarOpen(false)
@@ -216,6 +221,11 @@ export default function ChatPage() {
   async function handleSubmit(question: string) {
     if (!question.trim() || isLoading) return
     setInput('')
+
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = new AbortController()
+    const signal = abortControllerRef.current.signal
+    const convIdAtStart = activeConvId
 
     // Injecter le document si présent
     let fullMessage = question
@@ -256,6 +266,7 @@ export default function ChatPage() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
+        signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: fullMessage,
@@ -317,16 +328,21 @@ export default function ChatPage() {
         finalContent = accumulated
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated, isStreaming: false } : m))
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Streaming annulé — nettoyer le placeholder de streaming
+        setMessages(prev => prev.filter(m => m.id !== assistantId))
+        return
+      }
       setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: 'Erreur de connexion. Vérifiez votre réseau et réessayez.', isRejection: true, timestamp: new Date() }])
     } finally {
       setIsLoading(false)
-      if (finalContent && activeConvId) {
+      if (finalContent && convIdAtStart) {
         setMessages(prev => {
           const firstUser = prev.find(m => m.role === 'user')
           const title = firstUser ? generateTitle(firstUser.content) : 'Nouvelle conversation'
           const conv: StoredConversation = {
-            id: activeConvId,
+            id: convIdAtStart,
             title,
             messages: prev.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: m.timestamp.toISOString() })),
             createdAt: prev[0]?.timestamp.toISOString() ?? new Date().toISOString(),
