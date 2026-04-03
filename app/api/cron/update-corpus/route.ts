@@ -2,6 +2,7 @@
 // Mise à jour progressive des articles depuis Légifrance
 // Déclenché par pg_cron 4×/jour (0h, 6h, 12h, 18h UTC)
 // 4 runs/jour × 7 jours = 28 runs × 10 articles = 280 articles/semaine → couvre ~256 articles
+// Le dimanche (isSunday), lance en plus la veille législative : détecte et indexe les nouveaux textes immo
 
 export const maxDuration = 60 // secondes (Vercel Pro)
 
@@ -88,17 +89,26 @@ export async function GET(req: NextRequest) {
 
     }
 
-    // Logger le résultat dans quality_alerts
+    // Logger le résultat de la mise à jour dans quality_alerts
     await supabaseAdmin.from('quality_alerts').insert({
       alert_type: 'corpus_update',
-      details: JSON.stringify({ checked, updated, timestamp: new Date().toISOString() }),
+      details: JSON.stringify({ checked, updated, offset, timestamp: new Date().toISOString() }),
     })
+
+    // ── Veille législative (dimanche uniquement) ──────────────────────────
+    let newTextsFound = 0
+    const isSunday = now.getUTCDay() === 0
+
+    if (isSunday) {
+      newTextsFound = await runVeilleLegislative(token)
+    }
 
     return Response.json({
       success: true,
       offset,
       checked,
       updated,
+      newTextsFound,
       timestamp: new Date().toISOString(),
     })
   } catch (err) {
@@ -178,4 +188,134 @@ function simpleHash(text: string): string {
     hash |= 0
   }
   return hash.toString(36)
+}
+
+// ── Veille législative ─────────────────────────────────────────────────────
+
+const VEILLE_KEYWORDS = [
+  'bail habitation',
+  'copropriété',
+  'agent immobilier',
+  'diagnostic immobilier',
+  'DPE',
+  'urbanisme permis construire',
+  'vente immobilière',
+  'location meublée',
+  'passoire énergétique',
+  'assainissement',
+]
+
+const IMMO_KEYWORDS = [
+  'bail', 'loyer', 'locataire', 'bailleur', 'copropriété', 'syndic',
+  'vente', 'acquéreur', 'vendeur', 'mandat', 'agent immobilier',
+  'diagnostic', 'urbanisme', 'permis', 'construction', 'habitation',
+  'logement', 'immeuble', 'foncier', 'immobilier', 'location',
+  'préemption', 'expulsion', 'assainissement',
+]
+
+function detectDomainFromContent(text: string): string {
+  const lower = text.toLowerCase()
+  if (lower.includes('bail') || lower.includes('loyer') || lower.includes('locataire')) return 'baux_habitation'
+  if (lower.includes('copropriété') || lower.includes('syndic')) return 'copropriete'
+  if (lower.includes('agent immobilier') || lower.includes('mandat')) return 'agent_immobilier'
+  if (lower.includes('diagnostic') || lower.includes('dpe')) return 'diagnostics'
+  if (lower.includes('urbanisme') || lower.includes('permis')) return 'urbanisme'
+  if (lower.includes('vente') || lower.includes('acquéreur')) return 'vente_immobiliere'
+  if (lower.includes('construction') || lower.includes('décennale')) return 'construction'
+  if (lower.includes('commercial')) return 'bail_commercial'
+  if (lower.includes('assainissement') || lower.includes('fosse')) return 'diagnostics'
+  return 'autres'
+}
+
+function isoDate(d: Date): string {
+  return d.toISOString().split('T')[0]
+}
+
+async function runVeilleLegislative(token: string): Promise<number> {
+  const today = isoDate(new Date())
+  const sevenDaysAgo = isoDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+  let newTextsFound = 0
+
+  for (const keyword of VEILLE_KEYWORDS) {
+    try {
+      const res = await fetch(`${PISTE_API_BASE}/search`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recherche: {
+            typeRecherche: 'EXACTE',
+            champs: [{ typeChamp: 'TITLE', criteres: [{ typeRecherche: 'EXACTE', valeur: keyword }] }],
+            filtres: [{ facette: 'DATE_VERSION', dates: { start: sevenDaysAgo, end: today } }],
+            pageNumber: 1,
+            pageSize: 5,
+            typePagination: 'ARTICLE',
+          },
+        }),
+      })
+
+      if (!res.ok) continue
+      const data = await res.json() as { results?: Array<{ textId?: string; id?: string; num?: string; article?: string; title?: string; dateVersion?: string; url?: string }> }
+      const results = data.results ?? []
+
+      for (const result of results) {
+        const lawId     = result.textId ?? result.id
+        const articleNum = result.num ?? result.article
+        if (!lawId || !articleNum) continue
+
+        // Déjà en base ?
+        const { count } = await supabaseAdmin
+          .from('legal_articles')
+          .select('*', { count: 'exact', head: true })
+          .eq('law_id', lawId)
+          .eq('article_num', articleNum)
+        if ((count ?? 0) > 0) continue
+
+        // Fetch texte complet
+        const legiartiId = await findLegiartiId(token, lawId, articleNum)
+        if (!legiartiId) continue
+
+        const articleData = await fetchArticleText(token, legiartiId)
+        if (!articleData?.texte) continue
+
+        // Filtre : doit contenir un mot-clé immobilier
+        const lower = articleData.texte.toLowerCase()
+        if (!IMMO_KEYWORDS.some(kw => lower.includes(kw))) continue
+
+        // Embed + upsert
+        const embedding = await embedQuestion(articleData.texte.slice(0, 500))
+        if (!embedding?.length) continue
+
+        const domain = detectDomainFromContent(articleData.texte)
+
+        await supabaseAdmin.from('legal_articles').upsert({
+          law_id:      lawId,
+          article_num: articleNum,
+          content:     articleData.texte,
+          url:         result.url ?? null,
+          domain,
+          embedding,
+        }, { onConflict: 'law_id,article_num' })
+
+        try {
+          await supabaseAdmin.from('quality_alerts').insert({
+            alert_type: 'auto_indexed_new_legislation',
+            details: JSON.stringify({ lawId, articleNum, keyword, domain }),
+          })
+        } catch { /* non-bloquant */ }
+
+        newTextsFound++
+        console.info(`[veille] ✅ Nouveau texte indexé : ${lawId} art. ${articleNum} (${domain})`)
+      }
+    } catch (err) {
+      console.error(`[veille] Erreur recherche "${keyword}":`, err)
+    }
+
+    // Throttle pour ne pas saturer l'API PISTE
+    await new Promise(r => setTimeout(r, 200))
+  }
+
+  return newTextsFound
 }
