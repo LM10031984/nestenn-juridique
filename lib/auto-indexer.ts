@@ -534,6 +534,16 @@ export async function autoIndexMissingJurisprudence(
       const decision = await fetchDecisionFromJudilibre(token, ref.number)
       if (!decision) {
         console.warn(`[auto-indexer] Arrêt n° ${ref.number} introuvable sur Judilibre`)
+
+        // Ajouter à la queue de retry (silencieux, non bloquant)
+        supabase.from('auto_index_queue').upsert({
+          source: 'jurisprudence',
+          case_number: ref.number,
+          court: ref.court,
+          error_reason: 'Judilibre introuvable',
+          next_retry_at: new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
+        }, { onConflict: 'source,case_number' }).catch(() => {})
+
         continue
       }
 
@@ -616,6 +626,17 @@ export async function autoIndexMissingArticles(
       const articleData = await fetchArticleFromLegifrance(token, ref.legitextId, ref.article)
       if (!articleData) {
         console.warn(`[auto-indexer] Article introuvable : ${ref.law} art. ${ref.article}`)
+
+        // Ajouter à la queue de retry (silencieux, non bloquant)
+        supabase.from('auto_index_queue').upsert({
+          source: 'article',
+          law_name: ref.law,
+          legitext_id: ref.legitextId,
+          article_num: ref.article,
+          error_reason: 'LEGIARTI introuvable',
+          next_retry_at: new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
+        }, { onConflict: 'source,legitext_id,article_num' }).catch(() => {})
+
         continue
       }
 

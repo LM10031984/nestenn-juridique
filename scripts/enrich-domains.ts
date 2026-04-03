@@ -113,6 +113,26 @@ async function main() {
     console.log('  Aucune exécution enregistrée')
   }
 
+  // 5. Queue de retry (auto_index_queue)
+  const { data: pendingQueue } = await supabase
+    .from('auto_index_queue')
+    .select('source, law_name, article_num, case_number, court, error_reason, attempts, created_at')
+    .is('resolved_at', null)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (pendingQueue?.length) {
+    console.log(`\n⏳ ${pendingQueue.length} articles/arrêts en attente de retry :`)
+    for (const q of pendingQueue) {
+      const ref = q.source === 'article'
+        ? `${q.law_name} art. ${q.article_num}`
+        : `${q.court ?? 'cass'} n° ${q.case_number}`
+      console.log(`  [${q.attempts}/3] ${ref} — ${q.error_reason} (${new Date(q.created_at).toLocaleDateString('fr-FR')})`)
+    }
+  } else {
+    console.log('\n✅ Queue de retry vide — aucun article/arrêt en échec')
+  }
+
   console.log('\n→ Ajouter les mots-clés récurrents au domain-detector.ts si pertinent')
   console.log('→ Les sous-domaines récurrents peuvent devenir de nouveaux domaines\n')
 }

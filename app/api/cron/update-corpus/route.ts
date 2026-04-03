@@ -1,8 +1,9 @@
 // app/api/cron/update-corpus/route.ts
 // Mise à jour progressive des articles depuis Légifrance
-// Déclenché par pg_cron 4×/jour (0h, 6h, 12h, 18h UTC)
-// 4 runs/jour × 7 jours = 28 runs × 10 articles = 280 articles/semaine → couvre ~256 articles
+// Déclenché par pg_cron toutes les heures (0 * * * *)
+// 24 runs/jour × 7 jours = 168 runs × 10 articles = 1680 articles/semaine
 // Le dimanche (isSunday), lance en plus la veille législative : détecte et indexe les nouveaux textes immo
+// Chaque run retraite aussi jusqu'à 5 articles/arrêts de la queue de retry (auto_index_queue)
 
 export const maxDuration = 60 // secondes (Vercel Pro)
 
@@ -30,11 +31,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Offset basé sur le jour et le créneau horaire pour couvrir le corpus progressivement
+    // Offset basé sur le jour et l'heure pour couvrir le corpus progressivement
+    // 24 créneaux/jour × 7 jours = 168 créneaux × 10 articles = 1680 positions
     const now = new Date()
     const dayOfWeek = now.getUTCDay()                        // 0-6
-    const hourSlot  = Math.floor(now.getUTCHours() / 6)     // 0-3 (4 slots de 6h)
-    const offset    = (dayOfWeek * 4 + hourSlot) * 10       // 0, 10, 20, …, 270
+    const hourSlot  = now.getUTCHours()                      // 0-23
+    const offset    = (dayOfWeek * 24 + hourSlot) * 10      // 0, 10, 20, …, 1670
 
     const { data: articles } = await supabaseAdmin
       .from('legal_articles')
@@ -103,12 +105,17 @@ export async function GET(req: NextRequest) {
       newTextsFound = await runVeilleLegislative(token)
     }
 
+    // ── Retry queue (auto_index_queue) ────────────────────────────────────
+    const retryResult = await processRetryQueue(token)
+
     return Response.json({
       success: true,
       offset,
       checked,
       updated,
       newTextsFound,
+      retryProcessed: retryResult.processed,
+      retryResolved: retryResult.resolved,
       timestamp: new Date().toISOString(),
     })
   } catch (err) {
@@ -318,4 +325,79 @@ async function runVeilleLegislative(token: string): Promise<number> {
   }
 
   return newTextsFound
+}
+
+// ── Retry queue ────────────────────────────────────────────────────────────
+
+interface QueueItem {
+  id: string
+  source: 'article' | 'jurisprudence'
+  law_name: string | null
+  legitext_id: string | null
+  article_num: string | null
+  case_number: string | null
+  court: string | null
+  attempts: number
+}
+
+async function processRetryQueue(token: string): Promise<{ processed: number; resolved: number }> {
+  const { data: queue } = await supabaseAdmin
+    .from('auto_index_queue')
+    .select('id, source, law_name, legitext_id, article_num, case_number, court, attempts')
+    .is('resolved_at', null)
+    .lt('attempts', 3)
+    .lte('next_retry_at', new Date().toISOString())
+    .order('created_at', { ascending: true })
+    .limit(5)
+
+  let processed = 0
+  let resolved = 0
+
+  for (const item of (queue as QueueItem[] | null) ?? []) {
+    processed++
+    try {
+      if (item.source === 'article' && item.legitext_id && item.article_num) {
+        const legiartiId = await findLegiartiId(token, item.legitext_id, item.article_num)
+
+        if (legiartiId) {
+          const articleData = await fetchArticleText(token, legiartiId)
+
+          if (articleData?.texte) {
+            const embedding = await embedQuestion(articleData.texte.slice(0, 500))
+            if (embedding?.length) {
+              const domain = detectDomainFromContent(articleData.texte)
+              await supabaseAdmin.from('legal_articles').upsert({
+                law_id:      item.legitext_id,
+                article_num: item.article_num,
+                content:     articleData.texte,
+                domain,
+                embedding,
+              }, { onConflict: 'law_id,article_num' })
+
+              await supabaseAdmin.from('auto_index_queue')
+                .update({ resolved_at: new Date().toISOString() })
+                .eq('id', item.id)
+
+              console.info(`[cron-retry] ✅ Article indexé : ${item.law_name} art. ${item.article_num}`)
+              resolved++
+              continue
+            }
+          }
+        }
+      }
+
+      // Échec : incrémenter et reporter
+      await supabaseAdmin.from('auto_index_queue')
+        .update({
+          attempts: item.attempts + 1,
+          next_retry_at: new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
+        })
+        .eq('id', item.id)
+
+    } catch (err) {
+      console.error(`[cron-retry] Erreur item ${item.id}:`, err)
+    }
+  }
+
+  return { processed, resolved }
 }
