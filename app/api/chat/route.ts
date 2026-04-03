@@ -39,6 +39,38 @@ async function getWhitelistKeywords(): Promise<string[]> {
   return cachedKeywords.length > 0 ? cachedKeywords : IMMO_KEYWORDS
 }
 
+// ── Rate limiting (in-memory, reset toutes les minutes) ──
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  entry.count++
+  return entry.count <= 20
+}
+
+// ── Filtre anti-prompt-injection ──
+
+function detectPromptInjection(message: string): boolean {
+  const lower = message.toLowerCase()
+  const INJECTION_PATTERNS = [
+    'ignore tes instructions', 'ignore les instructions', 'ignore your instructions',
+    'oublie tes instructions', 'oublie les instructions',
+    'tu es maintenant', 'you are now',
+    'new instructions', 'nouvelles instructions',
+    'system prompt', 'agis comme', 'act as',
+    'jailbreak', 'dan mode', 'developer mode',
+    'ignore previous', 'ignore précédent',
+    'réponds sans restriction', 'pas de filtre', 'désactive tes',
+  ]
+  return INJECTION_PATTERNS.some(p => lower.includes(p))
+}
+
 // ── Constantes ──
 
 const MAX_MESSAGE_LENGTH = 2000
@@ -74,12 +106,21 @@ interface ChatRequestBody {
 // ── Pipeline principal ──
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (!checkRateLimit(ip)) {
+    return Response.json({ error: 'Trop de requêtes, réessayez dans une minute' }, { status: 429 })
+  }
+
   const body = await req.json() as ChatRequestBody
   const trimmedMessage = (body.message ?? '').trim().slice(0, MAX_MESSAGE_LENGTH)
   const { messageId, conversationId } = body
 
   if (!trimmedMessage) {
     return Response.json({ error: 'Message vide' }, { status: 400 })
+  }
+
+  if (detectPromptInjection(trimmedMessage)) {
+    return Response.json({ error: 'Message non autorisé' }, { status: 400 })
   }
 
   // ── Étape 1 : Filtre hors-sujet (GPT-4o-mini, ~500ms) ──
