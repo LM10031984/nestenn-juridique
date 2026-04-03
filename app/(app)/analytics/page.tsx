@@ -130,22 +130,58 @@ function ActivitySparkline({ data }: { data: Array<{ day: string; cnt: number }>
     days.push({ day: key, cnt: found?.cnt ?? 0 })
   }
   const max = Math.max(...days.map(d => d.cnt), 1)
+  const total = days.reduce((s, d) => s + d.cnt, 0)
+
+  // Étiquettes abscisses : J-29, J-14, aujourd'hui
+  const xLabels = [
+    { idx: 0,  label: days[0].day.slice(5).replace('-', '/') },
+    { idx: 14, label: days[14].day.slice(5).replace('-', '/') },
+    { idx: 29, label: "auj." },
+  ]
 
   return (
-    <div className="flex items-end gap-0.5 h-12">
-      {days.map((d, i) => (
-        <div
-          key={i}
-          title={`${d.day.slice(5).replace('-', '/')} : ${d.cnt}`}
-          className="flex-1 rounded-sm cursor-default transition-colors"
-          style={{
-            height: `${Math.max((d.cnt / max) * 100, d.cnt > 0 ? 10 : 2)}%`,
-            backgroundColor: d.cnt > 0
-              ? `hsl(185 100% 37% / ${0.25 + (d.cnt / max) * 0.75})`
-              : 'hsl(var(--muted))',
-          }}
-        />
-      ))}
+    <div>
+      {/* Ordonnée max + total */}
+      <div className="flex justify-between items-baseline mb-1">
+        <span className="text-[10px] text-muted-foreground">
+          max {max} q/j
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {total.toLocaleString('fr-FR')} questions sur 30j
+        </span>
+      </div>
+
+      {/* Barres */}
+      <div className="relative">
+        <div className="flex items-end gap-0.5 h-14">
+          {days.map((d, i) => (
+            <div
+              key={i}
+              title={`${d.day.slice(5).replace('-', '/')} : ${d.cnt} question${d.cnt !== 1 ? 's' : ''}`}
+              className="flex-1 rounded-sm cursor-default transition-colors"
+              style={{
+                height: `${Math.max((d.cnt / max) * 100, d.cnt > 0 ? 8 : 2)}%`,
+                backgroundColor: d.cnt > 0
+                  ? `hsl(185 100% 37% / ${0.25 + (d.cnt / max) * 0.75})`
+                  : 'hsl(var(--muted))',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Abscisses */}
+        <div className="relative h-4 mt-1">
+          {xLabels.map(({ idx, label }) => (
+            <span
+              key={idx}
+              className="absolute text-[10px] text-muted-foreground -translate-x-1/2"
+              style={{ left: `${(idx / 29) * 100}%` }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
