@@ -170,7 +170,25 @@ export default function ChatPage() {
     }
   }, [])
 
+  function saveCurrentConversationIfNeeded() {
+    if (!activeConvId || messages.length === 0) return
+    // Garder les messages avec du contenu (ignorer les placeholders vides)
+    const msgsToSave = messages.filter(m => m.content.trim().length > 0)
+    if (msgsToSave.length === 0) return
+    const firstUser = msgsToSave.find(m => m.role === 'user')
+    const title = firstUser ? generateTitle(firstUser.content) : 'Nouvelle conversation'
+    saveConversation({
+      id: activeConvId,
+      title,
+      messages: msgsToSave.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: m.timestamp.toISOString() })),
+      createdAt: msgsToSave[0].timestamp.toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    setConversations(loadConversations())
+  }
+
   function handleNewConversation() {
+    saveCurrentConversationIfNeeded()
     abortControllerRef.current?.abort()
     setMessages([])
     setActiveConvId(genId())
@@ -183,6 +201,7 @@ export default function ChatPage() {
   function handleSelectConversation(id: string) {
     const conv = conversations.find(c => c.id === id)
     if (!conv) return
+    saveCurrentConversationIfNeeded()
     abortControllerRef.current?.abort()
     setIsLoading(false)
     setActiveConvId(id)
