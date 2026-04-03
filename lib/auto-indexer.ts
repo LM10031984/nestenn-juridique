@@ -42,86 +42,64 @@ interface ArticleRef {
   legitextId: string | null
 }
 
-// Numéro d'article : [LRDA] optionnel + point + espaces + chiffres
-// Exemples couverts : L. 1331-1-1 | L.1331-1-1 | L1331-1-1 | 1641 | L. 216-6
-// \s* (zéro ou plus) remplace \s? (zéro ou un) pour gérer les espacements variables
-const ARTICLE_NUM = '([LRDA]\\.?\\s*\\d[\\d.\\-]+|\\d[\\d.\\-]*)'
+// Table des lois connues — correspondance nom complet → LEGITEXT
+const KNOWN_LAWS: Record<string, string> = {
+  'code civil':                                    'LEGITEXT000006070721',
+  'code de la santé publique':                     'LEGITEXT000006072665',
+  "code de la construction et de l'habitation":    'LEGITEXT000006074096',
+  "code de l'urbanisme":                           'LEGITEXT000006074075',
+  "code de l'environnement":                       'LEGITEXT000006074220',
+  'code de commerce':                              'LEGITEXT000005634379',
+  'code de la consommation':                       'LEGITEXT000006069565',
+  'code général des impôts':                       'LEGITEXT000006069577',
+  "code des procédures civiles d'exécution":       'LEGITEXT000025024948',
+  'code de procédure civile':                      'LEGITEXT000006070716',
+}
 
-// Patterns format direct : groupe 1 = article, groupe 2 = loi
-const REF_PATTERNS = [
-  // Priorité 1 : "art. 24 de la loi n° 89-462" / "art. X du décret n° 67-223"
-  new RegExp(`art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:al\\.\\s*\\d+\\s+)?(?:de (?:la |l')?|du )?(?:loi|décret)\\s+n[o°]\\s*(\\d{2,4}-\\d+)`, 'gi'),
-  // Priorité 2 : "art. L. 1331-1-1 du Code de la santé publique" (code nommé explicitement)
-  new RegExp(`art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:du |de la |de l')(code[^,.\\n]{2,60})`, 'gi'),
-  // Priorité 3 : "l'article 1589 du code civil" / "art. L.271-1 du CCH"
-  new RegExp(`l'?art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:du |de la |de l')?([^\\s,.]{3,30}(?:\\s[\\w-]+)?)`, 'gi'),
-  // Priorité 4 : "article 24 de la loi" (loi sans nom → skippé par resolveLegitext)
-  new RegExp(`(?:^|\\s)art(?:icle)?\\.?\\s+${ARTICLE_NUM}\\s+(?:al\\.\\s*\\d+\\s+)?(?:de (?:la )?(?:loi|même loi)|du (?:même )?(?:code|décret))`, 'gi'),
-]
+// Cherche le nom de loi dans les ~100 chars AVANT la position de l'article
+function findLawInText(text: string, articlePosition: number): { name: string; legitext: string } | null {
+  const before = text.slice(Math.max(0, articlePosition - 150), articlePosition).toLowerCase()
 
-// Pattern format inversé : groupe 1 = loi, groupe 2 = article
-// Gère "Le Code de la santé publique (art. L. 1331-1-1)" / "la loi n° 89-462 (art. 24)"
-// (?:le|la|les|du|de)? couvre le déterminant avant "Code"
-const INVERTED_PATTERN = new RegExp(
-  `(?:(?:le|la|les|du|de)\\s+)?(Code[\\w\\s'-]+|loi\\s+n[o°]?\\s*[\\d-]+)[^(]{0,30}\\(\\s*art(?:icle)?\\.?\\s*${ARTICLE_NUM}`,
-  'gi'
-)
-
-export function extractArticleReferences(text: string): ArticleRef[] {
-  const seen = new Set<string>()
-  const raw: ArticleRef[] = []
-
-  for (const pattern of REF_PATTERNS) {
-    const matches = [...text.matchAll(pattern)]
-    for (const m of matches) {
-      // Normaliser "L. 1331-1-1" → "L.1331-1-1" (espace après le préfixe lettre)
-      const articleNum = m[1]?.trim().replace(/^([LRDA])\.\s+/, '$1.') ?? ''
-      // Nettoyer le nom de loi : retirer parenthèses/crochets et notes LLM (*à vérifier…)
-      const lawHint    = (m[2]?.trim()
-        .replace(/\s*[*].*$/, '')   // tronquer au premier astérisque (notes LLM)
-        .replace(/[()[\]]/g, '')
-        .trim()
-        .toLowerCase()) ?? ''
-      if (!articleNum) continue
-
-      // Résoudre le LEGITEXT
-      const legitextId = resolveLegitext(lawHint)
-      const key = `${legitextId ?? lawHint}:${articleNum}`
-      if (seen.has(key)) continue
-      seen.add(key)
-
-      raw.push({ law: lawHint, article: articleNum, legitextId })
-    }
+  for (const [name, legitext] of Object.entries(KNOWN_LAWS)) {
+    if (before.includes(name)) return { name, legitext }
   }
 
-  // Format inversé : "Code de la santé publique (art. L. 1331-1-1)" — groupes inversés
-  for (const m of [...text.matchAll(INVERTED_PATTERN)]) {
-    const lawHint    = (m[1]?.trim().replace(/\s*[*].*$/, '').replace(/[()[\]]/g, '').trim().toLowerCase()) ?? ''
-    const articleNum = m[2]?.trim().replace(/^([LRDA])\.\s+/, '$1.') ?? ''
-    if (!articleNum || !lawHint) continue
+  // Lois par numéro : "loi n° 89-462"
+  const lawNumMatch = before.match(/loi\s+n[o°]?\s*([\d]{2,4}-[\d]+)/)
+  if (lawNumMatch) {
+    const resolved = resolveLegitext(`loi ${lawNumMatch[1]}`)
+    if (resolved) return { name: `loi ${lawNumMatch[1]}`, legitext: resolved }
+  }
 
-    const legitextId = resolveLegitext(lawHint)
-    const key = `${legitextId ?? lawHint}:${articleNum}`
+  return null
+}
+
+export function extractArticleReferences(text: string): ArticleRef[] {
+  const refs: ArticleRef[] = []
+  const seen = new Set<string>()
+
+  // Pattern simple : capturer tous les "art. XXX" / "article XXX"
+  const articlePattern = /art(?:icle)?\.?\s*([LRDA]\.?\s*\d[\d.\-]+|\d[\d.\-]*)/gi
+
+  for (const match of text.matchAll(articlePattern)) {
+    const article = match[1].trim().replace(/^([LRDA])\.\s+/, '$1.')
+    if (!article) continue
+    const position = match.index ?? 0
+
+    const law = findLawInText(text, position)
+    if (!law) continue
+
+    const key = `${law.legitext}|${article}`
     if (seen.has(key)) continue
     seen.add(key)
 
-    raw.push({ law: lawHint, article: articleNum, legitextId })
+    refs.push({ law: law.name, article, legitextId: law.legitext })
   }
 
-  // Déduplication : si même article avec et sans nom de loi, garder celui avec nom
-  const byArticle = new Map<string, ArticleRef>()
-  for (const ref of raw) {
-    const existing = byArticle.get(ref.article)
-    if (!existing || (!existing.legitextId && ref.legitextId)) {
-      byArticle.set(ref.article, ref)
-    }
-  }
-
-  return [...byArticle.values()]
+  return refs
 }
 
 function resolveLegitext(hint: string): string | null {
-  // Cherche la meilleure clé dans LEGITEXT_MAP
   for (const [key, id] of Object.entries(LEGITEXT_MAP)) {
     if (hint.includes(key) || key.includes(hint)) return id
   }
