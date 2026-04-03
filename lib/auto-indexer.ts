@@ -56,16 +56,20 @@ const KNOWN_LAWS: Record<string, string> = {
   'code de procédure civile':                      'LEGITEXT000006070716',
 }
 
-// Cherche le nom de loi dans les ~100 chars AVANT la position de l'article
+// Cherche le nom de loi dans les 150 chars avant ET après la position de l'article
+// — couvre "art. X du Code Y" (loi après) et "Code Y, art. X" (loi avant)
 function findLawInText(text: string, articlePosition: number): { name: string; legitext: string } | null {
-  const before = text.slice(Math.max(0, articlePosition - 150), articlePosition).toLowerCase()
+  const lower = text.toLowerCase()
+  const before = lower.slice(Math.max(0, articlePosition - 150), articlePosition)
+  const after = lower.slice(articlePosition, Math.min(lower.length, articlePosition + 150))
+  const searchZone = before + ' ' + after
 
   for (const [name, legitext] of Object.entries(KNOWN_LAWS)) {
-    if (before.includes(name)) return { name, legitext }
+    if (searchZone.includes(name)) return { name, legitext }
   }
 
   // Lois par numéro : "loi n° 89-462"
-  const lawNumMatch = before.match(/loi\s+n[o°]?\s*([\d]{2,4}-[\d]+)/)
+  const lawNumMatch = searchZone.match(/loi\s+n[o°]?\s*([\d]{2,4}-[\d]+)/)
   if (lawNumMatch) {
     const resolved = resolveLegitext(`loi ${lawNumMatch[1]}`)
     if (resolved) return { name: `loi ${lawNumMatch[1]}`, legitext: resolved }
