@@ -56,19 +56,37 @@ const KNOWN_LAWS: Record<string, string> = {
   'code de procédure civile':                      'LEGITEXT000006070716',
 }
 
-// Cherche le nom de loi dans les 150 chars avant ET après la position de l'article
-// — couvre "art. X du Code Y" (loi après) et "Code Y, art. X" (loi avant)
+// Cherche la loi la plus proche de l'article (150 chars avant ET après)
+// Retourne le nom dont la fin (zone avant) ou le début (zone après) est le plus proche
+// — évite de matcher "santé publique" quand "environnement" est plus proche
 function findLawInText(text: string, articlePosition: number): { name: string; legitext: string } | null {
   const lower = text.toLowerCase()
-  const before = lower.slice(Math.max(0, articlePosition - 150), articlePosition)
-  const after = lower.slice(articlePosition, Math.min(lower.length, articlePosition + 150))
-  const searchZone = before + ' ' + after
+  const beforeStart = Math.max(0, articlePosition - 150)
+  const afterEnd = Math.min(lower.length, articlePosition + 150)
+  const beforeZone = lower.slice(beforeStart, articlePosition)
+  const afterZone = lower.slice(articlePosition, afterEnd)
+
+  let best: { name: string; legitext: string } | null = null
+  let bestDist = Infinity
 
   for (const [name, legitext] of Object.entries(KNOWN_LAWS)) {
-    if (searchZone.includes(name)) return { name, legitext }
+    // Zone avant : prendre la dernière occurrence (la plus proche de l'article)
+    const bi = beforeZone.lastIndexOf(name)
+    if (bi !== -1) {
+      const dist = beforeZone.length - bi - name.length  // chars entre fin du nom et l'article
+      if (dist < bestDist) { bestDist = dist; best = { name, legitext } }
+    }
+    // Zone après : prendre la première occurrence
+    const ai = afterZone.indexOf(name)
+    if (ai !== -1) {
+      if (ai < bestDist) { bestDist = ai; best = { name, legitext } }
+    }
   }
 
+  if (best) return best
+
   // Lois par numéro : "loi n° 89-462"
+  const searchZone = beforeZone + ' ' + afterZone
   const lawNumMatch = searchZone.match(/loi\s+n[o°]?\s*([\d]{2,4}-[\d]+)/)
   if (lawNumMatch) {
     const resolved = resolveLegitext(`loi ${lawNumMatch[1]}`)
