@@ -1,6 +1,6 @@
 import type { SourceChunk, JuriCase } from '@/lib/system-prompt'
 import { buildClaudeSystemPrompt } from '@/lib/prompts/claude-system-prompt'
-import { buildMistralSystemPrompt } from '@/lib/prompts/mistral-system-prompt'
+import { buildMistralLargeSystemPrompt, buildMistralSmallSystemPrompt } from '@/lib/prompts/mistral-system-prompt'
 
 type SystemPromptBuilder = (
   chunks: SourceChunk[],
@@ -32,7 +32,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     color: '#CC785C',
     maxTokens: 8192,
     temperature: 0.3,
-    buildSystemPrompt: buildClaudeSystemPrompt,
+    buildSystemPrompt: buildClaudeSystemPrompt,   // STRICTEMENT INCHANGÉ
   },
   {
     id: 'mistralai/mistral-large-2512',
@@ -43,7 +43,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     color: '#FA520F',
     maxTokens: 8192,
     temperature: 0.1,
-    buildSystemPrompt: buildMistralSystemPrompt,
+    buildSystemPrompt: buildMistralLargeSystemPrompt,  // tier='large'
   },
   {
     id: 'mistralai/mistral-small-2603',
@@ -54,7 +54,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     color: '#FA520F',
     maxTokens: 8192,
     temperature: 0.1,
-    buildSystemPrompt: buildMistralSystemPrompt,
+    buildSystemPrompt: buildMistralSmallSystemPrompt,  // tier='small'
   },
 ]
 
