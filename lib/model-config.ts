@@ -1,3 +1,13 @@
+import type { SourceChunk, JuriCase } from '@/lib/system-prompt'
+import { buildClaudeSystemPrompt } from '@/lib/prompts/claude-system-prompt'
+import { buildMistralSystemPrompt } from '@/lib/prompts/mistral-system-prompt'
+
+type SystemPromptBuilder = (
+  chunks: SourceChunk[],
+  pgJuri: JuriCase[],
+  liveJuri: JuriCase[],
+) => string
+
 export interface ModelConfig {
   id: string
   name: string
@@ -7,6 +17,7 @@ export interface ModelConfig {
   color: string
   maxTokens: number
   temperature: number
+  buildSystemPrompt: SystemPromptBuilder
 }
 
 export const DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4-6'
@@ -21,6 +32,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     color: '#CC785C',
     maxTokens: 8192,
     temperature: 0.3,
+    buildSystemPrompt: buildClaudeSystemPrompt,
   },
   {
     id: 'mistralai/mistral-large-2512',
@@ -31,6 +43,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     color: '#FA520F',
     maxTokens: 8192,
     temperature: 0.1,
+    buildSystemPrompt: buildMistralSystemPrompt,
   },
   {
     id: 'mistralai/mistral-small-2603',
@@ -41,6 +54,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     color: '#FA520F',
     maxTokens: 8192,
     temperature: 0.1,
+    buildSystemPrompt: buildMistralSystemPrompt,
   },
 ]
 

@@ -9,7 +9,6 @@ import { waitUntil } from '@vercel/functions'
 import { openRouterStreamWithFallback, openRouterChat, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
 import { DEFAULT_MODEL_ID, isAllowedModel, getModelById } from '@/lib/model-config'
 import { getApiUser } from '@/lib/auth'
-import { getSystemPromptAugmented } from '@/lib/system-prompt'
 import { fetchRelevantSources } from '@/lib/sources'
 import type { JuriCase } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
@@ -284,7 +283,8 @@ export async function POST(req: NextRequest) {
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
 
-  const systemPrompt = getSystemPromptAugmented(chunks, filteredPgJuriCases, liveJuriCases)
+  const modelConfig = getModelById(selectedModel)
+  const systemPrompt = modelConfig.buildSystemPrompt(chunks, filteredPgJuriCases, liveJuriCases)
   const history = sanitizeHistory(body.conversationHistory)
 
   const messages: OpenRouterMessage[] = [
@@ -298,7 +298,6 @@ export async function POST(req: NextRequest) {
   // ── Étape 4 : Génération en streaming direct ──
 
   try {
-    const modelConfig = getModelById(selectedModel)
     const llmStream = await openRouterStreamWithFallback(messages, modelConfig.maxTokens, selectedModel, modelConfig.temperature)
 
     // Auto-indexer : tee systématique pour capturer la réponse et indexer
