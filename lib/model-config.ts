@@ -6,6 +6,7 @@ export interface ModelConfig {
   badge?: string
   color: string
   maxTokens: number
+  temperature: number
 }
 
 export const DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4-6'
@@ -19,6 +20,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     badge: 'Référence',
     color: '#CC785C',
     maxTokens: 8192,
+    temperature: 0.3,
   },
   {
     id: 'mistralai/mistral-large-2512',
@@ -28,6 +30,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     badge: 'Recommandé',
     color: '#FA520F',
     maxTokens: 8192,
+    temperature: 0.1,
   },
   {
     id: 'mistralai/mistral-small-2603',
@@ -37,6 +40,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     badge: 'Économique',
     color: '#FA520F',
     maxTokens: 8192,
+    temperature: 0.1,
   },
 ]
 

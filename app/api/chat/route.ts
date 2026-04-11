@@ -298,7 +298,8 @@ export async function POST(req: NextRequest) {
   // ── Étape 4 : Génération en streaming direct ──
 
   try {
-    const llmStream = await openRouterStreamWithFallback(messages, getModelById(selectedModel).maxTokens, selectedModel)
+    const modelConfig = getModelById(selectedModel)
+    const llmStream = await openRouterStreamWithFallback(messages, modelConfig.maxTokens, selectedModel, modelConfig.temperature)
 
     // Auto-indexer : tee systématique pour capturer la réponse et indexer
     // les articles/arrêts cités mais absents de pgvector, quel que soit le nombre de chunks
