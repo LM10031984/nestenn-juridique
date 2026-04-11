@@ -97,11 +97,12 @@ export async function openRouterStream(
 export async function openRouterStreamWithFallback(
   messages: OpenRouterMessage[],
   maxTokens: number = 2000,
+  model: string = MODELS.MAIN,
 ): Promise<ReadableStream<Uint8Array>> {
   try {
-    return await openRouterStream(messages, MODELS.MAIN, maxTokens)
+    return await openRouterStream(messages, model, maxTokens)
   } catch (err) {
-    console.warn('[openrouter] MAIN model down — fallback:', err)
+    console.warn('[openrouter] model down — fallback:', err)
     return await openRouterStream(messages, MODELS.FALLBACK, maxTokens)
   }
 }

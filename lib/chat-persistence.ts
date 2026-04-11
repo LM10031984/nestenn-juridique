@@ -62,11 +62,14 @@ export async function saveMessage(
   conversationId: string,
   role: 'user' | 'assistant',
   content: string,
+  modelUsed?: string,
 ): Promise<string | null> {
   const supabase = createClient()
+  const payload: Record<string, unknown> = { conversation_id: conversationId, role, content }
+  if (modelUsed) payload.model_used = modelUsed
   const { data, error } = await supabase
     .from('messages')
-    .insert({ conversation_id: conversationId, role, content })
+    .insert(payload)
     .select('id')
     .single()
 

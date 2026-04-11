@@ -7,6 +7,8 @@ export const dynamic = 'force-dynamic'
 import { NextRequest } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { openRouterStreamWithFallback, openRouterChat, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
+import { DEFAULT_MODEL_ID, isAllowedModel } from '@/lib/model-config'
+import { getApiUser } from '@/lib/auth'
 import { getSystemPromptAugmented } from '@/lib/system-prompt'
 import { fetchRelevantSources } from '@/lib/sources'
 import type { JuriCase } from '@/lib/sources'
@@ -101,6 +103,7 @@ interface ChatRequestBody {
   sessionId?: string
   messageId?: string   // UUID Supabase du message user, pour le logging analytics
   conversationId?: string // UUID Supabase de la conversation
+  model?: string       // Modèle LLM demandé (super_admin uniquement)
 }
 
 // ── Pipeline principal ──
@@ -114,6 +117,21 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as ChatRequestBody
   const trimmedMessage = (body.message ?? '').trim().slice(0, MAX_MESSAGE_LENGTH)
   const { messageId, conversationId } = body
+
+  // Sélection du modèle — fallback silencieux sur le défaut si invalide
+  const requestedModel = body.model as string | undefined
+  const selectedModel = (requestedModel && isAllowedModel(requestedModel))
+    ? requestedModel
+    : DEFAULT_MODEL_ID
+
+  // Défense en profondeur : vérifier les droits côté serveur si modèle non-défaut
+  if (selectedModel !== DEFAULT_MODEL_ID) {
+    const authResult = await getApiUser()
+    if ('error' in authResult) return authResult.error
+    if (!authResult.user.can_switch_model) {
+      return Response.json({ error: 'Changement de modèle non autorisé' }, { status: 403 })
+    }
+  }
 
   if (!trimmedMessage) {
     return Response.json({ error: 'Message vide' }, { status: 400 })
@@ -186,7 +204,7 @@ export async function POST(req: NextRequest) {
             if (holding.length > 100) {
               try {
                 const summary = await openRouterChat(
-                  [{ role: 'user', content: `Résume en 1-2 phrases le principe juridique de cet arrêt n° ${juri.number}.\n\nTexte : ${holding.slice(0, 2000)}\n\nRésumé :` }],
+                  [{ role: 'user', content: `Résume en 1-2 phrases le principe juridique de cet arrêt. Donne uniquement le principe retenu. Ne commence PAS par "L'arrêt n°..." ou "Cet arrêt...". Commence directement par le principe.\n\nTexte : ${holding.slice(0, 2000)}\n\nRésumé :` }],
                   MODELS.FILTER,
                   150
                 )
@@ -280,7 +298,7 @@ export async function POST(req: NextRequest) {
   // ── Étape 4 : Génération en streaming direct ──
 
   try {
-    const llmStream = await openRouterStreamWithFallback(messages, 2000)
+    const llmStream = await openRouterStreamWithFallback(messages, 2000, selectedModel)
 
     // Auto-indexer : tee systématique pour capturer la réponse et indexer
     // les articles/arrêts cités mais absents de pgvector, quel que soit le nombre de chunks
@@ -336,6 +354,7 @@ export async function POST(req: NextRequest) {
         'X-Juri-Count': String(liveJuriCases.length + filteredPgJuriCases.length),
         'X-Domain': primaryDomain ?? '',
         'X-Response-Mode': responseMode,
+        'X-Model-Used': selectedModel,
       },
     })
   } catch (err) {
