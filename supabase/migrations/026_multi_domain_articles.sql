@@ -56,7 +56,9 @@ COMMENT ON COLUMN jurisprudence.domain IS
 -- Changement clé : domain = ANY(boost_domains) → domains && boost_domains
 -- Le boost est calculé sur le tableau domains, pas sur le champ scalaire domain.
 
-CREATE OR REPLACE FUNCTION search_all_legal_context(
+-- DROP nécessaire car le type de retour change (PostgreSQL refuse CREATE OR REPLACE)
+DROP FUNCTION IF EXISTS search_all_legal_context(vector, integer, text[]);
+CREATE FUNCTION search_all_legal_context(
     query_embedding  vector(768),
     match_count      int     DEFAULT 8,
     boost_domains    text[]  DEFAULT NULL
