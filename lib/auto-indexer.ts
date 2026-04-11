@@ -312,15 +312,32 @@ async function fetchArticleFromLegifrance(
 }
 
 // ── 5. Classification domaine ─────────────────────────────────────────────
+// NOTE : fiscalite est conservé pour rétro-compatibilité avec les articles déjà indexés.
+// Les nouveaux articles fiscaux doivent être classés dans fiscalite_investisseurs.
 
-const VALID_DOMAINS = ['baux_habitation', 'copropriete', 'agent_immobilier', 'vente_immobiliere', 'urbanisme', 'diagnostics', 'construction', 'bail_commercial', 'fiscalite', 'servitudes', 'viager_demembrement', 'litiges']
+const VALID_DOMAINS = [
+  // Domaines existants
+  'baux_habitation', 'gestion_locative',
+  'copropriete', 'syndic_copropriete',
+  'agent_immobilier',
+  'vente_immobiliere', 'diagnostics', 'construction',
+  'urbanisme', 'bail_commercial', 'viager_demembrement',
+  // Rétro-compat (anciens articles déjà indexés)
+  'fiscalite', 'servitudes', 'litiges',
+  // Nouveaux domaines V1
+  'droit_social_immo', 'fiscalite_investisseurs', 'sci_patrimoine',
+  // Nouveaux domaines V2
+  'responsabilite_agent', 'location_touristique',
+  // Nouveaux domaines V3
+  'conformite_lcb_ft', 'rgpd_agence',
+]
 
 export async function classifyArticleDomain(text: string): Promise<string> {
   try {
     const result = await openRouterChat([{
       role: 'user',
-      content: `Classe cet article de loi dans UN seul de ces domaines. Réponds uniquement avec le domaine exact :
-baux_habitation, copropriete, agent_immobilier, vente_immobiliere, urbanisme, diagnostics, construction, bail_commercial, fiscalite, servitudes, viager_demembrement, litiges
+      content: `Classe cet article de loi dans UN seul de ces domaines. Réponds uniquement avec le domaine exact (un seul mot, pas d'explication) :
+baux_habitation, gestion_locative, copropriete, syndic_copropriete, agent_immobilier, vente_immobiliere, diagnostics, construction, urbanisme, bail_commercial, viager_demembrement, droit_social_immo, fiscalite_investisseurs, sci_patrimoine, responsabilite_agent, location_touristique, conformite_lcb_ft, rgpd_agence, fiscalite, servitudes, litiges
 
 Texte : ${text.slice(0, 500)}
 
@@ -650,6 +667,7 @@ export async function autoIndexMissingArticles(
       if (!embedding) continue
 
       // Upsert
+      const detectedDomain = await classifyArticleDomain(articleData.texte)
       const { error } = await supabase
         .from('legal_articles')
         .upsert({
@@ -660,7 +678,8 @@ export async function autoIndexMissingArticles(
           content_summary: JSON.stringify(summary),
           date_version:    new Date().toISOString().split('T')[0],
           url:             articleData.url,
-          domain:          await classifyArticleDomain(articleData.texte),
+          domain:          detectedDomain,
+          domains:         [detectedDomain],
           sub_themes:      [],
           in_force:        true,
           embedding,
