@@ -5,6 +5,7 @@ export interface ModelConfig {
   description: string
   badge?: string
   color: string
+  maxTokens: number
 }
 
 export const DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4-6'
@@ -17,6 +18,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     description: 'Qualité maximale (référence actuelle)',
     badge: 'Référence',
     color: '#CC785C',
+    maxTokens: 8192,
   },
   {
     id: 'mistralai/mistral-large-2512',
@@ -25,6 +27,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     description: 'Flagship français, RGPD natif, 256K context',
     badge: 'Recommandé',
     color: '#FA520F',
+    maxTokens: 8192,
   },
   {
     id: 'mistralai/mistral-small-2603',
@@ -33,6 +36,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     description: 'Ultra économique, raisonnement Magistral intégré',
     badge: 'Économique',
     color: '#FA520F',
+    maxTokens: 8192,
   },
 ]
 

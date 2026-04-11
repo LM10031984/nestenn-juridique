@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { openRouterStreamWithFallback, openRouterChat, MODELS, type OpenRouterMessage } from '@/lib/openrouter'
-import { DEFAULT_MODEL_ID, isAllowedModel } from '@/lib/model-config'
+import { DEFAULT_MODEL_ID, isAllowedModel, getModelById } from '@/lib/model-config'
 import { getApiUser } from '@/lib/auth'
 import { getSystemPromptAugmented } from '@/lib/system-prompt'
 import { fetchRelevantSources } from '@/lib/sources'
@@ -298,7 +298,7 @@ export async function POST(req: NextRequest) {
   // ── Étape 4 : Génération en streaming direct ──
 
   try {
-    const llmStream = await openRouterStreamWithFallback(messages, 2000, selectedModel)
+    const llmStream = await openRouterStreamWithFallback(messages, getModelById(selectedModel).maxTokens, selectedModel)
 
     // Auto-indexer : tee systématique pour capturer la réponse et indexer
     // les articles/arrêts cités mais absents de pgvector, quel que soit le nombre de chunks
