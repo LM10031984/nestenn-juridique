@@ -69,7 +69,8 @@ export async function openRouterChat(
 export async function openRouterStream(
   messages: OpenRouterMessage[],
   model: string = MODELS.MAIN,
-  maxTokens: number = 4000
+  maxTokens: number = 4000,
+  temperature: number = 0.3,
 ): Promise<ReadableStream<Uint8Array>> {
   const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -78,6 +79,7 @@ export async function openRouterStream(
       model,
       messages,
       max_tokens: maxTokens,
+      temperature,
       stream: true,
     }),
   })
@@ -97,11 +99,13 @@ export async function openRouterStream(
 export async function openRouterStreamWithFallback(
   messages: OpenRouterMessage[],
   maxTokens: number = 2000,
+  model: string = MODELS.MAIN,
+  temperature: number = 0.3,
 ): Promise<ReadableStream<Uint8Array>> {
   try {
-    return await openRouterStream(messages, MODELS.MAIN, maxTokens)
+    return await openRouterStream(messages, model, maxTokens, temperature)
   } catch (err) {
-    console.warn('[openrouter] MAIN model down — fallback:', err)
-    return await openRouterStream(messages, MODELS.FALLBACK, maxTokens)
+    console.warn('[openrouter] model down — fallback:', err)
+    return await openRouterStream(messages, MODELS.FALLBACK, maxTokens, temperature)
   }
 }

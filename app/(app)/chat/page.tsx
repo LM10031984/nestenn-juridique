@@ -6,6 +6,9 @@ import { Send, Scale, AlertTriangle, Mic, Paperclip, FileText, X } from 'lucide-
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
+import { ModelSelector } from '@/components/ModelSelector'
+import { DEFAULT_MODEL_ID } from '@/lib/model-config'
+import { createClient } from '@/lib/supabase/client'
 import { SuggestionCard } from '@/components/SuggestionCard'
 import { LegalDisclaimer } from '@/components/LegalDisclaimer'
 import { LetterModal } from '@/components/LetterModal'
@@ -102,6 +105,8 @@ export default function ChatPage() {
   const [isListening, setIsListening] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID)
+  const [canSwitchModel, setCanSwitchModel] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
 
@@ -120,6 +125,19 @@ export default function ChatPage() {
   function setLoading(convId: string, value: boolean) {
     setConversationLoading(prev => ({ ...prev, [convId]: value }))
   }
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data } = await supabase
+        .from('users')
+        .select('can_switch_model')
+        .eq('id', user.id)
+        .single()
+      if (data?.can_switch_model) setCanSwitchModel(true)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const SRClass = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
@@ -269,6 +287,7 @@ export default function ChatPage() {
     const assistantId = genId()
     let finalContent = ''
     let isRejection = false
+    let modelUsed: string | undefined
 
     // Persistance Supabase
     let dbMessageId: string | null = null
@@ -296,6 +315,7 @@ export default function ChatPage() {
           conversationHistory: (conversationMessages[convId] ?? []).slice(-10).map(m => ({ role: m.role, content: m.content })),
           messageId: dbMessageId ?? undefined,
           conversationId: supabaseConvIds.current[convId] ?? undefined,
+          model: canSwitchModel ? selectedModel : undefined,
         }),
       })
 
@@ -304,6 +324,8 @@ export default function ChatPage() {
         setMsgs(convId, prev => [...prev, { id: assistantId, role: 'assistant', content: err.error ?? 'Erreur survenue.', isRejection: true, timestamp: new Date() }])
         return
       }
+
+      modelUsed = res.headers.get('X-Model-Used') ?? undefined
 
       const ct = res.headers.get('Content-Type') ?? ''
       if (ct.includes('application/json')) {
@@ -361,6 +383,11 @@ export default function ChatPage() {
     } finally {
       setLoading(convId, false)
       if (finalContent) {
+        // Sauvegarder la réponse assistant en Supabase avec le modèle utilisé
+        const sbConvId = supabaseConvIds.current[convId]
+        if (sbConvId) {
+          saveMessage(sbConvId, 'assistant', finalContent, modelUsed).catch(() => {})
+        }
         setMsgs(convId, prev => {
           const firstUser = prev.find(m => m.role === 'user')
           const title = firstUser ? generateTitle(firstUser.content) : 'Nouvelle conversation'
@@ -427,10 +454,17 @@ export default function ChatPage() {
           <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
             <Scale className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-sm font-semibold text-foreground">Assistant Juridique</h1>
             <p className="text-[11px] text-muted-foreground">Droit immobilier français • Sources Légifrance</p>
           </div>
+          {canSwitchModel && (
+            <ModelSelector
+              selected={selectedModel}
+              onChange={setSelectedModel}
+              disabled={isLoading}
+            />
+          )}
         </div>
       </div>
 

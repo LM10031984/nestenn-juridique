@@ -11,6 +11,7 @@ export interface AuthUser {
   role: UserRole
   status: UserStatus
   agency_id: string | null
+  can_switch_model: boolean
 }
 
 // Retourne l'utilisateur connecté ou null
@@ -21,7 +22,7 @@ export async function getUser(): Promise<AuthUser | null> {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('full_name, role, status, agency_id')
+    .select('full_name, role, status, agency_id, can_switch_model')
     .eq('id', user.id)
     .single()
 
@@ -34,6 +35,7 @@ export async function getUser(): Promise<AuthUser | null> {
     role: profile.role as UserRole,
     status: profile.status as UserStatus,
     agency_id: profile.agency_id,
+    can_switch_model: profile.can_switch_model ?? false,
   }
 }
 
