@@ -313,9 +313,15 @@ async function fetchArticleFromLegifrance(
 
 // ── 5. Classification domaine ─────────────────────────────────────────────
 
+import { FEATURES } from '@/lib/config'
+import { handleUnclassifiedArticle } from '@/lib/pending-domains'
+
 const VALID_DOMAINS = ['baux_habitation', 'copropriete', 'agent_immobilier', 'vente_immobiliere', 'urbanisme', 'diagnostics', 'construction', 'bail_commercial', 'fiscalite', 'servitudes', 'viager_demembrement', 'litiges']
 
-export async function classifyArticleDomain(text: string): Promise<string> {
+export async function classifyArticleDomain(
+  text: string,
+  article?: { id: string; content: string; title: string },
+): Promise<string> {
   try {
     const result = await openRouterChat([{
       role: 'user',
@@ -327,7 +333,22 @@ Texte : ${text.slice(0, 500)}
 Domaine :`,
     }], MODELS.FILTER, 20)
     const domain = result.trim().toLowerCase().replace(/[^a-z_]/g, '')
-    return VALID_DOMAINS.includes(domain) ? domain : 'autres'
+
+    if (VALID_DOMAINS.includes(domain)) {
+      return domain
+    }
+
+    // Domaine non reconnu → article non classifiable avec confiance suffisante
+    if (FEATURES.DYNAMIC_DOMAINS && article) {
+      // scores simulés : confiance nulle pour les domaines existants (aucun match)
+      const scores: Record<string, number> = {}
+      VALID_DOMAINS.forEach(d => { scores[d] = 0 })
+      void handleUnclassifiedArticle(article, { scores }).catch(err => {
+        console.error('[auto-indexer] handleUnclassifiedArticle failed:', err)
+      })
+    }
+
+    return 'autres'
   } catch {
     return 'autres'
   }
