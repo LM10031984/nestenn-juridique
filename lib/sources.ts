@@ -114,9 +114,15 @@ export async function fetchRelevantSources(
       return empty
     }
 
-    const rows = ((data ?? []) as PgVectorRow[])
+    const rawRows = (data ?? []) as PgVectorRow[]
+    console.info(
+      `[sources][DEBUG] RPC=${rawRows.length} rows | `
+      + `top3: ${rawRows.slice(0,3).map(r => `${r.source}|sim=${r.similarity?.toFixed(3)}|${r.title?.slice(0,40)}`).join(' || ')}`
+    )
+    const rows = rawRows
       .filter(r => r.similarity >= threshold)
       .slice(0, maxResults)
+    console.info(`[sources][DEBUG] Après filter sim>=${threshold}: ${rows.length} rows | threshold type=${typeof threshold}`)
 
     const chunks: SourceChunk[] = rows
       .filter(r => r.source === 'article')
