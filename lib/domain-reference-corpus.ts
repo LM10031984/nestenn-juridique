@@ -420,6 +420,50 @@ export const DOMAIN_CORPUS: DomainSpec[] = [
     conflictDomains: ['baux_habitation'],
   },
 
+  {
+    code: 'environnement_immo',
+    label: 'Environnement et pollution immobilière',
+    description: 'Sols pollués, ICPE, SIS/BASOL/BASIAS, ERP, responsabilité environnementale, dépollution — obligations vendeur, droits acheteur',
+    vague: 'V2',
+    minArticles: 30,
+    minJurisprudence: 15,
+    sources: [
+      {
+        id: 'env-sis',
+        label: "Code de l'environnement — Information sur les sols pollués (L.125-1 à L.125-9)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA000025107714',
+        fond: 'CODE_DATE',
+      },
+      {
+        id: 'env-icpe',
+        label: "Code de l'environnement — ICPE Dispositions générales (L.511-1 et s.)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA000006159272',
+        fond: 'CODE_DATE',
+      },
+      {
+        id: 'env-responsabilite',
+        label: "Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA000019279173',
+        fond: 'CODE_DATE',
+      },
+      {
+        id: 'env-sis-travaux',
+        label: "Code de l'environnement — Sites et sols pollués (L.556-1 à L.556-3)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA000023687435',
+        fond: 'CODE_DATE',
+      },
+    ],
+    judilibreKeywords: ['pollution sols vente immobilière', 'ICPE installation classée responsabilité', 'site pollué vendeur obligation information', 'dépollution terrain acquéreur', 'SIS secteur information sols'],
+    judilibreTheme: 'vente immobilière',
+    judilibreChamber: 'civ3',
+    benchmarkThemes: ['environnement'],
+    conflictDomains: ['vente_immobiliere', 'diagnostics'],
+  },
+
   // ── NOUVEAUX DOMAINES V3 — Conformité réseau ─────────────────────────────
 
   {

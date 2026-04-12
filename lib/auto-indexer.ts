@@ -34,6 +34,10 @@ const LEGITEXT_MAP: Record<string, string> = {
   'pénal':        'LEGITEXT000006069719', 'code pénal': 'LEGITEXT000006069719',
   'santé':        'LEGITEXT000006072665', 'santé publique': 'LEGITEXT000006072665', 'csp': 'LEGITEXT000006072665',
   'travail':      'LEGITEXT000006072050', 'code travail': 'LEGITEXT000006072050',
+  'environnement':      'LEGITEXT000006074220',
+  'code environnement': 'LEGITEXT000006074220',
+  'code env':           'LEGITEXT000006074220',
+  'env':                'LEGITEXT000006074220',
 }
 
 // ── 1. Extraction des références d'articles ──────────────────────────────
@@ -314,7 +318,7 @@ const VALID_DOMAINS = [
   // Nouveaux domaines V1
   'droit_social_immo', 'fiscalite_investisseurs', 'sci_patrimoine',
   // Nouveaux domaines V2
-  'responsabilite_agent', 'location_touristique',
+  'responsabilite_agent', 'location_touristique', 'environnement_immo',
   // Nouveaux domaines V3
   'conformite_lcb_ft', 'rgpd_agence',
 ]
@@ -327,7 +331,7 @@ export async function classifyArticleDomain(
     const result = await openRouterChat([{
       role: 'user',
       content: `Classe cet article de loi dans UN seul de ces domaines. Réponds uniquement avec le domaine exact (un seul mot, pas d'explication) :
-baux_habitation, gestion_locative, copropriete, syndic_copropriete, agent_immobilier, vente_immobiliere, diagnostics, construction, urbanisme, bail_commercial, viager_demembrement, droit_social_immo, fiscalite_investisseurs, sci_patrimoine, responsabilite_agent, location_touristique, conformite_lcb_ft, rgpd_agence, fiscalite, servitudes, litiges
+baux_habitation, gestion_locative, copropriete, syndic_copropriete, agent_immobilier, vente_immobiliere, diagnostics, construction, urbanisme, bail_commercial, viager_demembrement, droit_social_immo, fiscalite_investisseurs, sci_patrimoine, responsabilite_agent, location_touristique, environnement_immo, conformite_lcb_ft, rgpd_agence, fiscalite, servitudes, litiges
 
 Texte : ${text.slice(0, 500)}
 

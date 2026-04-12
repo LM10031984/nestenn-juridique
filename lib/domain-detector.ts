@@ -119,6 +119,20 @@ const DOMAIN_KEYWORDS: Array<{
                'taxe de séjour', 'numéro d\'enregistrement'],
     domain: { name: 'location_saisonniere', judilibreTheme: "bail d'habitation", judilibreChamber: 'civ3' },
   },
+  {
+    keywords: ['pollution', 'pollué', 'contaminé', 'dépollution',
+               'icpe', 'installation classée',
+               'sis', 'secteur information sol', 'secteur d\'information sur les sols',
+               'basol', 'basias',
+               'erp', 'état des risques et pollutions',
+               'seveso',
+               'responsabilité environnementale',
+               'site industriel', 'friche',
+               'pollueur-payeur', 'pollueur payeur',
+               'sol pollué', 'terrain pollué',
+               'georisques', 'géorisques'],
+    domain: { name: 'environnement_immo', judilibreTheme: 'vente immobilière', judilibreChamber: 'civ3' },
+  },
 ]
 
 /**
