@@ -105,7 +105,7 @@ export async function fetchRelevantSources(
 
     const { data, error } = await supabase.rpc('search_all_legal_context', {
       query_embedding: embedding,
-      match_count: maxResults + 4,
+      match_count: Math.max(maxResults * 4, 30),
       boost_domains: boostDomains?.length ? boostDomains : null,
     })
 
