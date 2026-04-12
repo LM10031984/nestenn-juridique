@@ -124,14 +124,16 @@ export async function fetchRelevantSources(
       .slice(0, maxResults)
     console.info(`[sources][DEBUG] Après filter sim>=${threshold}: ${rows.length} rows | threshold type=${typeof threshold}`)
 
+    console.info(`[sources][DEBUG] sources types in rows: ${rows.map(r => r.source).join(',')}`)
     const chunks: SourceChunk[] = rows
       .filter(r => r.source === 'article')
       .map(rowToChunk)
-
+    console.info(`[sources][DEBUG] chunks après filter+map: ${chunks.length} | first: ${JSON.stringify(chunks[0])?.slice(0,300)}`)
     const juriCases: JuriCase[] = rows
       .filter(r => r.source === 'arret')
       .map(rowToJuriCase)
       .filter((c): c is JuriCase => c !== null)
+    console.info(`[sources][DEBUG] juriCases après filter+map+notnull: ${juriCases.length}`)
 
     console.info(
       `[sources] ${chunks.length} articles + ${juriCases.length} arrêts `
