@@ -43,7 +43,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown :
   "legalSummary": "Possibilité de renégocier le contrat de syndic avant son terme par décision d'AG"
 }
 
-Domaines valides : baux_habitation, copropriete, agent_immobilier, vente_immobiliere, diagnostics, construction, urbanisme, fiscalite, sci_societes, bail_commercial, consommation, viager_demembrement, location_saisonniere, responsabilite_civile
+Domaines valides : baux_habitation, gestion_locative, copropriete, syndic_copropriete, agent_immobilier, vente_immobiliere, diagnostics, construction, urbanisme, bail_commercial, viager_demembrement, droit_social_immo, fiscalite_investisseurs, sci_patrimoine, responsabilite_agent, location_touristique, environnement_immo, conformite_lcb_ft, rgpd_agence
 
 Pour les lois, utilise ces noms exacts :
 - "loi 65-557" (copropriété)

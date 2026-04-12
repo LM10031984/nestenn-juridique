@@ -420,6 +420,54 @@ export const DOMAIN_CORPUS: DomainSpec[] = [
     conflictDomains: ['baux_habitation'],
   },
 
+  {
+    code: 'environnement_immo',
+    label: 'Environnement et pollution immobilière',
+    description: 'Sols pollués, ICPE, SIS/BASOL/BASIAS, ERP, responsabilité environnementale, dépollution — obligations vendeur, droits acheteur',
+    vague: 'V2',
+    minArticles: 30,
+    minJurisprudence: 15,
+    sources: [
+      {
+        id: 'env-sis',
+        label: "Code de l'environnement — Information sur les sols pollués (L.125-6 et s.)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA_À_VALIDER',
+        fond: 'CODE_DATE',
+        notes: 'Section à valider sur Légifrance : art. L.125-6 à L.125-7. URL de départ : https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000046088499',
+      },
+      {
+        id: 'env-icpe',
+        label: "Code de l'environnement — ICPE (L.511-1 et s.)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA_À_VALIDER',
+        fond: 'CODE_DATE',
+        notes: 'Section à valider sur Légifrance : art. L.511-1 à L.517-1. URL de départ : https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000033023101',
+      },
+      {
+        id: 'env-responsabilite',
+        label: "Code de l'environnement — Responsabilité environnementale (L.160-1 et s.)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA_À_VALIDER',
+        fond: 'CODE_DATE',
+        notes: 'Section à valider sur Légifrance : art. L.160-1 à L.165-2. URL de départ : https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000022491725',
+      },
+      {
+        id: 'env-sis-travaux',
+        label: "Code de l'environnement — Sites et sols pollués (L.556-1 et s.)",
+        legitext: 'LEGITEXT000006074220',
+        sctCid: 'LEGISCTA_À_VALIDER',
+        fond: 'CODE_DATE',
+        notes: 'Section à valider sur Légifrance : art. L.556-1 à L.556-3. URL de départ : https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000031055057',
+      },
+    ],
+    judilibreKeywords: ['pollution sols vente immobilière', 'ICPE installation classée responsabilité', 'site pollué vendeur obligation information', 'dépollution terrain acquéreur', 'SIS secteur information sols'],
+    judilibreTheme: 'vente immobilière',
+    judilibreChamber: 'civ3',
+    benchmarkThemes: ['environnement'],
+    conflictDomains: ['vente_immobiliere', 'diagnostics'],
+  },
+
   // ── NOUVEAUX DOMAINES V3 — Conformité réseau ─────────────────────────────
 
   {
