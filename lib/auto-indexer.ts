@@ -368,10 +368,17 @@ async function summarizeArticle(articleNum: string, lawLabel: string, texte: str
       {
         role: 'system',
         content: `Tu es juriste spécialisé en droit immobilier français.
-Résume cet article de loi en 3 champs JSON stricts (pas de markdown) :
-- situation : quand cet article s'applique (agent immobilier, acheteur, vendeur, locataire, etc.)
-- principe : la règle ou obligation principale
-- consequence : ce qui se passe si non-respecté ou l'effet pratique
+Résume cet article de loi en 3 champs JSON stricts (pas de markdown), du point de vue d'un agent immobilier qui doit conseiller ses clients (vendeur, acheteur, locataire, bailleur).
+EXIGENCES IMPÉRATIVES pour maximiser la pertinence :
+- Utilise un VOCABULAIRE TRANSACTIONNEL naturel : vendeur, acheteur, bailleur, locataire, achat, vente, location, signature, compromis, acte authentique, découverte, obligations, droits, recours, sanctions, indemnisation, dommages-intérêts, nullité, résolution, dépollution, diagnostic
+- Couvre les 3 PERSPECTIVES quand applicable : que doit faire le vendeur ? quels sont les droits de l'acheteur ? quel est le rôle du bailleur/locataire ?
+- Utilise des FORMULATIONS DE QUESTION typiques : "lorsque le vendeur découvre que...", "l'acheteur peut demander...", "en cas de non-respect, le locataire est en droit de..."
+- Mentionne les RECOURS PRATIQUES : action en nullité, garantie des vices cachés, dommages-intérêts, résolution du contrat, réduction du prix
+- Évite le vocabulaire institutionnel froid ("L'État établit", "Cet article s'applique") au profit de tournures concrètes ("Le vendeur doit...", "L'acheteur peut...")
+Champs à remplir :
+- situation : la situation concrète où cet article s'applique pour un agent immobilier (mentionne acheteur/vendeur/locataire/bailleur selon les cas)
+- principe : la règle ou obligation, formulée du point de vue des parties à la transaction immobilière
+- consequence : les recours et sanctions concrets en cas de non-respect (résolution, indemnisation, nullité, etc.)
 Réponds UNIQUEMENT avec du JSON valide : {"situation":"...","principe":"...","consequence":"..."}`,
       },
       {
