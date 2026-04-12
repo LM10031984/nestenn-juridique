@@ -4,6 +4,8 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { openRouterChat, MODELS } from '@/lib/openrouter'
+import { FEATURES } from '@/lib/config'
+import { handleUnclassifiedArticle } from '@/lib/pending-domains'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,7 +44,6 @@ interface ArticleRef {
   legitextId: string | null
 }
 
-// Table des lois connues — correspondance nom complet → LEGITEXT
 const KNOWN_LAWS: Record<string, string> = {
   'code civil':                                    'LEGITEXT000006070721',
   'code de la santé publique':                     'LEGITEXT000006072665',
@@ -56,9 +57,6 @@ const KNOWN_LAWS: Record<string, string> = {
   'code de procédure civile':                      'LEGITEXT000006070716',
 }
 
-// Cherche la loi la plus proche de l'article (150 chars avant ET après)
-// Retourne le nom dont la fin (zone avant) ou le début (zone après) est le plus proche
-// — évite de matcher "santé publique" quand "environnement" est plus proche
 function findLawInText(text: string, articlePosition: number): { name: string; legitext: string } | null {
   const lower = text.toLowerCase()
   const beforeStart = Math.max(0, articlePosition - 150)
@@ -70,13 +68,11 @@ function findLawInText(text: string, articlePosition: number): { name: string; l
   let bestDist = Infinity
 
   for (const [name, legitext] of Object.entries(KNOWN_LAWS)) {
-    // Zone avant : prendre la dernière occurrence (la plus proche de l'article)
     const bi = beforeZone.lastIndexOf(name)
     if (bi !== -1) {
-      const dist = beforeZone.length - bi - name.length  // chars entre fin du nom et l'article
+      const dist = beforeZone.length - bi - name.length
       if (dist < bestDist) { bestDist = dist; best = { name, legitext } }
     }
-    // Zone après : prendre la première occurrence
     const ai = afterZone.indexOf(name)
     if (ai !== -1) {
       if (ai < bestDist) { bestDist = ai; best = { name, legitext } }
@@ -85,7 +81,6 @@ function findLawInText(text: string, articlePosition: number): { name: string; l
 
   if (best) return best
 
-  // Lois par numéro : "loi n° 89-462"
   const searchZone = beforeZone + ' ' + afterZone
   const lawNumMatch = searchZone.match(/loi\s+n[o°]?\s*([\d]{2,4}-[\d]+)/)
   if (lawNumMatch) {
@@ -100,7 +95,6 @@ export function extractArticleReferences(text: string): ArticleRef[] {
   const refs: ArticleRef[] = []
   const seen = new Set<string>()
 
-  // Pattern élargi : capture aussi les suffixes CGI ("150 U II 1°", "199 novovicies", "261 D")
   const articlePattern = /\bart(?:icle)?\.?\s*([LRDA]\.?\s*\d[\d.\-]+(?:\s+[A-Z]+(?:\s+[IVX]+)?(?:\s+\d+°?)?)?|\d[\d.\-]*(?:\s+[A-Z][a-z]*)?(?:\s+[A-Z]+(?:\s+[IVX]+)?(?:\s+\d+°?)?)?)/gi
 
   for (const match of text.matchAll(articlePattern)) {
@@ -169,10 +163,8 @@ async function getPisteToken(): Promise<string | null> {
   }
 }
 
-// ── 4. Fetch article — pipeline éprouvé de index-new-articles.ts ─────────────
-// tableMatieres → LEGIARTI ID → getArticle (+ fallback /search NUM_ARTICLE)
+// ── 4. Fetch article ──────────────────────────────────────────────────────
 
-// Map LEGITEXT → NOM_CODE pour le fallback /search
 const CODE_NAMES: Record<string, string> = {
   'LEGITEXT000006070721': 'Code civil',
   'LEGITEXT000006074096': "Code de la construction et de l'habitation",
@@ -194,8 +186,6 @@ function collectSectionArticles(node: { articles?: Array<{ id: string; num: stri
   return out
 }
 
-// Génère les variantes du plus précis au plus large pour les articles CGI
-// "150 U II 1°" → ["150 U II 1°", "150 U II", "150 U", "150"]
 function getArticleCandidates(articleNum: string): string[] {
   const noDot = articleNum.replace(/^([LRDA])\./, '$1')
   const base = noDot !== articleNum ? [articleNum, noDot] : [articleNum]
@@ -211,7 +201,6 @@ async function findLegiartiId(token: string, legitextId: string, articleNum: str
   const today = new Date().toISOString().split('T')[0]
   const candidates = getArticleCandidates(articleNum)
 
-  // Tentative 1 : tableMatieres — essaye searchArticle du plus précis au plus large
   for (const candidate of candidates) {
     try {
       console.info(`[auto-indexer] tableMatieres : textId=${legitextId} searchArticle=${candidate}`)
@@ -228,7 +217,6 @@ async function findLegiartiId(token: string, legitextId: string, articleNum: str
         const found = allArts.find(a => candidates.includes(a.num))
         if (found) { console.info(`[auto-indexer] LEGIARTI trouvé : ${found.id}`); return found.id }
       } else if (res.status === 400) {
-        // tableMatieres ne fonctionne pas pour les lois numérotées (ex: loi 65-557) — fallback direct
         console.info(`[auto-indexer] tableMatieres HTTP 400, fallback getArticleWithIdAndNum (textId=${legitextId} articleNum=${candidate})`)
         try {
           const fallbackRes = await fetch(`${PISTE_API_BASE}/consult/getArticleWithIdAndNum`, {
@@ -247,14 +235,13 @@ async function findLegiartiId(token: string, legitextId: string, articleNum: str
             console.warn(`[auto-indexer] getArticleWithIdAndNum HTTP ${fallbackRes.status}`)
           }
         } catch (e) { console.warn('[auto-indexer] getArticleWithIdAndNum erreur :', e) }
-        break // 400 = pas un code, inutile d'essayer les autres candidats via tableMatieres
+        break
       } else {
         console.warn(`[auto-indexer] tableMatieres HTTP ${res.status}`)
       }
     } catch (e) { console.warn('[auto-indexer] tableMatieres erreur :', e) }
   }
 
-  // Tentative 2 : /search NUM_ARTICLE + NOM_CODE — essaye du plus précis au plus large
   const codeName = CODE_NAMES[legitextId]
   if (codeName) {
     for (const candidate of candidates) {
@@ -332,7 +319,10 @@ const VALID_DOMAINS = [
   'conformite_lcb_ft', 'rgpd_agence',
 ]
 
-export async function classifyArticleDomain(text: string): Promise<string> {
+export async function classifyArticleDomain(
+  text: string,
+  article?: { id: string; content: string; title: string },
+): Promise<string> {
   try {
     const result = await openRouterChat([{
       role: 'user',
@@ -344,13 +334,27 @@ Texte : ${text.slice(0, 500)}
 Domaine :`,
     }], MODELS.FILTER, 20)
     const domain = result.trim().toLowerCase().replace(/[^a-z_]/g, '')
-    return VALID_DOMAINS.includes(domain) ? domain : 'autres'
+
+    if (VALID_DOMAINS.includes(domain)) {
+      return domain
+    }
+
+    // Domaine non reconnu → article non classifiable avec confiance suffisante
+    if (FEATURES.DYNAMIC_DOMAINS && article) {
+      const scores: Record<string, number> = {}
+      VALID_DOMAINS.forEach(d => { scores[d] = 0 })
+      void handleUnclassifiedArticle(article, { scores }).catch(err => {
+        console.error('[auto-indexer] handleUnclassifiedArticle failed:', err)
+      })
+    }
+
+    return 'autres'
   } catch {
     return 'autres'
   }
 }
 
-// ── 6. Summarize (GPT-4o-mini, même prompt que index-legifrance) ──────────
+// ── 6. Summarize (GPT-4o-mini) ────────────────────────────────────────────
 
 async function summarizeArticle(articleNum: string, lawLabel: string, texte: string): Promise<{
   situation: string; principe: string; consequence: string
@@ -380,7 +384,7 @@ Réponds UNIQUEMENT avec du JSON valide : {"situation":"...","principe":"...","c
   }
 }
 
-// ── 6. Embedding Nomic ────────────────────────────────────────────────────
+// ── 7. Embedding Nomic ────────────────────────────────────────────────────
 
 async function embedText(text: string): Promise<number[] | null> {
   try {
@@ -400,7 +404,7 @@ async function embedText(text: string): Promise<number[] | null> {
   }
 }
 
-// ── 7. Auto-index jurisprudence ───────────────────────────────────────────
+// ── 8. Auto-index jurisprudence ───────────────────────────────────────────
 
 const JUDILIBRE_API_URL = process.env.PISTE_ENV === 'sandbox'
   ? 'https://sandbox-api.piste.gouv.fr/cassation/judilibre/v1.0'
@@ -408,21 +412,19 @@ const JUDILIBRE_API_URL = process.env.PISTE_ENV === 'sandbox'
 
 interface CaseRef {
   court: 'cass' | 'ca'
-  number: string  // ex: "18-25.147"
+  number: string
 }
 
 function extractCaseReferences(text: string): CaseRef[] {
   const refs: CaseRef[] = []
   const seen = new Set<string>()
 
-  // "Cass. civ. 3e, ... n° 18-25.147" / "Cass. com., ... n° 20-11.547"
   const cassPattern = /Cass\.\s*(?:civ\.\s*\d+e?|com\.|soc\.|crim\.|ass\.\s*plén\.)[^n°]*?n°\s*([\d]{2}-[\d]{2,5}\.[\d]{3,5})/gi
   for (const m of text.matchAll(cassPattern)) {
     const number = m[1].trim()
     if (!seen.has(number)) { seen.add(number); refs.push({ court: 'cass', number }) }
   }
 
-  // Numéro seul : "n° 18-25.147" (hors contexte Cass. déjà capturé)
   const genericPattern = /\bn°\s*([\d]{2}-[\d]{2,5}\.[\d]{3,5})\b/gi
   for (const m of text.matchAll(genericPattern)) {
     const number = m[1].trim()
@@ -436,13 +438,11 @@ async function fetchDecisionFromJudilibre(token: string, number: string): Promis
   text: string; date: string; url: string; id: string
 } | null> {
   try {
-    // Essayer d'abord par filtre `number` (exact), puis par `query` full-text
-    // Le live search utilise query= et trouve 09-10.218 — number= échoue si format non exact
     const searchAttempts: Array<[string, string]> = [
-      ['number', number],                          // filtre exact "09-10.218"
-      ['number', number.replace(/\./g, '-')],      // "09-10-218"
-      ['query',  number],                          // full-text "09-10.218"
-      ['query',  number.replace(/[-\.]/g, ' ')],   // full-text "09 10 218"
+      ['number', number],
+      ['number', number.replace(/\./g, '-')],
+      ['query',  number],
+      ['query',  number.replace(/[-\.]/g, ' ')],
     ]
 
     let id: string | undefined
@@ -552,7 +552,6 @@ export async function autoIndexMissingJurisprudence(
       if (!decision) {
         console.warn(`[auto-indexer] Arrêt n° ${ref.number} introuvable sur Judilibre`)
 
-        // Ajouter à la queue de retry (silencieux, non bloquant)
         void supabase.from('auto_index_queue').upsert({
           source: 'jurisprudence',
           case_number: ref.number,
@@ -598,7 +597,7 @@ export async function autoIndexMissingJurisprudence(
   }
 }
 
-// ── 8. Pipeline complet auto-index ────────────────────────────────────────
+// ── 9. Pipeline complet auto-index ────────────────────────────────────────
 
 export async function autoIndexMissingArticles(
   responseText: string,
@@ -606,13 +605,12 @@ export async function autoIndexMissingArticles(
 ): Promise<void> {
   console.info(`[auto-indexer] Appelé — responseText=${responseText.length} chars, chunks=${chunksFound}`)
 
-  // Nettoyer le markdown avant l'extraction — évite de capturer **bold** ou *note* comme nom de loi
   const cleanText = responseText
-    .replace(/\*\*([^*]+)\*\*/g, '$1')           // **bold** → bold
-    .replace(/\*([^*]+)\*/g, '$1')               // *italic* → italic
-    .replace(/__([^_]+)__/g, '$1')               // __bold__ → bold
-    .replace(/#{1,3}\s/g, '')                    // ### headers
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')    // [text](url) → text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/#{1,3}\s/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
 
   console.info(`[auto-indexer] Texte à analyser (500 premiers chars) : ${cleanText.slice(0, 500)}`)
   console.info(`[auto-indexer] Matches bruts :`, JSON.stringify(
@@ -636,15 +634,12 @@ export async function autoIndexMissingArticles(
     }
 
     try {
-      // Vérif existence
       if (await isIndexed(ref.legitextId, ref.article)) continue
 
-      // Fetch texte via getArticleWithIdAndNum (pipeline éprouvé)
       const articleData = await fetchArticleFromLegifrance(token, ref.legitextId, ref.article)
       if (!articleData) {
         console.warn(`[auto-indexer] Article introuvable : ${ref.law} art. ${ref.article}`)
 
-        // Ajouter à la queue de retry (silencieux, non bloquant)
         void supabase.from('auto_index_queue').upsert({
           source: 'article',
           law_name: ref.law,
@@ -657,16 +652,13 @@ export async function autoIndexMissingArticles(
         continue
       }
 
-      // Résumé LLM
       const summary = await summarizeArticle(ref.article, ref.law, articleData.texte)
       if (!summary) continue
 
-      // Embedding
       const embeddingText = `${summary.situation} ${summary.principe} ${summary.consequence}`
       const embedding = await embedText(embeddingText)
       if (!embedding) continue
 
-      // Upsert
       const detectedDomain = await classifyArticleDomain(articleData.texte)
       const { error } = await supabase
         .from('legal_articles')
