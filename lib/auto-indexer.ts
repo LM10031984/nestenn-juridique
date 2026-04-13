@@ -49,6 +49,15 @@ interface ArticleRef {
   legitextId: string | null
 }
 
+// Lois référencées par date (ex : "art. 46 de la loi du 10 juillet 1965")
+const LAW_DATE_MAP: Record<string, string> = {
+  '10 juillet 1965': 'LEGITEXT000006068256', // Loi 65-557 — copropriété
+  '2 janvier 1970':  'LEGITEXT000006068387', // Loi 70-9 — Hoguet
+  '6 juillet 1989':  'LEGITEXT000006069108', // Loi 89-462 — baux habitation
+  '23 décembre 1986':'LEGITEXT000006069108', // Loi 86-1290 (ancêtre baux)
+  '1er septembre 1948': 'LEGITEXT000006069108', // Loi 48-1360 (ancien régime)
+}
+
 const KNOWN_LAWS: Record<string, string> = {
   'code civil':                                    'LEGITEXT000006070721',
   'code de la santé publique':                     'LEGITEXT000006072665',
@@ -69,6 +78,23 @@ function findLawInText(text: string, articlePosition: number): { name: string; l
   const beforeZone = lower.slice(beforeStart, articlePosition)
   const afterZone = lower.slice(articlePosition, afterEnd)
 
+  // Priorité 0 : "de la loi [n°] XX-XXX" ou "de la loi du DATE" dans les ~80 chars
+  // qui suivent immédiatement la position de l'article — évite le faux match Code civil
+  const directAfter = lower.slice(articlePosition, Math.min(lower.length, articlePosition + 80))
+
+  const directNumMatch = directAfter.match(/de (?:la |cette )?loi\s+(?:n[o°\u00b0]?\s*)?([\d]{2,4}-[\d]+)/i)
+  if (directNumMatch) {
+    const resolved = resolveLegitext(`loi ${directNumMatch[1]}`)
+    if (resolved) return { name: `loi ${directNumMatch[1]}`, legitext: resolved }
+  }
+
+  const directDateMatch = directAfter.match(/de (?:la |cette )?loi\s+du\s+(\d{1,2}\s+\w+\s+\d{4})/i)
+  if (directDateMatch) {
+    const dateKey = directDateMatch[1].toLowerCase().trim()
+    const resolved = LAW_DATE_MAP[dateKey]
+    if (resolved) return { name: `loi du ${dateKey}`, legitext: resolved }
+  }
+
   let best: { name: string; legitext: string } | null = null
   let bestDist = Infinity
 
@@ -87,7 +113,8 @@ function findLawInText(text: string, articlePosition: number): { name: string; l
   if (best) return best
 
   const searchZone = beforeZone + ' ' + afterZone
-  const lawNumMatch = searchZone.match(/loi\s+n[o°]?\s*([\d]{2,4}-[\d]+)/)
+  // Capture "loi n° XX-XXX", "loi no XX-XXX" et "loi XX-XXX" (sans n°)
+  const lawNumMatch = searchZone.match(/loi\s+(?:n[o°\u00b0]?\s*)?([\d]{2,4}-[\d]+)/)
   if (lawNumMatch) {
     const resolved = resolveLegitext(`loi ${lawNumMatch[1]}`)
     if (resolved) return { name: `loi ${lawNumMatch[1]}`, legitext: resolved }
