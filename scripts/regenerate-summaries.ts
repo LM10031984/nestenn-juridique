@@ -90,14 +90,17 @@ async function regenerateDomain(domain: string, dryRun: boolean) {
   let skipped = 0
   let errors  = 0
   let dryCount = 0
+  const total  = articles?.length ?? 0
+  let idx = 0
 
   for (const article of articles ?? []) {
+    idx++
     try {
       const lawLabel = article.title?.split(' — ')[1] ?? 'Article'
       const newSummary = await summarizeArticle(article.article_num, lawLabel, article.content ?? '')
 
       if (!newSummary) {
-        console.warn(`[regenerate] Skip ${article.article_num} : résumé null`)
+        console.warn(`[regenerate] [${idx}/${total}] Skip ${article.article_num} : résumé null`)
         skipped++
         continue
       }
@@ -106,7 +109,7 @@ async function regenerateDomain(domain: string, dryRun: boolean) {
       const newEmbedding = await embedText(embeddingText)
 
       if (!newEmbedding) {
-        console.warn(`[regenerate] Skip ${article.article_num} : embedding null`)
+        console.warn(`[regenerate] [${idx}/${total}] Skip ${article.article_num} : embedding null`)
         skipped++
         continue
       }
@@ -134,10 +137,10 @@ async function regenerateDomain(domain: string, dryRun: boolean) {
         .eq('id', article.id)
 
       if (updErr) {
-        console.error(`[regenerate] ❌ ${article.article_num}:`, updErr.message)
+        console.error(`[regenerate] [${idx}/${total}] ❌ ${article.article_num}:`, updErr.message)
         errors++
       } else {
-        console.info(`[regenerate] ✅ ${article.article_num}`)
+        console.info(`[regenerate] [${idx}/${total}] ✅ ${article.article_num}`)
         updated++
       }
     } catch (e) {
