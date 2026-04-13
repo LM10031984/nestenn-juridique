@@ -235,6 +235,7 @@ const AG_COPROPRIETE_VOTES: Playbook = {
   triggers: ['assemblée générale', 'assemblee generale', 'convocation ag', 'convocation assemblée', 'ordre du jour ag', 'résolution copropriété', 'resolution copropriete', 'vote copropriétaires', 'majorité copropriété', 'double majorité', 'refus convoquer', 'refuse de convoquer', 'syndic refuse', 'assemblée extraordinaire', 'assemblee extraordinaire', 'age extraordinaire', '25% des voix', 'quart des voix'],
   subThemes: ['copropriete'],
   forcedArticles: [
+    { law: 'décret 67-223', artNum: '8', label: 'Art. 8 décret 67-223 — droit de demander convocation (25% des voix)' },
     { law: 'loi 65-557', artNum: '17', label: 'Art. 17 loi 65-557 — tenue de l\'AG' },
     { law: 'loi 65-557', artNum: '18', label: 'Art. 18 loi 65-557 — missions et contrat du syndic' },
     { law: 'loi 65-557', artNum: '18-1 A', label: 'Art. 18-1 A loi 65-557 — contrat type et rémunération du syndic' },
@@ -248,7 +249,7 @@ const AG_COPROPRIETE_VOTES: Playbook = {
     'majorité': ['majorite', 'quorum'],
   },
   curatedCaseIds: ['curated-ag-copropriete-contestation-2mois'],
-  answerNote: 'Convocation AG : minimum 21 jours avant la réunion. Art. 24 = majorité simple (> 1/2 des présents/représentés). Art. 25 = majorité absolue (> 1/2 de tous les copropriétaires). Art. 26 = double majorité (2/3 des voix + majorité des copropriétaires).',
+  answerNote: 'Convocation AG : minimum 21 jours avant la réunion. Art. 24 = majorité simple (> 1/2 des présents/représentés). Art. 25 = majorité absolue (> 1/2 de tous les copropriétaires). Art. 26 = double majorité (2/3 des voix + majorité des copropriétaires). Le droit des copropriétaires représentant 25% des voix de demander une AGE est fondé sur l\'art. 8 du décret 67-223 (et non art. 8 loi 65-557).',
 }
 
 const CONTESTATION_AG_COPROPRIETE: Playbook = {
