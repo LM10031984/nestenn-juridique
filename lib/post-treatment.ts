@@ -1,5 +1,8 @@
 // lib/post-treatment.ts
 // Vérification async + sanitisation des références d'arrêts — ne bloque pas le client
+// Architecture 2 temps :
+//   TEMPS 1 — Mistral génère avec [JURISPRUDENCE] à la place des numéros
+//   TEMPS 2 — injectLiveJurisprudence remplace chaque token par un arrêt Judilibre vérifié
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -66,6 +69,32 @@ export async function verifyReferencesAsync(
     console.error('[post-treatment] error:', err)
     return result
   }
+}
+
+// ── TEMPS 2 : injection des arrêts live dans les tokens [JURISPRUDENCE] ─────────
+
+/**
+ * Remplace séquentiellement chaque [JURISPRUDENCE] par le prochain arrêt de liveJuriCases.
+ * Si plus d'arrêts disponibles → supprime le token.
+ * Déterministe : Mistral n'a généré aucun numéro, donc zéro risque d'hallucination.
+ */
+export function injectLiveJurisprudence(
+  text: string,
+  liveJuriCases: Array<{ court: string; date: string; number: string }>,
+): string {
+  let idx = 0
+  const result = text.replace(/\[JURISPRUDENCE\]/g, () => {
+    if (idx >= liveJuriCases.length) return ''
+    const c = liveJuriCases[idx++]
+    const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
+    const ref = c.date && c.number
+      ? `${courtLabel} ${c.date}, n° ${c.number}`
+      : `${courtLabel} n° ${c.number}`
+    console.info(`[post-process] ✅ [JURISPRUDENCE] → ${ref}`)
+    return ref
+  })
+  if (idx > 0) console.info(`[post-process] ${idx} token(s) [JURISPRUDENCE] injecté(s)`)
+  return result
 }
 
 // ── Suppression des références complètes non vérifiées (passe 1) ─────────────

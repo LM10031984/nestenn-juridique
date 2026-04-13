@@ -17,7 +17,7 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
-import { sanitizeJuriNumbers, removeUnverifiedReferences } from '@/lib/post-treatment'
+import { sanitizeJuriNumbers, removeUnverifiedReferences, injectLiveJurisprudence } from '@/lib/post-treatment'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -329,9 +329,12 @@ export async function POST(req: NextRequest) {
       })
       .join('')
 
+    // TEMPS 2 — injecter les arrêts Judilibre live dans les tokens [JURISPRUDENCE]
+    const injectedText = injectLiveJurisprudence(responseText, liveJuriCases)
+
     // Passe 1 — supprimer la citation complète si le numéro n'est pas dans liveJuriCases
     // Ex : "Cass. 3e civ., 12 mai 2022, n° 21-13.456" → "" si 21-13.456 absent du live
-    const { cleaned: cleanedText, removed: removedCitations } = removeUnverifiedReferences(responseText, liveJuriCases)
+    const { cleaned: cleanedText, removed: removedCitations } = removeUnverifiedReferences(injectedText, liveJuriCases)
     if (removedCitations.length > 0) {
       console.warn(`[post-process] ${removedCitations.length} citation(s) supprimée(s) : ${removedCitations.join(', ')}`)
     }
