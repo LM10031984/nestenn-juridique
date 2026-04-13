@@ -52,7 +52,7 @@ RÈGLES :
 - Cite les articles avec le nom complet de la loi : "art. 24 de la loi n° 89-462 du 6 juillet 1989"
 - Si un lien est fourni dans les sources → le recopier tel quel : [art. 24](url)
 - Si pas de lien → citer sans lien, ne jamais inventer d'URL
-- N° d'arrêts : citer UNIQUEMENT ceux fournis dans la section jurisprudence. Si tu en connais d'autres de mémoire → "(arrêt cité de mémoire — à vérifier sur Judilibre)"
+- N° d'arrêts : citer UNIQUEMENT ceux fournis dans la section jurisprudence. Ne jamais inventer ni citer un numéro de mémoire.
 - Ton professionnel, accessible. Tu parles à des agents immobiliers, pas à des juristes
 - Terminer par 1-2 propositions d'action concrètes
 - Terminer par le disclaimer : ${disclaimer}`
@@ -121,20 +121,29 @@ function formatJurisprudenceSplit(liveCases: JuriCase[], pgCases: JuriCase[]): s
       : `${courtLabel} — ${c.number}`
   }
 
-  // Contrainte structurelle : liste numérotée des seuls arrêts autorisés
-  const numberedList = allCases.map((c, i) => `[${i + 1}] ${refLabel(c)}`).join('\n')
-
-  let result = '\nJURISPRUDENCE :\n'
-  result += 'Les SEULS arrêts que tu peux citer sont listés ci-dessous avec leur numéro exact. Copie ces numéros tels quels, sans modification :\n'
-  result += numberedList + '\n'
-  result += 'Si tu cites un numéro qui n\'est pas dans cette liste, c\'est une erreur grave.\n'
+  let result = ''
 
   if (liveCases.length > 0) {
+    // Bloc impératif : force l'utilisation des arrêts live vérifiés
+    const numberedLive = liveCases.map((c, i) => `[${i + 1}] ${refLabel(c)}`).join('\n')
+    result += '\nJURISPRUDENCE VÉRIFIÉE :\n'
+    result += 'Tu DOIS citer au moins un des arrêts suivants si tu mentionnes de la jurisprudence. '
+    result += 'Cite-les avec leur numéro exact tel qu\'indiqué :\n'
+    result += numberedLive + '\n'
+    result += 'Ne cite AUCUN autre numéro d\'arrêt.\n'
     result += '\nDÉTAIL — JURISPRUDENCE RÉCENTE (Judilibre, vérifiée en temps réel) :\n'
     result += liveCases.map(formatJuriCase).join('\n') + '\n'
   }
 
   if (pgCases.length > 0) {
+    if (liveCases.length === 0) {
+      // Pas de live : liste les pg cases comme seuls arrêts autorisés
+      const numberedPg = pgCases.map((c, i) => `[${i + 1}] ${refLabel(c)}`).join('\n')
+      result += '\nJURISPRUDENCE :\n'
+      result += 'Les SEULS arrêts que tu peux citer sont listés ci-dessous. Copie les numéros tels quels :\n'
+      result += numberedPg + '\n'
+      result += 'Ne cite AUCUN autre numéro d\'arrêt.\n'
+    }
     result += '\nDÉTAIL — JURISPRUDENCE COMPLÉMENTAIRE (base indexée) :\n'
     result += pgCases.map(formatJuriCase).join('\n') + '\n'
   }
