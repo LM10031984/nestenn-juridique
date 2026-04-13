@@ -17,7 +17,7 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
-import { sanitizeJuriNumbers, removeUnverifiedReferences, injectLiveJurisprudence } from '@/lib/post-treatment'
+import { sanitizeJuriNumbers, buildAllowedCaseTags, validateCaseTags, stripUnauthorizedCaseNumbers, injectRealCitationsFromTags } from '@/lib/post-treatment'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -329,21 +329,35 @@ export async function POST(req: NextRequest) {
       })
       .join('')
 
-    // TEMPS 2 — injecter les arrêts Judilibre live dans les tokens [JURISPRUDENCE]
-    const injectedText = injectLiveJurisprudence(responseText, liveJuriCases)
+    // ── Pipeline tags fermés ──────────────────────────────────────────────────
+    // Le modèle cite [J1][J2][J3] → le backend injecte les vraies références.
+    // Aucun numéro d'arrêt ne peut provenir du LLM dans la réponse finale.
 
-    // Passe 1 — supprimer la citation complète si le numéro n'est pas dans liveJuriCases
-    // Ex : "Cass. 3e civ., 12 mai 2022, n° 21-13.456" → "" si 21-13.456 absent du live
-    const { cleaned: cleanedText, removed: removedCitations } = removeUnverifiedReferences(injectedText, liveJuriCases)
-    if (removedCitations.length > 0) {
-      console.warn(`[post-process] ${removedCitations.length} citation(s) supprimée(s) : ${removedCitations.join(', ')}`)
+    // Passe 1 — supprimer tout numéro libre écrit par le LLM (ne devrait pas en avoir)
+    const taggedCases = buildAllowedCaseTags(liveJuriCases)
+    const { stripped: strippedText, removed: strippedNums } = stripUnauthorizedCaseNumbers(responseText)
+    if (strippedNums.length > 0) {
+      console.warn(`[post-process] ${strippedNums.length} numéro(s) libre(s) supprimé(s) : ${strippedNums.join(', ')}`)
     }
 
-    // Passe 2 — remplacer les numéros isolés restants absents de live + pgvector
+    // Passe 2 — valider les tags utilisés par le modèle
+    const allowedTags = taggedCases.map(t => t.tag)
+    const { usedTags, unauthorizedTags } = validateCaseTags(strippedText, allowedTags)
+    if (usedTags.length > 0) {
+      console.info(`[post-process] Tags utilisés : ${usedTags.join(', ')}`)
+    }
+    if (unauthorizedTags.length > 0) {
+      console.warn(`[post-process] Tags non autorisés détectés (seront supprimés) : ${unauthorizedTags.join(', ')}`)
+    }
+
+    // Passe 3 — injecter les vraies citations depuis les tags autorisés
+    const injectedText = injectRealCitationsFromTags(strippedText, taggedCases)
+
+    // Passe 4 — filet final : tout numéro résiduel non vérifié → [arrêt non vérifié]
     const validCases = [...liveJuriCases, ...filteredPgJuriCases]
-    const { sanitized: sanitizedText, removed } = sanitizeJuriNumbers(cleanedText, validCases)
+    const { sanitized: sanitizedText, removed } = sanitizeJuriNumbers(injectedText, validCases)
     if (removed.length > 0) {
-      console.warn(`[sanitize] ${removed.length} numéro(s) non vérifié(s) remplacé(s): ${removed.join(', ')}`)
+      console.warn(`[sanitize] ${removed.length} numéro(s) résiduel(s) non vérifié(s) : ${removed.join(', ')}`)
     }
 
     // Auto-index en background (fire-and-forget)

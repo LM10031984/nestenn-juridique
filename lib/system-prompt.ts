@@ -52,7 +52,7 @@ RÈGLES :
 - Cite les articles avec le nom complet de la loi : "art. 24 de la loi n° 89-462 du 6 juillet 1989"
 - Si un lien est fourni dans les sources → le recopier tel quel : [art. 24](url)
 - Si pas de lien → citer sans lien, ne jamais inventer d'URL
-- INTERDICTION ABSOLUE de numéros d'arrêts : ne génère AUCUNE forme de "n° XX-XX.XXX" dans ta réponse. Si tu fais référence à un arrêt, écris uniquement le token [JURISPRUDENCE] à la place. Un post-traitement injectera le vrai numéro.
+- Jurisprudence : n'écris jamais un numéro d'arrêt directement. Si une jurisprudence fournie est pertinente, cite uniquement son identifiant fermé [J1], [J2] ou [J3]. Si aucune n'est pertinente, ne cite aucune jurisprudence.
 - Ton professionnel, accessible. Tu parles à des agents immobiliers, pas à des juristes
 - Terminer par 1-2 propositions d'action concrètes
 - Terminer par le disclaimer : ${disclaimer}`
@@ -114,29 +114,17 @@ function formatJurisprudenceSplit(liveCases: JuriCase[], pgCases: JuriCase[]): s
   const allCases = [...liveCases, ...pgCases]
   if (allCases.length === 0) return ''
 
-  const refLabel = (c: JuriCase) => {
-    const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
-    return c.date && c.number
-      ? `${courtLabel} ${c.date}, n° ${c.number}`
-      : `${courtLabel} — ${c.number}`
-  }
-
   let result = ''
 
   if (liveCases.length > 0) {
-    // TEMPS 1 : Mistral reçoit les principes sans les numéros.
-    // Chaque [JURISPRUDENCE] dans la réponse sera remplacé par le vrai numéro en post-traitement.
-    result += '\nJURISPRUDENCE DISPONIBLE :\n'
-    result += 'Ne cite AUCUN numéro d\'arrêt. '
-    result += 'Si tu fais référence à un arrêt, écris uniquement [JURISPRUDENCE] à cet endroit.\n'
-    result += liveCases.map(c => `- ${c.holding}`).join('\n') + '\n'
+    result += '\nJURISPRUDENCE AUTORISÉE (identifiants fermés) :\n'
+    result += 'Pour citer un de ces arrêts, écris uniquement son identifiant entre crochets : [J1], [J2], [J3].\n'
+    result += 'N\'écris JAMAIS un numéro d\'arrêt directement.\n'
+    result += liveCases.map((c, i) => `[J${i + 1}] ${c.holding}`).join('\n') + '\n'
   }
 
   if (pgCases.length > 0) {
-    result += '\nJURISPRUDENCE COMPLÉMENTAIRE :\n'
-    if (liveCases.length === 0) {
-      result += 'Ne cite AUCUN numéro d\'arrêt. Utilise [JURISPRUDENCE] à la place.\n'
-    }
+    result += '\nJURISPRUDENCE COMPLÉMENTAIRE (connaissance, sans citation de numéro) :\n'
     result += pgCases.map(c => `- ${c.holding}`).join('\n') + '\n'
   }
 

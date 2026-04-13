@@ -41,13 +41,16 @@ function formatArticles(chunks: SourceChunk[]): string {
   return lines.join('\n\n')
 }
 
-function formatJuriCase(c: JuriCase): string {
-  const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
-  const ref = c.date && c.number
-    ? `${courtLabel} ${c.date}, n° ${c.number}`
-    : `${courtLabel} — ${c.number}`
-  const header = c.url ? `[${ref}](${c.url})` : ref
-  return `- ${header} : ${c.holding}`
+function formatLiveJuriWithTags(liveJuri: JuriCase[]): string {
+  if (liveJuri.length === 0) return ''
+  return liveJuri
+    .map((c, i) => `[J${i + 1}] ${c.holding}`)
+    .join('\n')
+}
+
+function formatPgJuri(pgJuri: JuriCase[]): string {
+  if (pgJuri.length === 0) return ''
+  return pgJuri.map(c => `- ${c.holding}`).join('\n')
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -74,7 +77,7 @@ const LARGE_RULES = `# Règles de raisonnement juridique
 
 2. **Cite systématiquement et précisément tes sources** :
    - Pour chaque principe énoncé, indique l'article de loi avec son numéro exact (ex : "art. 1641 du Code civil", "art. 15 III de la loi n° 89-462", "art. L.313-40 du Code de la consommation")
-   - Cite **au moins 2 jurisprudences** parmi celles fournies dans la section "Sources vérifiées", au format : "Cass. 3e civ., [date], n° [numéro]"
+   - Pour citer une jurisprudence fournie, utilise **uniquement son identifiant fermé** : [J1], [J2] ou [J3]. N'écris JAMAIS un numéro d'arrêt directement.
    - Si une source fournie est directement pertinente, tu DOIS la citer — ne pas l'utiliser serait une erreur
 
 3. **Mentionne les nuances et exceptions juridiques** : si un article a une exception importante, signale-la. Exemples :
@@ -107,7 +110,7 @@ const LARGE_EXAMPLE = `# Exemple de réponse idéale (cas multi-enjeux)
 
 Sous **art. 467 du Code civil**, le majeur sous curatelle ne peut pas accomplir seul d'acte de disposition. L'**art. 469** précise que le curateur doit l'assister pour toute vente immobilière. Sans cette assistance, la vente est nulle (**art. 414-1**).
 
-**Cass. 1re civ., 7 février 2024, n° 21-24.864** : le curateur doit obligatoirement assister le majeur protégé pour tout acte engageant son patrimoine.
+[J1] : le curateur doit obligatoirement assister le majeur protégé pour tout acte engageant son patrimoine.
 
 ## 2. Protection du logement familial
 
@@ -115,7 +118,7 @@ L'**art. 215 du Code civil** interdit à un époux de disposer seul du logement 
 
 ## 3. Recours contre le refus du curateur
 
-Si le refus est injustifié, l'**art. 468 du Code civil** permet la saisine du juge des contentieux de la protection (ex-juge des tutelles) pour autoriser la vente malgré le refus. **Cass. 1re civ., 2 mars 2022, n° 20-19.767** : le juge peut contraindre le curateur à signer si la vente est dans l'intérêt du majeur.
+Si le refus est injustifié, l'**art. 468 du Code civil** permet la saisine du juge des contentieux de la protection (ex-juge des tutelles) pour autoriser la vente malgré le refus. [J2] : le juge peut contraindre le curateur à signer si la vente est dans l'intérêt du majeur.
 
 ## 4. Sort du séquestre de 10 000 €
 
@@ -139,7 +142,7 @@ Avant de générer ta réponse, vérifie mentalement :
 
 - ✅ Ai-je identifié TOUS les enjeux juridiques distincts (pas juste le principal) ?
 - ✅ Ai-je cité au moins **3 articles de loi** avec leur numéro exact ?
-- ✅ Ai-je cité au moins **2 jurisprudences** parmi les sources fournies ?
+- ✅ Si je cite une jurisprudence, ai-je utilisé uniquement les identifiants fermés [J1], [J2], [J3] — jamais un n° directement ?
 - ✅ Ai-je mentionné les nuances et exceptions juridiques pertinentes ?
 - ✅ Ma réponse a-t-elle une section \`## Actions concrètes\` avec au moins 3 actions échelonnées ?
 - ✅ Ai-je structuré avec des titres \`##\` et au moins un tableau ?
@@ -152,7 +155,7 @@ Maintenant, réponds à la question de l'agent en suivant strictement ces règle
 
 const SMALL_RULES = `# Règles absolues (respecte-les à chaque réponse)
 
-1. **Cite tes sources** : au moins 2 articles de loi avec numéro exact + au moins 1 jurisprudence parmi celles fournies ci-dessous (format : "Cass. [chambre], [date], n° [numéro]")
+1. **Cite tes sources** : au moins 2 articles de loi avec numéro exact + si une jurisprudence est pertinente, utilise uniquement son identifiant fermé [J1], [J2] ou [J3] — n'écris JAMAIS un numéro d'arrêt directement
 
 2. **Structure obligatoire** :
    - Titre principal \`#\`
@@ -190,7 +193,7 @@ La clause résolutoire permet la résiliation automatique selon l'**art. 24 de l
 | Jugement et signification | 1-2 mois |
 | Commandement de quitter les lieux | 2 mois |
 
-**Durée totale : 7 à 15 mois**. Jurisprudence applicable : **Cass. 3e civ., 12 octobre 2023, n° 22-19.117** (suspension de la clause si paiement avant l'expiration).
+**Durée totale : 7 à 15 mois**. Jurisprudence applicable : [J1] (suspension de la clause si paiement avant l'expiration).
 
 ## 3. Interdictions strictes
 
@@ -207,7 +210,7 @@ const SMALL_CHECKLIST = `# Vérification avant réponse
 
 Avant d'écrire, vérifie :
 - ✅ Au moins 2 articles de loi avec numéros ?
-- ✅ Au moins 1 jurisprudence citée depuis les sources ci-dessous ?
+- ✅ Si je cite une jurisprudence, ai-je utilisé [J1], [J2] ou [J3] — jamais un n° directement ?
 - ✅ 3 sections \`##\` minimum + 1 tableau ?
 - ✅ Section "Actions concrètes" numérotée à la fin ?
 - ✅ Entre 500 et 900 mots ?
@@ -225,19 +228,21 @@ export function buildMistralSystemPrompt(params: BuildMistralPromptParams): stri
   const example = tier === 'large' ? LARGE_EXAMPLE : SMALL_EXAMPLE
   const checklist = tier === 'large' ? LARGE_CHECKLIST : SMALL_CHECKLIST
 
+  const liveSectionHeader = liveJurisprudence
+    ? `## Jurisprudence autorisée (identifiants fermés)\n\nPour citer un de ces arrêts, écris uniquement son identifiant [J1], [J2] ou [J3]. N'écris jamais de numéro d'arrêt directement.\n\n${liveJurisprudence}`
+    : `## Jurisprudence autorisée\n\nAucun arrêt récent trouvé. Ne cite aucune jurisprudence.`
+
   const sourcesSection = `${SOURCES_HEADER}
 
 ## Articles de loi applicables
 
 ${articles || "Aucun article spécifique retrouvé. Appuie-toi sur tes connaissances en droit immobilier français."}
 
-## Jurisprudence de référence (base propriétaire)
+## Jurisprudence complémentaire (connaissance, sans citation de numéro)
 
-${pgJurisprudence || "Aucun arrêt de référence disponible pour cette question."}
+${pgJurisprudence || "Aucun arrêt de référence disponible."}
 
-## Jurisprudence récente (Cour de cassation - temps réel)
-
-${liveJurisprudence || "Aucun arrêt récent trouvé."}`
+${liveSectionHeader}`
 
   return `${IDENTITY}
 
@@ -265,8 +270,8 @@ export function buildMistralLargeSystemPrompt(
 ): string {
   return buildMistralSystemPrompt({
     articles: formatArticles(chunks),
-    pgJurisprudence: pgJuri.map(formatJuriCase).join('\n'),
-    liveJurisprudence: liveJuri.map(formatJuriCase).join('\n'),
+    pgJurisprudence: formatPgJuri(pgJuri),
+    liveJurisprudence: formatLiveJuriWithTags(liveJuri),
     tier: 'large',
   })
 }
@@ -278,8 +283,8 @@ export function buildMistralSmallSystemPrompt(
 ): string {
   return buildMistralSystemPrompt({
     articles: formatArticles(chunks),
-    pgJurisprudence: pgJuri.map(formatJuriCase).join('\n'),
-    liveJurisprudence: liveJuri.map(formatJuriCase).join('\n'),
+    pgJurisprudence: formatPgJuri(pgJuri),
+    liveJurisprudence: formatLiveJuriWithTags(liveJuri),
     tier: 'small',
   })
 }
