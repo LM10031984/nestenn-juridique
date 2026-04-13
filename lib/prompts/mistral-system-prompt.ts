@@ -3,6 +3,8 @@
 // 70% partagé (identité, sources, disclaimer), 30% spécifique (règles, exemple, checklist).
 
 import type { SourceChunk, JuriCase } from '@/lib/system-prompt'
+import type { TaggedCase, TaggedArticle } from '@/lib/post-treatment'
+import type { PromptContext } from '@/lib/model-config'
 
 export type MistralTier = 'large' | 'small'
 
@@ -11,13 +13,20 @@ interface BuildMistralPromptParams {
   pgJurisprudence: string
   liveJurisprudence: string
   tier: MistralTier
+  strictConcise?: boolean
+  /** true si des tags [A1][A2]… ont été assignés aux articles — active le mode tags fermés strict */
+  hasTaggedArticles?: boolean
 }
 
 // ═══════════════════════════════════════════════════════════
 // FORMATAGE DES SOURCES (même logique que system-prompt.ts)
 // ═══════════════════════════════════════════════════════════
 
-function formatArticles(chunks: SourceChunk[]): string {
+/**
+ * Formate les articles en injectant les tags [A1][A2]… devant chaque groupe.
+ * Si taggedArticles est fourni, on utilise ses tags ; sinon, format classique sans tag.
+ */
+function formatArticles(chunks: SourceChunk[], taggedArticles?: TaggedArticle[]): string {
   if (chunks.length === 0) return ''
   const grouped = new Map<string, SourceChunk[]>()
   for (const chunk of chunks) {
@@ -28,23 +37,33 @@ function formatArticles(chunks: SourceChunk[]): string {
     existing.push(chunk)
     grouped.set(key, existing)
   }
+
   const lines: string[] = []
-  for (const [, articleChunks] of grouped) {
+  for (const [key, articleChunks] of grouped) {
     const first = articleChunks[0]
     const title = first.sourceArticle
       ? `Art. ${first.sourceArticle} — ${first.sourceLaw}`
       : first.sourceLaw
-    const header = first.sourceUrl ? `**[${title}](${first.sourceUrl})**` : `**${title}**`
-    lines.push(header)
+    const link = first.sourceUrl ? `[${title}](${first.sourceUrl})` : title
+
+    // Chercher le tag correspondant si fourni
+    const tagged = taggedArticles?.find(
+      a => `${a.sourceLaw}|${a.sourceArticle}` === key || a.title === title,
+    )
+    const tagPrefix = tagged ? `**${tagged.tag}** — ` : ''
+    lines.push(`${tagPrefix}**${link}**`)
     lines.push(articleChunks.map(c => c.chunkText).join('\n'))
   }
   return lines.join('\n\n')
 }
 
-function formatLiveJuriWithTags(liveJuri: JuriCase[]): string {
+function formatLiveJuriWithTags(liveJuri: JuriCase[], taggedCases?: TaggedCase[]): string {
   if (liveJuri.length === 0) return ''
   return liveJuri
-    .map((c, i) => `[J${i + 1}] ${c.holding}`)
+    .map((c, i) => {
+      const tag = taggedCases?.[i]?.tag ?? `J${i + 1}`
+      return `[${tag}] ${c.holding}`
+    })
     .join('\n')
 }
 
@@ -71,32 +90,49 @@ const FINAL_DISCLAIMER = `---
 // VARIANTE LARGE 3 — Profondeur juridique, raisonnement multi-enjeux
 // ═══════════════════════════════════════════════════════════
 
-const LARGE_RULES = `# Règles de raisonnement juridique
+function buildArticleRules(hasTaggedArticles: boolean): string {
+  if (hasTaggedArticles) {
+    return `**Articles de loi — tags fermés actifs**
+- Les articles autorisés te sont fournis avec des **tags fermés [A1], [A2]…** Utilise **uniquement** ces tags pour les citer.
+- Il est **INTERDIT** d'écrire librement un nom d'article (ex : "art. L.1331-8 du Code de la santé publique") si cet article ne correspond pas à un tag autorisé.
+- Si la règle que tu veux évoquer n'a pas de tag autorisé, formule-la **sans citer l'article précis** (ex : "selon la règle applicable en matière de raccordement").
+- Si tu n'es pas certain d'un article, écris "à vérifier sur Légifrance" sans inventer de référence.`
+  }
+  return `**Articles de loi**
+- Aucun article tagué n'est disponible pour cette question. Tu peux citer des articles librement si tu en es certain.
+- N'invente pas de référence. En cas de doute, écris "à vérifier sur Légifrance".`
+}
+
+const LARGE_REASONING_RULES = `# Règles de raisonnement juridique
 
 1. **Identifie les enjeux multiples** : avant de rédiger, repère les 2 à 4 enjeux juridiques distincts de la question et traite chacun dans sa propre section \`##\`.
 
-2. **Cite systématiquement et précisément tes sources** :
-   - Pour chaque principe énoncé, indique l'article de loi avec son numéro exact (ex : "art. 1641 du Code civil", "art. 15 III de la loi n° 89-462", "art. L.313-40 du Code de la consommation")
-   - Pour citer une jurisprudence fournie, utilise **uniquement son identifiant fermé** : [J1], [J2] ou [J3]. N'écris JAMAIS un numéro d'arrêt directement.
-   - Si une source fournie est directement pertinente, tu DOIS la citer — ne pas l'utiliser serait une erreur
+2. **Mentionne les nuances et exceptions** : si un article a une exception importante, signale-la. L'honnêteté prime sur la confiance affichée.
 
-3. **Mentionne les nuances et exceptions juridiques** : si un article a une exception importante, signale-la. Exemples :
-   - L'art. 15 III loi 89-462 protège le locataire âgé SAUF si le bailleur a lui-même plus de 65 ans ou des revenus faibles
-   - La clause d'exclusion de vices cachés est inopposable en cas de dol prouvé
-   - La trêve hivernale s'applique à l'expulsion physique mais pas à la procédure judiciaire
-
-4. **Structure ta réponse en markdown professionnel** :
+3. **Structure ta réponse en markdown professionnel** :
    - Titre principal \`#\` reformulant la question
    - Sections \`##\` pour chaque enjeu juridique
-   - Tableaux markdown pour les étapes, délais, comparaisons, distinctions
+   - Tableaux markdown pour les étapes, délais, comparaisons
    - Gras sur les articles de loi et les délais critiques
-   - Listes à puces pour les points de vigilance
 
-5. **Termine TOUJOURS par une section "Actions concrètes"** avec 2 à 4 actions numérotées et échelonnées (aujourd'hui / sous 48h / dans la semaine / dans le mois).
+4. **Termine par une section "Actions concrètes"** si les sources le permettent — 2 à 4 actions échelonnées (aujourd'hui / sous 48h / dans la semaine / dans le mois).
 
-6. **Reste factuel et honnête** : si tu n'es pas certain d'un point, écris "à vérifier sur Légifrance" plutôt que d'inventer une référence. L'honnêteté prime sur la confiance affichée.
+5. **Langue : français juridique professionnel**. Vouvoie l'agent.`
 
-7. **Langue : français juridique professionnel**. Vouvoie l'agent. Utilise le vocabulaire technique du droit immobilier (mandant, mandataire, bailleur, preneur, promettant, bénéficiaire, curateur, tuteur).`
+function buildLargeRules(hasTaggedArticles: boolean): string {
+  return `# Règles absolues de citation
+
+**Jurisprudence**
+- Tu n'as pas le droit d'écrire librement un numéro d'arrêt.
+- Si tu cites une jurisprudence autorisée, utilise **uniquement** son tag fermé : [J1], [J2], [J3].
+- Si aucune jurisprudence autorisée n'est pertinente pour un point, n'en cite aucune.
+
+${buildArticleRules(hasTaggedArticles)}
+
+**L'exactitude prime sur l'exhaustivité** : mieux vaut une réponse courte et juste qu'une réponse longue avec des sources inventées.
+
+${LARGE_REASONING_RULES}`
+}
 
 const LARGE_EXAMPLE = `# Exemple de réponse idéale (cas multi-enjeux)
 
@@ -138,14 +174,11 @@ L'**art. 1961 du Code civil** bloque le séquestre tant que la vente n'est pas f
 
 const LARGE_CHECKLIST = `# Checklist finale avant de répondre
 
-Avant de générer ta réponse, vérifie mentalement :
-
-- ✅ Ai-je identifié TOUS les enjeux juridiques distincts (pas juste le principal) ?
-- ✅ Ai-je cité au moins **3 articles de loi** avec leur numéro exact ?
-- ✅ Si je cite une jurisprudence, ai-je utilisé uniquement les identifiants fermés [J1], [J2], [J3] — jamais un n° directement ?
-- ✅ Ai-je mentionné les nuances et exceptions juridiques pertinentes ?
-- ✅ Ma réponse a-t-elle une section \`## Actions concrètes\` avec au moins 3 actions échelonnées ?
-- ✅ Ai-je structuré avec des titres \`##\` et au moins un tableau ?
+- ✅ Ai-je identifié TOUS les enjeux juridiques distincts ?
+- ✅ Pour chaque jurisprudence citée, ai-je utilisé uniquement [J1], [J2], [J3] — jamais un n° directement ?
+- ✅ Pour chaque article tagué [A1]…, ai-je utilisé le tag au lieu d'écrire le nom manuellement ?
+- ✅ Ai-je mentionné les nuances et exceptions pertinentes ?
+- ✅ Si les sources sont limitées, ma réponse est-elle plus courte et plus prudente ?
 
 Maintenant, réponds à la question de l'agent en suivant strictement ces règles.`
 
@@ -153,21 +186,29 @@ Maintenant, réponds à la question de l'agent en suivant strictement ces règle
 // VARIANTE SMALL 4 — Structure rigide, concision, règles courtes
 // ═══════════════════════════════════════════════════════════
 
-const SMALL_RULES = `# Règles absolues (respecte-les à chaque réponse)
+function buildSmallRules(hasTaggedArticles: boolean): string {
+  const articleLine = hasTaggedArticles
+    ? `- Les articles autorisés ont des **tags fermés [A1], [A2]…** : utilise **uniquement** ces tags. Il est **INTERDIT** d'écrire librement un nom d'article si cet article ne correspond pas à un tag autorisé. Si la règle n'a pas de tag, formule-la sans citer l'article précis.`
+    : `- Aucun article tagué fourni. Tu peux citer des articles librement si tu en es certain.`
 
-1. **Cite tes sources** : au moins 2 articles de loi avec numéro exact + si une jurisprudence est pertinente, utilise uniquement son identifiant fermé [J1], [J2] ou [J3] — n'écris JAMAIS un numéro d'arrêt directement
+  return `# Règles absolues (respecte-les à chaque réponse)
 
-2. **Structure obligatoire** :
-   - Titre principal \`#\`
-   - Au moins 3 sections \`##\`
-   - Au moins 1 tableau markdown
-   - Section finale \`## Actions concrètes\` avec 2 à 4 actions numérotées
+**Citations — règles impératives :**
+- N'écris JAMAIS un numéro d'arrêt directement. Si une jurisprudence autorisée est pertinente, utilise uniquement son tag fermé : [J1], [J2] ou [J3]. Si aucune n'est pertinente, n'en cite aucune.
+${articleLine}
+- N'invente pas de référence. L'exactitude prime sur l'exhaustivité.
 
-3. **Utilise PRIORITAIREMENT les sources fournies**. Ne cite pas de mémoire ce qui est déjà dans les sources.
+**Structure :**
+- Titre principal \`#\`
+- Sections \`##\` par enjeu (autant que nécessaire, pas plus)
+- Tableau si plusieurs étapes ou comparaisons à faire
+- Section "Actions concrètes" si les sources le permettent
 
-4. **Longueur** : entre 500 et 900 mots. Pas de remplissage.
-
-5. **Français juridique professionnel**. Vouvoie l'agent. Pas d'anglicismes.`
+**Style :**
+- Adapte la longueur aux sources disponibles. Si peu de sources, réponds plus court et plus prudent.
+- Utilise PRIORITAIREMENT les sources fournies.
+- Français juridique professionnel. Vouvoie l'agent.`
+}
 
 const SMALL_EXAMPLE = `# Exemple de format attendu
 
@@ -208,12 +249,10 @@ La clause résolutoire permet la résiliation automatique selon l'**art. 24 de l
 
 const SMALL_CHECKLIST = `# Vérification avant réponse
 
-Avant d'écrire, vérifie :
-- ✅ Au moins 2 articles de loi avec numéros ?
 - ✅ Si je cite une jurisprudence, ai-je utilisé [J1], [J2] ou [J3] — jamais un n° directement ?
-- ✅ 3 sections \`##\` minimum + 1 tableau ?
-- ✅ Section "Actions concrètes" numérotée à la fin ?
-- ✅ Entre 500 et 900 mots ?
+- ✅ Si un article a un tag [A1]…, ai-je utilisé le tag ?
+- ✅ Si les sources sont limitées, ma réponse est-elle plus courte et plus prudente ?
+- ✅ Ai-je évité d'ajouter des sources pour "faire bien" ?
 
 Maintenant, réponds.`
 
@@ -221,32 +260,43 @@ Maintenant, réponds.`
 // FONCTION DE CONSTRUCTION (string-based, exportée pour les tests)
 // ═══════════════════════════════════════════════════════════
 
-export function buildMistralSystemPrompt(params: BuildMistralPromptParams): string {
-  const { articles, pgJurisprudence, liveJurisprudence, tier } = params
+const STRICT_CONCISE_BLOCK = `# Mode strict concise activé
 
-  const rules = tier === 'large' ? LARGE_RULES : SMALL_RULES
+Les sources jurisprudentielles disponibles sont limitées. Adapte ta réponse en conséquence :
+- Réponse courte — va à l'essentiel
+- Pas de spéculation ni de développement accessoire
+- Priorité à la qualification du document, à la règle certaine, et à la conséquence pratique
+- Si un point dépend du contenu exact du document ou d'une jurisprudence non disponible, dis-le explicitement
+- N'ajoute pas de jurisprudence pour "faire bien" si aucun arrêt autorisé n'est pertinent`
+
+export function buildMistralSystemPrompt(params: BuildMistralPromptParams): string {
+  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false } = params
+
+  const rules = tier === 'large' ? buildLargeRules(hasTaggedArticles) : buildSmallRules(hasTaggedArticles)
   const example = tier === 'large' ? LARGE_EXAMPLE : SMALL_EXAMPLE
   const checklist = tier === 'large' ? LARGE_CHECKLIST : SMALL_CHECKLIST
 
   const liveSectionHeader = liveJurisprudence
-    ? `## Jurisprudence autorisée (identifiants fermés)\n\nPour citer un de ces arrêts, écris uniquement son identifiant [J1], [J2] ou [J3]. N'écris jamais de numéro d'arrêt directement.\n\n${liveJurisprudence}`
+    ? `## Jurisprudence autorisée (identifiants fermés)\n\nPour citer un de ces arrêts, écris uniquement son identifiant fermé [J1], [J2], [J3]… N'écris jamais de numéro d'arrêt directement.\n\n${liveJurisprudence}`
     : `## Jurisprudence autorisée\n\nAucun arrêt récent trouvé. Ne cite aucune jurisprudence.`
 
   const sourcesSection = `${SOURCES_HEADER}
 
-## Articles de loi applicables
+## Articles de loi applicables (identifiants fermés pour les articles tagués)
 
 ${articles || "Aucun article spécifique retrouvé. Appuie-toi sur tes connaissances en droit immobilier français."}
 
-## Jurisprudence complémentaire (connaissance, sans citation de numéro)
+## Jurisprudence complémentaire (contexte de raisonnement uniquement — sans citation de numéro)
 
 ${pgJurisprudence || "Aucun arrêt de référence disponible."}
 
 ${liveSectionHeader}`
 
+  const strictBlock = strictConcise ? `\n\n${STRICT_CONCISE_BLOCK}` : ''
+
   return `${IDENTITY}
 
-${rules}
+${rules}${strictBlock}
 
 ${sourcesSection}
 
@@ -267,12 +317,15 @@ export function buildMistralLargeSystemPrompt(
   chunks: SourceChunk[],
   pgJuri: JuriCase[],
   liveJuri: JuriCase[],
+  context?: PromptContext,
 ): string {
   return buildMistralSystemPrompt({
-    articles: formatArticles(chunks),
+    articles: formatArticles(chunks, context?.taggedArticles),
     pgJurisprudence: formatPgJuri(pgJuri),
-    liveJurisprudence: formatLiveJuriWithTags(liveJuri),
+    liveJurisprudence: formatLiveJuriWithTags(liveJuri, context?.taggedLiveCases),
     tier: 'large',
+    strictConcise: context?.strictConcise,
+    hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
   })
 }
 
@@ -280,11 +333,14 @@ export function buildMistralSmallSystemPrompt(
   chunks: SourceChunk[],
   pgJuri: JuriCase[],
   liveJuri: JuriCase[],
+  context?: PromptContext,
 ): string {
   return buildMistralSystemPrompt({
-    articles: formatArticles(chunks),
+    articles: formatArticles(chunks, context?.taggedArticles),
     pgJurisprudence: formatPgJuri(pgJuri),
-    liveJurisprudence: formatLiveJuriWithTags(liveJuri),
+    liveJurisprudence: formatLiveJuriWithTags(liveJuri, context?.taggedLiveCases),
     tier: 'small',
+    strictConcise: context?.strictConcise,
+    hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
   })
 }

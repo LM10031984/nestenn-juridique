@@ -17,7 +17,21 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
-import { sanitizeJuriNumbers, buildAllowedCaseTags, validateCaseTags, stripUnauthorizedCaseNumbers, injectRealCitationsFromTags } from '@/lib/post-treatment'
+import {
+  sanitizeJuriNumbers,
+  buildTaggedLiveCases,
+  buildTaggedArticles,
+  validateUsedCaseTags,
+  validateUsedArticleTags,
+  stripUnauthorizedCaseNumbers,
+  injectRealCaseCitations,
+  injectRealArticleCitations,
+  stripUnauthorizedArticleCitations,
+  optionallyDowngradeUnsupportedNormativeClaims,
+  detectNormativeDensity,
+  NORMATIVE_DENSITY_HIGH,
+} from '@/lib/post-treatment'
+import type { PromptContext } from '@/lib/model-config'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -290,8 +304,25 @@ export async function POST(req: NextRequest) {
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
 
+  // Construire les tags fermés avant le prompt — le LLM ne voit que des [J1][A1]
+  const taggedLiveCases = buildTaggedLiveCases(liveJuriCases)
+  const taggedArticles = buildTaggedArticles(chunks)
+
+  // Signal pré-génération : aucun article du corpus disponible pour cette question
+  const noArticleGrounding = taggedArticles.length === 0
+
+  const promptContext: PromptContext = {
+    taggedLiveCases,
+    taggedArticles,
+    strictConcise: liveJuriCases.length <= 1 && filteredPgJuriCases.length === 0,
+  }
+
+  if (promptContext.strictConcise) {
+    console.info('[pipeline] mode strict-concise activé (sources jurisprudentielles limitées)')
+  }
+
   const modelConfig = getModelById(selectedModel)
-  const systemPrompt = modelConfig.buildSystemPrompt(chunks, filteredPgJuriCases, liveJuriCases)
+  const systemPrompt = modelConfig.buildSystemPrompt(chunks, filteredPgJuriCases, liveJuriCases, promptContext)
   const history = sanitizeHistory(body.conversationHistory)
 
   const messages: OpenRouterMessage[] = [
@@ -330,32 +361,95 @@ export async function POST(req: NextRequest) {
       .join('')
 
     // ── Pipeline tags fermés ──────────────────────────────────────────────────
-    // Le modèle cite [J1][J2][J3] → le backend injecte les vraies références.
+    // Architecture : le LLM cite [J1][A1] → le backend injecte les vraies références.
     // Aucun numéro d'arrêt ne peut provenir du LLM dans la réponse finale.
 
-    // Passe 1 — supprimer tout numéro libre écrit par le LLM (ne devrait pas en avoir)
-    const taggedCases = buildAllowedCaseTags(liveJuriCases)
-    const { stripped: strippedText, removed: strippedNums } = stripUnauthorizedCaseNumbers(responseText)
-    if (strippedNums.length > 0) {
-      console.warn(`[post-process] ${strippedNums.length} numéro(s) libre(s) supprimé(s) : ${strippedNums.join(', ')}`)
+    const allowedCaseTags = taggedLiveCases.map(c => c.tag)
+    const allowedArticleTags = taggedArticles.map(a => a.tag)
+
+    // Passe 1 — supprimer tout numéro libre (hallucination : le LLM ne devrait pas en écrire)
+    const { cleaned: noFreeCaseNumbers, removed: removedFreeCaseNumbers } =
+      stripUnauthorizedCaseNumbers(responseText)
+
+    // Passe 2 — valider les tags utilisés
+    const validCaseTags = validateUsedCaseTags(noFreeCaseNumbers, allowedCaseTags)
+    const validArticleTags = validateUsedArticleTags(noFreeCaseNumbers, allowedArticleTags)
+
+    console.info(
+      `[post-process] caseTags allowed=${allowedCaseTags.join(', ') || '—'} `
+      + `used=${validCaseTags.join(', ') || '—'}`
+    )
+    console.info(
+      `[post-process] articleTags allowed=${allowedArticleTags.join(', ') || '—'} `
+      + `used=${validArticleTags.join(', ') || '—'}`
+    )
+    if (removedFreeCaseNumbers.length > 0) {
+      console.warn(
+        `[post-process] free case numbers removed: ${removedFreeCaseNumbers.join(', ')}`
+      )
     }
 
-    // Passe 2 — valider les tags utilisés par le modèle
-    const allowedTags = taggedCases.map(t => t.tag)
-    const { usedTags, unauthorizedTags } = validateCaseTags(strippedText, allowedTags)
-    if (usedTags.length > 0) {
-      console.info(`[post-process] Tags utilisés : ${usedTags.join(', ')}`)
-    }
-    if (unauthorizedTags.length > 0) {
-      console.warn(`[post-process] Tags non autorisés détectés (seront supprimés) : ${unauthorizedTags.join(', ')}`)
+    // Passe 2.5 — détecter et neutraliser les citations libres d'articles
+    const { cleaned: noFreeArticles, found: freeArticleCitations } =
+      stripUnauthorizedArticleCitations(noFreeCaseNumbers, allowedArticleTags)
+
+    // Signal de confiance article
+    let articleCitationMode: 'tagged' | 'free' | 'mixed'
+    if (validArticleTags.length > 0 && freeArticleCitations.length === 0) {
+      articleCitationMode = 'tagged'
+    } else if (validArticleTags.length === 0 && freeArticleCitations.length > 0) {
+      articleCitationMode = 'free'
+    } else if (validArticleTags.length > 0 && freeArticleCitations.length > 0) {
+      articleCitationMode = 'mixed'
+    } else {
+      articleCitationMode = 'tagged' // aucun article cité = propre
     }
 
-    // Passe 3 — injecter les vraies citations depuis les tags autorisés
-    const injectedText = injectRealCitationsFromTags(strippedText, taggedCases)
+    if (freeArticleCitations.length > 0) {
+      console.warn(
+        `[post-process] ⚠️ article-citation-mode=${articleCitationMode} `
+        + `— ${freeArticleCitations.length} citation(s) libre(s) : `
+        + freeArticleCitations.map(c => c.match.trim()).join(' | ')
+      )
+    }
 
-    // Passe 4 — filet final : tout numéro résiduel non vérifié → [arrêt non vérifié]
+    // ── Normative safety mode — déclencheurs composites ──────────────────────
+    // Signaux post-génération
+    const lowJuriSupport = filteredPgJuriCases.length === 0 && liveJuriCases.length <= 1
+    const lowGrounding = noArticleGrounding || lowJuriSupport
+    const normativeDensity = detectNormativeDensity(noFreeArticles)
+    const highNormativeDensity = normativeDensity.score >= NORMATIVE_DENSITY_HIGH
+
+    // Accumulation des raisons (décrivent l'état, indépendamment les unes des autres)
+    const safetyReasons: string[] = []
+    if (noArticleGrounding)           safetyReasons.push('no_article_grounding')
+    if (freeArticleCitations.length > 0) safetyReasons.push('free_article_citations')
+    if (lowJuriSupport)               safetyReasons.push('low_jurisprudence_support')
+    if (highNormativeDensity)         safetyReasons.push('high_normative_density')
+
+    // Activation : l'une des trois conditions suffit
+    const normativeSafetyMode =
+      noArticleGrounding ||
+      (lowJuriSupport && freeArticleCitations.length > 0) ||
+      (lowGrounding && highNormativeDensity)
+
+    if (normativeSafetyMode) {
+      console.warn(`[pipeline] 🔒 normative-safety-mode activé: reasons=${safetyReasons.join(',')}`)
+    }
+
+    // Passe 3 — injecter les vraies citations jurisprudentielles et articles
+    let finalText = noFreeArticles
+    finalText = injectRealCaseCitations(finalText, taggedLiveCases)
+    finalText = injectRealArticleCitations(finalText, taggedArticles)
+
+    // Passe 3.5 — downgrade normatif si sources insuffisantes
+    if (normativeSafetyMode) {
+      finalText = optionallyDowngradeUnsupportedNormativeClaims(finalText)
+    }
+
+    // Passe 4 — filet final : tout numéro résiduel post-injection → [arrêt non vérifié]
     const validCases = [...liveJuriCases, ...filteredPgJuriCases]
-    const { sanitized: sanitizedText, removed } = sanitizeJuriNumbers(injectedText, validCases)
+    const { sanitized: sanitizedText, removed } = sanitizeJuriNumbers(finalText, validCases)
     if (removed.length > 0) {
       console.warn(`[sanitize] ${removed.length} numéro(s) résiduel(s) non vérifié(s) : ${removed.join(', ')}`)
     }
@@ -381,6 +475,7 @@ export async function POST(req: NextRequest) {
         'X-Response-Mode': responseMode,
         'X-Model-Used': selectedModel,
         'X-Sanitized': String(removed.length),
+        'X-Article-Citation-Mode': articleCitationMode,
       },
     })
   } catch (err) {

@@ -177,7 +177,7 @@ export function sanitizeJuriNumbers(
 
 export interface TaggedCase {
   tag: string   // 'J1', 'J2', 'J3'
-  court: string
+  court: 'cass' | 'ca'
   date: string
   number: string
   holding: string
@@ -188,92 +188,284 @@ export interface TaggedCase {
  * Associe chaque arrêt live à un identifiant fermé J1, J2, J3...
  * Le même ordre que dans le prompt → cohérence garantie.
  */
-export function buildAllowedCaseTags(
-  liveJuriCases: Array<{ court: string; date: string; number: string; holding: string; url?: string }>,
+export function buildTaggedLiveCases(
+  liveCases: Array<{ court: 'cass' | 'ca'; date: string; number: string; holding: string; url?: string }>,
 ): TaggedCase[] {
-  return liveJuriCases.map((c, i) => ({ tag: `J${i + 1}`, ...c }))
+  return liveCases.map((c, index) => ({
+    tag: `J${index + 1}`,
+    court: c.court,
+    date: c.date,
+    number: c.number,
+    holding: c.holding,
+    url: c.url,
+  }))
+}
+
+/** @deprecated Utiliser buildTaggedLiveCases */
+export function buildAllowedCaseTags(
+  liveJuriCases: Array<{ court: 'cass' | 'ca'; date: string; number: string; holding: string; url?: string }>,
+): TaggedCase[] {
+  return buildTaggedLiveCases(liveJuriCases)
 }
 
 /**
- * Inspecte le texte généré et retourne les tags utilisés vs. non autorisés.
- * Un tag non autorisé (ex [J9] quand seulement 3 live) sera supprimé ensuite.
+ * Retourne les tags autorisés effectivement utilisés dans le texte.
+ */
+export function validateUsedCaseTags(text: string, allowedTags: string[]): string[] {
+  const used = [...text.matchAll(/\[(J\d+)\]/g)].map(m => m[1])
+  return [...new Set(used.filter(tag => allowedTags.includes(tag)))]
+}
+
+/**
+ * @deprecated Utiliser validateUsedCaseTags
  */
 export function validateCaseTags(
   text: string,
-  allowedTags: string[],  // ex: ['J1', 'J2', 'J3']
+  allowedTags: string[],
 ): { usedTags: string[]; unauthorizedTags: string[] } {
   const allowedSet = new Set(allowedTags)
-  const usedTags: string[] = []
-  const unauthorizedTags: string[] = []
-
-  for (const match of text.matchAll(/\[J(\d+)\]/g)) {
-    const tag = `J${match[1]}`
-    if (allowedSet.has(tag)) {
-      if (!usedTags.includes(tag)) usedTags.push(tag)
-    } else {
-      if (!unauthorizedTags.includes(tag)) unauthorizedTags.push(tag)
-    }
+  const allUsed = [...text.matchAll(/\[J(\d+)\]/g)].map(m => `J${m[1]}`)
+  const unique = [...new Set(allUsed)]
+  return {
+    usedTags: unique.filter(t => allowedSet.has(t)),
+    unauthorizedTags: unique.filter(t => !allowedSet.has(t)),
   }
-  return { usedTags, unauthorizedTags }
 }
 
 /**
- * Supprime tout numéro d'arrêt libre (n° XX-XX.XXX) absent de allowedNumbers.
- * Appelé AVANT l'injection des tags → le LLM ne devrait pas en écrire, mais filet de sécurité.
- * allowedNumbers vide = suppression de TOUS les numéros libres.
+ * Supprime tout numéro d'arrêt libre écrit par le LLM.
+ * Dans l'architecture tags fermés, le LLM ne doit écrire QUE des [J1][J2]…
+ * Tout n° libre est une hallucination → suppression systématique.
  */
-export function stripUnauthorizedCaseNumbers(
-  text: string,
-  allowedNumbers: string[] = [],
-): { stripped: string; removed: string[] } {
-  const normalize = (n: string) => n.replace(/[\s\-\.\/]/g, '').toLowerCase()
-  const allowedSet = new Set(allowedNumbers.map(normalize))
+export function stripUnauthorizedCaseNumbers(text: string): { cleaned: string; removed: string[] } {
   const removed: string[] = []
 
+  // Passe 1 : citations complètes "Cass. X, date, n° XX-XX.XXX"
   const fullRefPattern = /(?:(?:Cass|CA)\.[^,]{1,60},\s*\d{1,2}\s+\w+\.?\s+\d{4},?\s*\*{0,2}\s*)?n°\s*\*{0,2}\s*(\d{2}-\d{2,3}\.\d{3})\s*\*{0,2}/gi
-
-  const stripped = text.replace(fullRefPattern, (match, num) => {
-    if (allowedSet.size > 0 && allowedSet.has(normalize(num))) return match
+  const pass1 = text.replace(fullRefPattern, (match, num) => {
     console.warn(`[post-process] ❌ Numéro libre supprimé : n° ${num.trim()}`)
     removed.push(`n° ${num.trim()}`)
     return ''
   })
 
-  // Nettoyer les fragments Cass. orphelins laissés après suppression
-  const withoutOrphans = stripped.replace(/\*{0,2}Cass\.[^:]{5,80},\s*\*{0,2}\s*:/gi, '')
+  // Passe 2 : fragments Cass. orphelins laissés par la passe 1
+  const pass2 = pass1.replace(/\*{0,2}Cass\.[^:]{5,80},\s*\*{0,2}\s*:/gi, '')
 
-  return { stripped: withoutOrphans.replace(/[ \t]{2,}/g, ' '), removed }
+  return { cleaned: pass2.replace(/[ \t]{2,}/g, ' '), removed }
 }
 
 /**
  * Remplace chaque [J1], [J2], [J3] par la vraie citation formatée.
- * Les tags inconnus ([J9] etc.) sont supprimés silencieusement.
  * Seul le backend peut produire un numéro d'arrêt dans la réponse finale.
  */
-export function injectRealCitationsFromTags(
-  text: string,
-  taggedCases: TaggedCase[],
-): string {
-  let result = text
+export function injectRealCaseCitations(text: string, taggedCases: TaggedCase[]): string {
+  return text.replace(/\[(J\d+)\]/g, (_, rawTag: string) => {
+    const found = taggedCases.find(c => c.tag === rawTag)
+    if (!found) {
+      console.warn(`[post-process] ❌ Tag orphelin supprimé : [${rawTag}]`)
+      return '[arrêt non autorisé]'
+    }
+    const courtLabel = found.court === 'cass' ? 'Cass.' : 'CA'
+    const ref = found.date && found.number
+      ? `${courtLabel} ${found.date}, n° ${found.number}`
+      : `${courtLabel} n° ${found.number}`
+    const citation = found.url ? `[${ref}](${found.url})` : ref
+    console.info(`[post-process] ✅ [${rawTag}] → ${ref}`)
+    return citation
+  })
+}
 
-  for (const tc of taggedCases) {
-    const courtLabel = tc.court === 'cass' ? 'Cass.' : 'CA'
-    const ref = tc.date && tc.number
-      ? `${courtLabel} ${tc.date}, n° ${tc.number}`
-      : `${courtLabel} n° ${tc.number}`
-    const citation = tc.url ? `[${ref}](${tc.url})` : ref
-    result = result.replace(new RegExp(`\\[${tc.tag}\\]`, 'g'), citation)
-    console.info(`[post-process] ✅ [${tc.tag}] → ${ref}`)
+/** @deprecated Utiliser injectRealCaseCitations */
+export function injectRealCitationsFromTags(text: string, taggedCases: TaggedCase[]): string {
+  return injectRealCaseCitations(text, taggedCases)
+}
+
+// ── Architecture tags fermés [A1][A2][A3] pour les articles ──────────────────
+
+export interface TaggedArticle {
+  tag: string           // 'A1', 'A2', 'A3'
+  title: string         // "Art. 24 — loi n° 89-462" (label d'affichage)
+  sourceLaw: string
+  sourceArticle: string
+  sourceUrl?: string
+}
+
+/**
+ * Extrait les articles uniques des chunks et leur attribue un tag fermé A1, A2…
+ * Max 5 articles citables pour garder le prompt lisible.
+ */
+export function buildTaggedArticles(
+  chunks: Array<{ sourceLaw: string; sourceArticle: string; sourceUrl?: string | null }>,
+): TaggedArticle[] {
+  const unique = new Map<string, TaggedArticle>()
+
+  for (const chunk of chunks) {
+    const key = `${chunk.sourceLaw}|${chunk.sourceArticle}`
+    if (!unique.has(key)) {
+      unique.set(key, {
+        tag: `A${unique.size + 1}`,
+        title: chunk.sourceArticle
+          ? `Art. ${chunk.sourceArticle} — ${chunk.sourceLaw}`
+          : chunk.sourceLaw,
+        sourceLaw: chunk.sourceLaw,
+        sourceArticle: chunk.sourceArticle,
+        sourceUrl: chunk.sourceUrl ?? undefined,
+      })
+    }
   }
 
-  // Supprimer tout [Jn] résiduel non autorisé
-  result = result.replace(/\[J\d+\]/g, (orphan) => {
-    console.warn(`[post-process] ❌ Tag orphelin supprimé : ${orphan}`)
-    return ''
+  return [...unique.values()].slice(0, 5)
+}
+
+/**
+ * Retourne les tags article autorisés effectivement utilisés dans le texte.
+ */
+export function validateUsedArticleTags(text: string, allowedTags: string[]): string[] {
+  const used = [...text.matchAll(/\[(A\d+)\]/g)].map(m => m[1])
+  return [...new Set(used.filter(tag => allowedTags.includes(tag)))]
+}
+
+/**
+ * Remplace chaque [A1], [A2]… par le titre de l'article.
+ * Un tag inconnu est remplacé par '[article non autorisé]'.
+ */
+export function injectRealArticleCitations(text: string, taggedArticles: TaggedArticle[]): string {
+  return text.replace(/\[(A\d+)\]/g, (_, rawTag: string) => {
+    const found = taggedArticles.find(a => a.tag === rawTag)
+    if (!found) {
+      console.warn(`[post-process] ❌ Tag article orphelin : [${rawTag}]`)
+      return '[article non autorisé]'
+    }
+    const label = found.sourceUrl ? `[${found.title}](${found.sourceUrl})` : found.title
+    console.info(`[post-process] ✅ [${rawTag}] → ${found.title}`)
+    return label
   })
+}
+
+// ── Détection et suppression des citations libres d'articles ──────────────────
+
+export interface FreeArticleCitation {
+  match: string    // texte exact trouvé
+  article: string  // numéro d'article extrait (ex: "L.1331-8", "1641")
+  index: number    // position dans le texte
+}
+
+// Regex partagée : "art. L.1331-8 du Code de la santé publique", "article 1641", "l'art. 24 de la loi n° 89-462"
+// Le suffixe de loi s'arrête aux conjonctions (et, ou, ainsi) et à la ponctuation.
+const FREE_ARTICLE_RE = /\b(?:l[''])?art(?:icle)?s?\.?\s+((?:[LRDA]\.?\s*)?\d[\d\-\.]*)(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou|ainsi)\b)\S+){0,5})?/gi
+
+/**
+ * Détecte toutes les citations libres d'articles dans le texte.
+ * Une "citation libre" est une référence du type "art. L.xxx" sans tag [Ax].
+ * Les tags [A1][A2]… ne sont pas des citations libres — ils ne déclenchent pas ce pattern.
+ */
+export function findFreeFormArticleCitations(text: string): FreeArticleCitation[] {
+  const results: FreeArticleCitation[] = []
+  const re = new RegExp(FREE_ARTICLE_RE.source, FREE_ARTICLE_RE.flags)
+  for (const m of text.matchAll(re)) {
+    results.push({ match: m[0], article: m[1].trim(), index: m.index ?? 0 })
+  }
+  return results
+}
+
+/**
+ * Remplace les citations libres d'articles par "la disposition applicable".
+ * Actif uniquement si des tags [A1][A2]… sont définis (allowedArticleTags non vide).
+ * Si aucun tag n'est actif → retour sans modification (mode libre autorisé).
+ */
+export function stripUnauthorizedArticleCitations(
+  text: string,
+  allowedArticleTags: string[],
+): { cleaned: string; found: FreeArticleCitation[] } {
+  const found = findFreeFormArticleCitations(text)
+  if (allowedArticleTags.length === 0 || found.length === 0) {
+    return { cleaned: text, found }
+  }
+
+  const re = new RegExp(FREE_ARTICLE_RE.source, FREE_ARTICLE_RE.flags)
+  const cleaned = text.replace(re, (match) => {
+    console.warn(`[post-process] ⚠️ Citation libre article supprimée : "${match.trim()}"`)
+    return 'la disposition applicable'
+  })
+  return { cleaned, found }
+}
+
+/**
+ * Adoucit les affirmations normatives trop catégoriques en mode "normative safety".
+ * Activé quand : aucun arrêt pgvector + ≤ 1 arrêt live + citations libres d'articles détectées.
+ * Ajoute un footer prudentiel si absent.
+ */
+export function optionallyDowngradeUnsupportedNormativeClaims(text: string): string {
+  const PATTERNS: Array<[RegExp, string]> = [
+    [/\best\s+obligatoire\b/gi,        'est en principe obligatoire (à vérifier selon la situation)'],
+    [/\bsont\s+obligatoires\b/gi,      'seraient en principe obligatoires (à vérifier)'],
+    [/\best\s+interdit\b/gi,           'pourrait être interdit (à vérifier)'],
+    [/\bsont\s+interdits\b/gi,         'pourraient être interdits (à vérifier)'],
+    [/\best\s+nul\b/gi,                'pourrait être nul (à vérifier)'],
+    [/\best\s+nulle\b/gi,              'pourrait être nulle (à vérifier)'],
+    [/\bdoit\s+impérativement\b/gi,    'devrait en principe'],
+    [/\bil\s+est\s+certain\s+que\b/gi, 'il semble que'],
+  ]
+
+  let result = text
+  for (const [pattern, replacement] of PATTERNS) {
+    result = result.replace(pattern, replacement)
+  }
+
+  const SAFETY_FOOTER = '\n\n> ⚠️ *Sources limitées pour cette question. Vérifiez les dispositions applicables auprès de la mairie, du SPANC ou des textes officiels en vigueur.*'
+  if (!result.includes('Sources limitées')) {
+    result += SAFETY_FOOTER
+  }
 
   return result
 }
+
+// ── Détection de densité normative ───────────────────────────────────────────
+
+/**
+ * Seuil au-dessus duquel la densité normative est considérée comme "haute".
+ * Basé sur le nombre de TYPES distincts détectés (pas le nombre d'occurrences).
+ * ≥ 3 types distincts = texte assertif sans grounding suffisant.
+ */
+export const NORMATIVE_DENSITY_HIGH = 3
+
+// Types de formulations normatives suivis — chaque type compte pour 1 point.
+// On décompte les TYPES présents (pas les occurrences), pour éviter l'inflation
+// due à la répétition normale du verbe "doit" dans un texte juridique.
+const NORMATIVE_PATTERN_TYPES: Array<[string, RegExp]> = [
+  ['doit',               /\bdoit\b/i],
+  ['est_obligatoire',    /\best\s+(?:en\s+principe\s+)?obligatoire\b/i],
+  ['est_interdit',       /\best\s+(?:formellement\s+|absolument\s+)?interdit\b/i],
+  ['s_expose_a',         /\bs[''\u2019]expose\b/i],
+  ['encourt',            /\bencourt\b/i],
+  ['peut_exiger',        /\bpeut\s+exiger\b/i],
+  ['est_tenu_de',        /\best\s+tenu\s+de\b/i],
+  ['est_nul',            /\best\s+nul(?:le)?\b/i],
+  ['doit_imperativement',/\bdoit\s+impérativement\b/i],
+  ['ne_peut_pas',        /\bne\s+peut\s+pas\b/i],
+]
+
+export interface NormativeDensityResult {
+  /** Nombre de types de patterns normatifs distincts détectés (0–N). */
+  score: number
+  /** Noms des types détectés — utile pour le logging. */
+  patterns: string[]
+}
+
+/**
+ * Évalue la densité normative d'un texte en comptant les TYPES de formulations
+ * assertives présentes (distinct, pas les occurrences).
+ * Score ≥ NORMATIVE_DENSITY_HIGH (3) = haute densité.
+ */
+export function detectNormativeDensity(text: string): NormativeDensityResult {
+  const patterns: string[] = []
+  for (const [name, re] of NORMATIVE_PATTERN_TYPES) {
+    if (re.test(text)) patterns.push(name)
+  }
+  return { score: patterns.length, patterns }
+}
+
+// ── Internal helpers ──────────────────────────────────────────────────────────
 
 interface CaseRef {
   court: 'cass' | 'ca'
