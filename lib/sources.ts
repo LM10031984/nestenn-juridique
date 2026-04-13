@@ -114,8 +114,15 @@ export async function fetchRelevantSources(
       return empty
     }
 
-    const allFiltered = ((data ?? []) as PgVectorRow[])
-      .filter(r => r.similarity >= threshold)
+    const allRows = (data ?? []) as PgVectorRow[]
+
+    // Debug : log top-5 avant filtre pour diagnostiquer chunks=0
+    if (allRows.length > 0) {
+      const top5 = allRows.slice(0, 5).map(r => `${r.domain}/${r.source} sim=${r.similarity.toFixed(3)}`)
+      console.info(`[sources] top-5 pre-filter: ${top5.join(' | ')}`)
+    }
+
+    const allFiltered = allRows.filter(r => r.similarity >= threshold)
 
     // Slicer APRÈS séparation : évite que les arrêts saturent le top-N et évincent les articles
     const articleRows = allFiltered.filter(r => r.source === 'article').slice(0, maxResults)

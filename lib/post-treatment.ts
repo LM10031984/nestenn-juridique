@@ -68,7 +68,38 @@ export async function verifyReferencesAsync(
   }
 }
 
-// ── Sanitisation inline (avant envoi client) ─────────────────────────────────
+// ── Suppression des références complètes non vérifiées (passe 1) ─────────────
+
+/**
+ * Supprime la citation jurisprudentielle entière quand son numéro n'est pas dans liveJuriCases.
+ * Ex : "Cass. 3e civ., 12 mai 2022, n° 21-13.456" → supprimé
+ * Ne touche PAS aux numéros vérifiés.
+ */
+export function removeUnverifiedReferences(
+  text: string,
+  liveJuriCases: Array<{ number: string }>,
+): { cleaned: string; removed: string[] } {
+  const normalize = (n: string) => n.replace(/[\s\-\.\/]/g, '').toLowerCase()
+  const validNums = new Set(liveJuriCases.map(c => normalize(c.number)))
+  console.log('[post-process] validNums:', validNums.size, [...validNums])
+  const removed: string[] = []
+
+  // Passe 1a : citation complète "Cass. X, date, n° XX-XXXXX"
+  const fullRefPattern = /(?:(?:Cass|CA)\.[^,]{1,60},\s*\d{1,2}\s+\w+\.?\s+\d{4},?\s*)?n°\s*([\d]{2}-[\d]{2,6}(?:\.[\d]+)?)/gi
+
+  const cleaned = text.replace(fullRefPattern, (match, num) => {
+    if (validNums.size === 0 || validNums.has(normalize(num))) return match
+    const label = `n° ${num.trim()}`
+    console.warn(`[post-process] ❌ Arrêt non vérifié supprimé : ${label}`)
+    removed.push(label)
+    return ''
+  })
+
+  // Nettoyage des espaces multiples laissés par les suppressions
+  return { cleaned: cleaned.replace(/[ \t]{2,}/g, ' '), removed }
+}
+
+// ── Sanitisation inline (avant envoi client) — passe 2 ───────────────────────
 
 export function sanitizeJuriNumbers(
   text: string,

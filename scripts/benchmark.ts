@@ -47,6 +47,7 @@ interface BenchmarkResult {
 
 const API_BASE = process.env.BENCHMARK_API_URL ?? 'http://localhost:3000'
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY ?? ''
+const BENCHMARK_SECRET = process.env.BENCHMARK_SECRET ?? ''
 const JUDGE_MODEL = 'openai/gpt-4o-mini'
 const COST_PER_1K_INPUT = 0.00015  // GPT-4o-mini input en EUR (approx)
 const COST_PER_1K_OUTPUT = 0.0006  // GPT-4o-mini output en EUR (approx)
@@ -55,7 +56,7 @@ const COST_PER_1K_OUTPUT = 0.0006  // GPT-4o-mini output en EUR (approx)
 const SUPPORTED_MODELS: Record<string, { openrouterId: string; label: string }> = {
   'gpt-4o':            { openrouterId: 'openai/gpt-4o',                    label: 'GPT-4o' },
   'claude-sonnet-4-6': { openrouterId: 'anthropic/claude-sonnet-4-6',       label: 'Claude Sonnet 4.6' },
-  'mistral-large':     { openrouterId: 'mistralai/mistral-large',           label: 'Mistral Large' },
+  'mistral-large':     { openrouterId: 'mistralai/mistral-large-2512',      label: 'Mistral Large 3' },
 }
 
 async function callChatApi(question: string, openrouterId?: string): Promise<{ text: string; tokens: number; durationMs: number }> {
@@ -73,9 +74,12 @@ async function callChatApi(question: string, openrouterId?: string): Promise<{ t
   if (openrouterId) body.model = openrouterId
   if (isClaudeModel) body.maxTokens = 3000
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (BENCHMARK_SECRET) headers['x-benchmark-secret'] = BENCHMARK_SECRET
+
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
     signal: controller.signal,
   })
