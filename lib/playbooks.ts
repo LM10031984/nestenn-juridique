@@ -232,7 +232,7 @@ const BAIL_MEUBLE_MOBILITE: Playbook = {
 const AG_COPROPRIETE_VOTES: Playbook = {
   id: 'ag_copropriete_votes',
   name: 'Copropriété — assemblée générale et règles de vote',
-  triggers: ['assemblée générale', 'assemblee generale', 'convocation ag', 'convocation assemblée', 'ordre du jour ag', 'résolution copropriété', 'resolution copropriete', 'vote copropriétaires', 'majorité copropriété', 'double majorité'],
+  triggers: ['assemblée générale', 'assemblee generale', 'convocation ag', 'convocation assemblée', 'ordre du jour ag', 'résolution copropriété', 'resolution copropriete', 'vote copropriétaires', 'majorité copropriété', 'double majorité', 'refus convoquer', 'refuse de convoquer', 'syndic refuse', 'assemblée extraordinaire', 'assemblee extraordinaire', 'age extraordinaire', '25% des voix', 'quart des voix'],
   subThemes: ['copropriete'],
   forcedArticles: [
     { law: 'loi 65-557', artNum: '17', label: 'Art. 17 loi 65-557 — tenue de l\'AG' },
