@@ -82,9 +82,10 @@ async function regenerateDomain(domain: string, dryRun: boolean) {
     .from('legal_articles')
     .select('id, article_num, title, content, content_summary')
     .contains('domains', [domain])
+    .or('content_summary.is.null,content_summary.eq.')
 
   if (error) { console.error('[regenerate] Erreur fetch:', error); return }
-  console.info(`[regenerate] ${articles?.length ?? 0} articles à régénérer\n`)
+  console.info(`[regenerate] ${articles?.length ?? 0} articles sans résumé (null/vide) à traiter\n`)
 
   let updated = 0
   let skipped = 0

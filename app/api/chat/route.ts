@@ -17,6 +17,7 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
+import { sanitizeJuriNumbers } from '@/lib/post-treatment'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -306,51 +307,45 @@ export async function POST(req: NextRequest) {
   try {
     const llmStream = await openRouterStreamWithFallback(messages, modelConfig.maxTokens, selectedModel, modelConfig.temperature)
 
-    // Auto-indexer : tee systématique pour capturer la réponse et indexer
-    // les articles/arrêts cités mais absents de pgvector, quel que soit le nombre de chunks
+    // Buffer la réponse complète → sanitiser les numéros d'arrêts non vérifiés → re-émettre
     const chunksFound = chunks.length
-    const [clientStream, captureStream] = llmStream.tee()
+    const reader = llmStream.getReader()
+    const decoder = new TextDecoder()
+    const rawChunks: string[] = []
 
-    // waitUntil : garantit l'exécution sur Vercel après l'envoi de la réponse
-    waitUntil(
-      (async () => {
-        try {
-          const reader = captureStream.getReader()
-          const decoder = new TextDecoder()
-          const rawChunks: string[] = []
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      rawChunks.push(decoder.decode(value, { stream: true }))
+    }
 
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            rawChunks.push(decoder.decode(value, { stream: true }))
-          }
+    const rawSSE = rawChunks.join('')
+    const responseText = rawSSE
+      .split('\n')
+      .filter(line => line.startsWith('data: ') && !line.includes('[DONE]'))
+      .map(line => {
+        try { return JSON.parse(line.slice(6)).choices?.[0]?.delta?.content ?? '' }
+        catch { return '' }
+      })
+      .join('')
 
-          // Extraire le texte de la réponse depuis le flux SSE brut
-          const rawSSE = rawChunks.join('')
-          const responseText = rawSSE
-            .split('\n')
-            .filter(line => line.startsWith('data: ') && !line.includes('[DONE]'))
-            .map(line => {
-              try {
-                const json = JSON.parse(line.slice(6))
-                return json.choices?.[0]?.delta?.content ?? ''
-              } catch { return '' }
-            })
-            .join('')
+    // Sanitiser : remplacer tout numéro d'arrêt absent de liveJuriCases + pgCases par [arrêt non vérifié]
+    const validCases = [...liveJuriCases, ...filteredPgJuriCases]
+    const { sanitized: sanitizedText, removed } = sanitizeJuriNumbers(responseText, validCases)
+    if (removed.length > 0) {
+      console.warn(`[sanitize] ${removed.length} numéro(s) non vérifié(s) remplacé(s): ${removed.join(', ')}`)
+    }
 
-          console.info(`[auto-indexer] Texte extrait : ${responseText.length} chars`)
+    // Auto-index en background (fire-and-forget)
+    waitUntil(Promise.all([
+      autoIndexMissingArticles(responseText, chunksFound),
+      autoIndexMissingJurisprudence(liveJuriCases),
+    ]).catch(err => console.error('[auto-indexer]', err)))
 
-          await Promise.all([
-            autoIndexMissingArticles(responseText, chunksFound),
-            autoIndexMissingJurisprudence(liveJuriCases),
-          ])
-        } catch (err) { console.error('[auto-indexer]', err) }
-      })()
-    )
+    // Re-émettre comme SSE (réponse complète en un seul event)
+    const sanitizedSSE = `data: ${JSON.stringify({ choices: [{ delta: { content: sanitizedText }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`
 
-    const outputStream = clientStream
-
-    return new Response(outputStream, {
+    return new Response(sanitizedSSE, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream',
@@ -361,6 +356,7 @@ export async function POST(req: NextRequest) {
         'X-Domain': primaryDomain ?? '',
         'X-Response-Mode': responseMode,
         'X-Model-Used': selectedModel,
+        'X-Sanitized': String(removed.length),
       },
     })
   } catch (err) {

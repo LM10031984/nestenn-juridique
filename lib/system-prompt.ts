@@ -42,8 +42,6 @@ export function getSystemPromptAugmented(
 Tu réponds aux questions de droit immobilier en mobilisant tes connaissances ET les textes officiels ci-dessous.
 
 ${sourcesBlock}${juriBlock}
-RÈGLE ABSOLUE : Tu ne dois citer QUE les numéros d'arrêts explicitement fournis dans le contexte ci-dessus (section Judilibre). Il est INTERDIT de citer un numéro de jurisprudence de mémoire ou d'en inventer. Si aucun arrêt pertinent n'est fourni, écris 'Aucune jurisprudence récente disponible sur ce point' plutôt que de citer un numéro non vérifié.
-
 COMMENT UTILISER CES SOURCES :
 - Elles te servent à confirmer tes affirmations avec la référence exacte et le lien
 - Si un texte fourni contredit ce que tu sais → le texte en vigueur a raison, corrige ta réponse
@@ -113,16 +111,31 @@ function formatJurisprudence(cases: JuriCase[]): string {
 }
 
 function formatJurisprudenceSplit(liveCases: JuriCase[], pgCases: JuriCase[]): string {
-  let result = ''
+  const allCases = [...liveCases, ...pgCases]
+  if (allCases.length === 0) return ''
+
+  const refLabel = (c: JuriCase) => {
+    const courtLabel = c.court === 'cass' ? 'Cass.' : 'CA'
+    return c.date && c.number
+      ? `${courtLabel} ${c.date}, n° ${c.number}`
+      : `${courtLabel} — ${c.number}`
+  }
+
+  // Contrainte structurelle : liste numérotée des seuls arrêts autorisés
+  const numberedList = allCases.map((c, i) => `[${i + 1}] ${refLabel(c)}`).join('\n')
+
+  let result = '\nJURISPRUDENCE :\n'
+  result += 'Les SEULS arrêts que tu peux citer sont listés ci-dessous avec leur numéro exact. Copie ces numéros tels quels, sans modification :\n'
+  result += numberedList + '\n'
+  result += 'Si tu cites un numéro qui n\'est pas dans cette liste, c\'est une erreur grave.\n'
 
   if (liveCases.length > 0) {
-    result += '\nJURISPRUDENCE RÉCENTE (source : Judilibre — décisions vérifiées en temps réel) :\n'
-    result += 'PRIORITÉ : cite ces arrêts en premier, ils sont récents et vérifiés.\n'
+    result += '\nDÉTAIL — JURISPRUDENCE RÉCENTE (Judilibre, vérifiée en temps réel) :\n'
     result += liveCases.map(formatJuriCase).join('\n') + '\n'
   }
 
   if (pgCases.length > 0) {
-    result += '\nJURISPRUDENCE COMPLÉMENTAIRE (base indexée) :\n'
+    result += '\nDÉTAIL — JURISPRUDENCE COMPLÉMENTAIRE (base indexée) :\n'
     result += pgCases.map(formatJuriCase).join('\n') + '\n'
   }
 

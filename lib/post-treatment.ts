@@ -1,5 +1,5 @@
 // lib/post-treatment.ts
-// Vérification async des références d'arrêts citées — ne bloque pas le client
+// Vérification async + sanitisation des références d'arrêts — ne bloque pas le client
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -66,6 +66,27 @@ export async function verifyReferencesAsync(
     console.error('[post-treatment] error:', err)
     return result
   }
+}
+
+// ── Sanitisation inline (avant envoi client) ─────────────────────────────────
+
+export function sanitizeJuriNumbers(
+  text: string,
+  validCases: Array<{ number: string }>,
+): { sanitized: string; removed: string[] } {
+  const normalize = (n: string) => n.replace(/[\s\-\.\/]/g, '').toLowerCase()
+  const validNums = new Set(validCases.map(c => normalize(c.number)))
+
+  const removed: string[] = []
+  const sanitized = text.replace(
+    /n°\s*([\d]{2}[\-\.][\d]{2,5}(?:[\-\.][\d]{2,5})?)/g,
+    (match, num) => {
+      if (validNums.size === 0 || validNums.has(normalize(num))) return match
+      removed.push(num.trim())
+      return '[arrêt non vérifié]'
+    }
+  )
+  return { sanitized, removed }
 }
 
 interface CaseRef {

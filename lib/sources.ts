@@ -114,21 +114,22 @@ export async function fetchRelevantSources(
       return empty
     }
 
-    const rows = ((data ?? []) as PgVectorRow[])
+    const allFiltered = ((data ?? []) as PgVectorRow[])
       .filter(r => r.similarity >= threshold)
-      .slice(0, maxResults)
 
-    const chunks: SourceChunk[] = rows
-      .filter(r => r.source === 'article')
-      .map(rowToChunk)
-    const juriCases: JuriCase[] = rows
-      .filter(r => r.source === 'arret')
+    // Slicer APRÈS séparation : évite que les arrêts saturent le top-N et évincent les articles
+    const articleRows = allFiltered.filter(r => r.source === 'article').slice(0, maxResults)
+    const arretRows   = allFiltered.filter(r => r.source === 'arret').slice(0, Math.ceil(maxResults / 2))
+    const bestSim     = allFiltered[0]?.similarity
+
+    const chunks: SourceChunk[] = articleRows.map(rowToChunk)
+    const juriCases: JuriCase[] = arretRows
       .map(rowToJuriCase)
       .filter((c): c is JuriCase => c !== null)
 
     console.info(
       `[sources] ${chunks.length} articles + ${juriCases.length} arrêts `
-      + `(sim ≥ ${threshold}, best=${rows[0]?.similarity?.toFixed(3) ?? '—'})`
+      + `(sim ≥ ${threshold}, best=${bestSim?.toFixed(3) ?? '—'})`
     )
 
     return { chunks, juriCases }
