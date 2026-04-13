@@ -97,8 +97,12 @@ export function removeUnverifiedReferences(
     return ''
   })
 
+  // Passe 1b : fragments Cass. orphelins sans numéro laissés par la passe 1a
+  // Ex: "Cass. 3e civ., 15 décembre 2021, **" ou "**Cass. 3e civ., 15 décembre 2021, :"
+  const withoutOrphans = cleaned.replace(/\*{0,2}Cass\.[^:]{5,80},\s*\*{0,2}\s*:/gi, '')
+
   // Nettoyage des espaces multiples laissés par les suppressions
-  return { cleaned: cleaned.replace(/[ \t]{2,}/g, ' '), removed }
+  return { cleaned: withoutOrphans.replace(/[ \t]{2,}/g, ' '), removed }
 }
 
 // ── Sanitisation inline (avant envoi client) — passe 2 ───────────────────────
