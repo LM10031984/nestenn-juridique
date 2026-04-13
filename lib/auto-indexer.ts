@@ -58,6 +58,13 @@ const LAW_DATE_MAP: Record<string, string> = {
   '1er septembre 1948': 'LEGITEXT000006069108', // Loi 48-1360 (ancien régime)
 }
 
+// Table déterministe préfixe d'article → LEGITEXT
+// Consultée en priorité absolue, sans inférence contextuelle.
+const ARTICLE_PREFIX_OVERRIDE: Array<{ prefix: RegExp; legitext: string; name: string }> = [
+  { prefix: /^L\.?27[12]/i, legitext: 'LEGITEXT000006074096', name: "Code de la construction et de l'habitation" }, // L.271, L.272
+  { prefix: /^L\.?313/i,    legitext: 'LEGITEXT000006069565', name: 'Code de la consommation' },                    // L.313-x
+]
+
 const KNOWN_LAWS: Record<string, string> = {
   'code civil':                                    'LEGITEXT000006070721',
   'code de la santé publique':                     'LEGITEXT000006072665',
@@ -138,7 +145,11 @@ export function extractArticleReferences(text: string): ArticleRef[] {
     if (!article) continue
     const position = match.index ?? 0
 
-    const law = findLawInText(text, position)
+    // Priorité absolue : préfixe d'article → LEGITEXT déterministe, sans contexte
+    const prefixOverride = ARTICLE_PREFIX_OVERRIDE.find(p => p.prefix.test(article))
+    const law = prefixOverride
+      ? { name: prefixOverride.name, legitext: prefixOverride.legitext }
+      : findLawInText(text, position)
     if (!law) continue
 
     const key = `${law.legitext}|${article}`

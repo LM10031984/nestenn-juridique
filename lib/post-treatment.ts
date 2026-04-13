@@ -84,9 +84,10 @@ export function removeUnverifiedReferences(
   console.log('[post-process] validNums:', validNums.size, [...validNums])
   const removed: string[] = []
 
-  // Passe 1a : citation complète "Cass. X, date, n° XX-XX.XXX"
-  // Le point est obligatoire : distingue n° 23-16.290 (arrêt) de n° 65-557 (loi)
-  const fullRefPattern = /(?:(?:Cass|CA)\.[^,]{1,60},\s*\d{1,2}\s+\w+\.?\s+\d{4},?\s*)?n°\s*(\d{2}-\d{2,3}\.\d{3})/gi
+  // Passe 1a : citation complète "Cass. X, date, **n° XX-XX.XXX**"
+  // \*{0,2}\s* absorbe les marqueurs markdown ** entre la date et n°, et après le numéro.
+  // Le point est obligatoire : distingue n° 23-16.290 (arrêt) de n° 65-557 (loi).
+  const fullRefPattern = /(?:(?:Cass|CA)\.[^,]{1,60},\s*\d{1,2}\s+\w+\.?\s+\d{4},?\s*\*{0,2}\s*)?n°\s*\*{0,2}\s*(\d{2}-\d{2,3}\.\d{3})\s*\*{0,2}/gi
 
   const cleaned = text.replace(fullRefPattern, (match, num) => {
     if (validNums.size === 0 || validNums.has(normalize(num))) return match
