@@ -43,8 +43,9 @@ const DOMAIN_KEYWORDS: Array<{
     domain: { name: 'agent_immobilier', judilibreTheme: 'agent immobilier', judilibreChamber: 'civ1' },
   },
   {
-    keywords: ['vente', 'compromis', 'promesse de vente', 'acte authentique',
-               'vice caché', 'rétractation', 'condition suspensive', 'avant-contrat',
+    keywords: ['vente', 'compromis', 'compromis de vente', 'promesse de vente', 'acte authentique',
+               'vice caché', 'rétractation', 'rétractation acquéreur', 'condition suspensive', 'avant-contrat',
+               'offre d\'achat', 'offre contresignée', 'désengagement', 'dépôt de garantie',
                'acheteur', 'vendeur', 'notaire', 'frais de notaire', 'sru',
                'tutelle', 'curatelle', 'majeur protégé', 'incapacité',
                'indivision', 'succession', 'donation', 'héritage', 'héritier',

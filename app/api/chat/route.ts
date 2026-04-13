@@ -124,7 +124,13 @@ export async function POST(req: NextRequest) {
     : DEFAULT_MODEL_ID
 
   // Défense en profondeur : vérifier les droits côté serveur si modèle non-défaut
-  if (selectedModel !== DEFAULT_MODEL_ID) {
+  // Exception : benchmark local identifié par X-Benchmark-Secret (dev uniquement)
+  const benchmarkSecret = process.env.BENCHMARK_SECRET
+  const isBenchmarkRequest = benchmarkSecret
+    && req.headers.get('x-benchmark-secret') === benchmarkSecret
+    && process.env.NODE_ENV !== 'production'
+
+  if (!isBenchmarkRequest && selectedModel !== DEFAULT_MODEL_ID) {
     const authResult = await getApiUser()
     if ('error' in authResult) return authResult.error
     if (!authResult.user.can_switch_model) {
@@ -336,7 +342,7 @@ export async function POST(req: NextRequest) {
 
           await Promise.all([
             autoIndexMissingArticles(responseText, chunksFound),
-            autoIndexMissingJurisprudence(responseText, chunksFound),
+            autoIndexMissingJurisprudence(liveJuriCases),
           ])
         } catch (err) { console.error('[auto-indexer]', err) }
       })()

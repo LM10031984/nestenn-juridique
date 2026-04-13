@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import { openRouterChat, MODELS } from '@/lib/openrouter'
 import { FEATURES } from '@/lib/config'
 import { handleUnclassifiedArticle } from '@/lib/pending-domains'
+import type { JuriCase } from '@/lib/system-prompt'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -421,30 +422,6 @@ const JUDILIBRE_API_URL = process.env.PISTE_ENV === 'sandbox'
   ? 'https://sandbox-api.piste.gouv.fr/cassation/judilibre/v1.0'
   : 'https://api.piste.gouv.fr/cassation/judilibre/v1.0'
 
-interface CaseRef {
-  court: 'cass' | 'ca'
-  number: string
-}
-
-function extractCaseReferences(text: string): CaseRef[] {
-  const refs: CaseRef[] = []
-  const seen = new Set<string>()
-
-  const cassPattern = /Cass\.\s*(?:civ\.\s*\d+e?|com\.|soc\.|crim\.|ass\.\s*plén\.)[^n°]*?n°\s*([\d]{2}-[\d]{2,5}\.[\d]{3,5})/gi
-  for (const m of text.matchAll(cassPattern)) {
-    const number = m[1].trim()
-    if (!seen.has(number)) { seen.add(number); refs.push({ court: 'cass', number }) }
-  }
-
-  const genericPattern = /\bn°\s*([\d]{2}-[\d]{2,5}\.[\d]{3,5})\b/gi
-  for (const m of text.matchAll(genericPattern)) {
-    const number = m[1].trim()
-    if (!seen.has(number)) { seen.add(number); refs.push({ court: 'cass', number }) }
-  }
-
-  return refs
-}
-
 async function fetchDecisionFromJudilibre(token: string, number: string): Promise<{
   text: string; date: string; url: string; id: string
 } | null> {
@@ -537,12 +514,11 @@ Réponds UNIQUEMENT avec du JSON valide : {"situation":"...","principe":"...","c
 }
 
 export async function autoIndexMissingJurisprudence(
-  responseText: string,
-  chunksFound: number,
+  liveResults: JuriCase[],
 ): Promise<void> {
-
-  const refs = extractCaseReferences(responseText)
-  if (refs.length === 0) return
+  // Source unique : les arrêts vérifiés via l'API Judilibre avant génération de la réponse.
+  // Ne jamais extraire de numéros depuis le texte du LLM (risque d'hallucination).
+  if (liveResults.length === 0) return
 
   const token = await getPisteToken()
   if (!token) {
@@ -550,23 +526,23 @@ export async function autoIndexMissingJurisprudence(
     return
   }
 
-  for (const ref of refs) {
+  for (const result of liveResults) {
     try {
       const { count } = await supabase
         .from('jurisprudence')
         .select('*', { count: 'exact', head: true })
-        .ilike('number', ref.number)
+        .ilike('number', result.number)
 
       if ((count ?? 0) > 0) continue
 
-      const decision = await fetchDecisionFromJudilibre(token, ref.number)
+      const decision = await fetchDecisionFromJudilibre(token, result.number)
       if (!decision) {
-        console.warn(`[auto-indexer] Arrêt n° ${ref.number} introuvable sur Judilibre`)
+        console.warn(`[auto-indexer] Arrêt n° ${result.number} introuvable sur Judilibre`)
 
         void supabase.from('auto_index_queue').upsert({
           source: 'jurisprudence',
-          case_number: ref.number,
-          court: ref.court,
+          case_number: result.number,
+          court: result.court,
           error_reason: 'Judilibre introuvable',
           next_retry_at: new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
         }, { onConflict: 'source,case_number' })
@@ -574,7 +550,7 @@ export async function autoIndexMissingJurisprudence(
         continue
       }
 
-      const summary = await summarizeJurisprudence(ref.number, decision.text)
+      const summary = await summarizeJurisprudence(result.number, decision.text)
       if (!summary) continue
 
       const embeddingText = `${summary.situation} ${summary.principe} ${summary.consequence}`
@@ -583,8 +559,8 @@ export async function autoIndexMissingJurisprudence(
 
       const { error } = await supabase.from('jurisprudence').upsert({
         source_id:       decision.id,
-        court:           ref.court === 'cass' ? 'cc' : 'ca',
-        number:          ref.number,
+        court:           result.court === 'cass' ? 'cc' : 'ca',
+        number:          result.number,
         date:            decision.date,
         situation:       summary.situation,
         principle:       summary.principe,
@@ -598,12 +574,12 @@ export async function autoIndexMissingJurisprudence(
       }, { onConflict: 'source_id' })
 
       if (error) {
-        console.error(`[auto-indexer] Upsert juri ${ref.number}:`, error.message)
+        console.error(`[auto-indexer] Upsert juri ${result.number}:`, error.message)
       } else {
-        console.info(`[auto-indexer] ✅ Jurisprudence indexée : ${ref.court} n° ${ref.number}`)
+        console.info(`[auto-indexer] ✅ Jurisprudence indexée : ${result.court} n° ${result.number}`)
       }
     } catch (err) {
-      console.error(`[auto-indexer] Erreur juri ${ref.number}:`, err)
+      console.error(`[auto-indexer] Erreur juri ${result.number}:`, err)
     }
   }
 }
