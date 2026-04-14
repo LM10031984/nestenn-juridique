@@ -847,6 +847,30 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
     answerNote: 'DROIT SOCIAL IMMOBILIER — POINTS CLÉS :\n1. CONVENTION COLLECTIVE (IDCC 1527) : les négociateurs salariés d\'agences immobilières sont couverts par la Convention Collective Nationale de l\'Immobilier (IDCC 1527). Elle prévoit des dispositions spécifiques sur la rémunération variable, les congés, la formation.\n2. STATUT VPI (Voyageur Placier Intermédiaire) : certains négociateurs sont en statut VPI (agent commercial), non salariés — leur régime juridique est différent (absence de lien de subordination, pas de protection chômage).\n3. RUPTURE CONVENTIONNELLE (art. L1237-19) : possible pour les salariés. Nécessite accord mutuel + homologation DREETS. Indemnité spécifique rupture conventionnelle = au moins indemnité légale de licenciement.\n4. CLAUSE DE NON-CONCURRENCE : doit être limitée dans le temps, l\'espace et rémunérée pour être valide. Sans contrepartie financière = nulle (Cass. soc.).\nATTENTION : bien distinguer négociateur salarié (CDI, droit du travail) et agent commercial (indépendant, droit commercial). La qualification du lien juridique est souvent au cœur des litiges.',
   },
 
+  // ── RGPD AGENCE — PROSPECTION CRM & PROSPECTS ────────────────────────────
+  // Shortlist dédiée aux questions CRM / consentement / droit d'opposition.
+  // Pivots : art. 6 (bases légales), art. 13 (information), art. 21 (opposition).
+  // Doit être évaluée AVANT rgpd_agence_obligations (plus spécifique).
+
+  {
+    id: 'rgpd_agence_prospection',
+    triggers: [
+      'consentement prospect', 'données prospect', 'prospect crm', 'crm agence',
+      'enregistrer prospect', 'fichier prospect', 'prospection commerciale données',
+      'droit opposition prospect', 'effacement données prospect',
+      'consentement crm', 'base légale crm', 'base légale prospection',
+      'opt-in prospect', 'opt-out prospect', 'durée conservation prospect',
+      'conserver les données d\'un prospect', 'conservation données prospect',
+    ],
+    forcedArticles: [
+      { law: 'règlement ue 2016/679', artNum: '6',  label: 'Art. 6 RGPD — licéité du traitement (bases légales)' },
+      { law: 'règlement ue 2016/679', artNum: '13', label: 'Art. 13 RGPD — information des personnes lors de la collecte de données' },
+      { law: 'règlement ue 2016/679', artNum: '21', label: 'Art. 21 RGPD — droit d\'opposition au traitement' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'RGPD PROSPECTION IMMOBILIÈRE — CRM & PROSPECTS :\n1. BASE LÉGALE (art. 6 RGPD) : pour enregistrer un prospect en CRM, la base légale est l\'intérêt légitime (art. 6-1-f) si la relation est préexistante, ou le consentement (art. 6-1-a) pour la prospection à froid. La base "exécution d\'un contrat" ne s\'applique pas avant la signature.\n2. INFORMATION OBLIGATOIRE (art. 13) : dès la collecte, informer le prospect de l\'identité du responsable de traitement, de la finalité, de la durée de conservation et de ses droits.\n3. DROIT D\'OPPOSITION (art. 21) : le prospect peut s\'opposer à tout moment au traitement fondé sur l\'intérêt légitime. L\'agence doit alors cesser le traitement sauf motif légitime impérieux.\n4. DURÉE DE CONSERVATION recommandée par la CNIL pour les prospects non convertis : 3 ans à compter du dernier contact. Au-delà = obligation de supprimer ou de renouveler le consentement.\nATTENTION : intégrer un mécanisme d\'opt-out dans tous les emails de prospection. Conserver la preuve du consentement ou de l\'intérêt légitime documenté.',
+  },
+
   // ── RGPD AGENCE — OBLIGATIONS & CONSERVATION ─────────────────────────────
   // Sprint 3 — domaine actif sans topic. Focus : obligations pratiques
   // des agences immobilières en matière de données personnelles.

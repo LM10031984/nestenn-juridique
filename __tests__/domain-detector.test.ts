@@ -361,6 +361,42 @@ describe('detectDomains — nouveaux domaines Sprint 1', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RGPD — domaine rgpd_agence doit surclasser agent_immobilier sur les questions
+// CRM / consentement / données prospects
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectDomains — rgpd_agence vs agent_immobilier', () => {
+
+  it('consentement prospect CRM → rgpd_agence (pas agent_immobilier)', () => {
+    // Contient "agence immobilière" (2.0 pour agent_immobilier)
+    // mais aussi consentement(1.0) + CRM(1.5) + prospect(1.0) + données(0.5) = 4.0
+    const res = detectDomains(
+      'Une agence immobilière doit-elle obtenir le consentement d\'un prospect avant d\'enregistrer ses données dans son CRM ?',
+    )
+    expect(res[0]).toBe('rgpd_agence')
+    expect(res).not.toContain('agent_immobilier')
+  })
+
+  it('durée conservation données prospect vendeur → rgpd_agence', () => {
+    // Pas de "agence immobilière" exact → agent_immobilier = 0
+    // "conserver les données"(2.0) + prospect(1.0) + données(0.5) = 3.5
+    const res = detectDomains(
+      'Combien de temps une agence peut-elle conserver les données d\'un prospect vendeur ?',
+    )
+    expect(res[0]).toBe('rgpd_agence')
+  })
+
+  it('effacement données CRM agence → rgpd_agence', () => {
+    // effacement(1.5) + crm(1.5) + prospect(1.0) + données(0.5) = 4.5
+    const res = detectDomains(
+      'Un prospect peut-il demander l\'effacement de ses données dans le CRM de l\'agence ?',
+    )
+    expect(res[0]).toBe('rgpd_agence')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Anti-régression Sprint 1 — les nouveaux domaines ne perturbent pas les anciens
 // ─────────────────────────────────────────────────────────────────────────────
 

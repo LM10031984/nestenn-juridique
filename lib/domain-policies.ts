@@ -202,7 +202,8 @@ export const DOMAIN_POLICIES: Record<string, DomainPolicy> = {
     forceJurisprudence: false,
     useLiveArticleSync: true,
     safetyLevel: 'critical',
-    maxLiveArticles: 2,
+    shortlistStrategy: 'rgpd_agence_prospection',
+    maxLiveArticles: 3,
   },
 
   // ── DOMAINES LEGACY (rétro-compatibilité avec articles déjà indexés) ──────

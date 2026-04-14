@@ -513,6 +513,53 @@ const DOMAIN_KEYWORDS: DomainEntry[] = [
     domain: { name: 'environnement_immo' },
   },
 
+
+  // ── 20. RGPD & données personnelles en agence ────────────────────────────────
+  //    PRIORITÉ : surclasse agent_immobilier quand des signaux RGPD sont présents.
+  //    "agence immobilière" (2.0) dans agent_immobilier est battu dès qu'un terme
+  //    RGPD à 2.0 + un terme à 1.0 sont présents simultanément.
+  //
+  //    Termes courts (≤ 4 chars) : rgpd, crm, dpo, cnil → word boundary automatique.
+  //
+  //    Anti-régression : "consentement" seul (1.0) ne déclenche pas ce domaine —
+  //    il faut la combinaison avec un autre terme RGPD.
+  {
+    keywords: [
+      // ─ Discriminants absolus (quasi-exclusifs RGPD)
+      { term: 'rgpd',                                 weight: 2.0 },  // ≤4 chars → \b
+      { term: 'règlement général sur la protection',  weight: 2.0 },
+      { term: 'données personnelles',                 weight: 2.0 },
+      { term: 'base légale',                          weight: 2.0 },
+      { term: 'traitement de données',                weight: 2.0 },
+      { term: 'responsable de traitement',            weight: 2.0 },
+      { term: 'registre de traitement',               weight: 2.0 },
+      { term: 'durée de conservation',                weight: 2.0 },
+      { term: 'conserver les données',                weight: 2.0 },
+      { term: 'conservation des données',             weight: 2.0 },
+      { term: 'droit d\'effacement',                  weight: 2.0 },
+      { term: 'droit à l\'oubli',                     weight: 2.0 },
+      { term: 'droit d\'opposition',                  weight: 2.0 },
+      { term: 'violation de données',                 weight: 2.0 },
+      { term: 'notification de violation',            weight: 2.0 },
+      { term: 'privacy',                              weight: 2.0 },
+      // ─ Forts mais partageables
+      { term: 'prospection commerciale',              weight: 1.5 },
+      { term: 'effacement',                           weight: 1.5 },
+      { term: 'opt-in',                               weight: 1.5 },
+      { term: 'opt-out',                              weight: 1.5 },
+      { term: 'crm',                                  weight: 1.5 },  // ≤4 chars → \b
+      { term: 'cnil',                                 weight: 1.5 },  // ≤4 chars → \b
+      { term: 'dpo',                                  weight: 1.5 },  // ≤4 chars → \b
+      // ─ Pertinents en combinaison
+      { term: 'consentement',                         weight: 1.0 },
+      { term: 'rectification',                        weight: 1.0 },
+      { term: 'prospect',                             weight: 1.0 },
+      // ─ Générique — n'agit qu'en combinaison
+      { term: 'données',                              weight: 0.5 },
+    ],
+    domain: { name: 'rgpd_agence' },
+  },
+
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -623,6 +670,13 @@ export function detectDomains(question: string): string[] {
 
   if (sorted.length >= 2 && sorted[1].score >= 0.7 * sorted[0].score) {
     results.push(sorted[1].domain.name)
+  }
+
+  // Debug temporaire — rgpd_agence : traçabilité topic + loi préférée
+  if (results.includes('rgpd_agence')) {
+    const rgpdScore = sorted.find(s => s.domain.name === 'rgpd_agence')
+    console.debug(`[article-debug] topicMatch=rgpd_agence score=${rgpdScore?.score.toFixed(1)} keywords=[${rgpdScore?.matched.join(', ')}]`)
+    console.debug('[article-debug] preferredLaw=règlement ue 2016/679 (art. 6, 13, 21)')
   }
 
   return results
