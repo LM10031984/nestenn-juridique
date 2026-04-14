@@ -213,3 +213,49 @@ describe('detectDomain — métadonnées Judilibre', () => {
   })
 
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Frontière de mot — termes courts (<= 4 chars)
+// Régression critique : "plu" ne doit JAMAIS matcher dans "plus"
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('matchesKeyword — word boundary sur termes courts', () => {
+
+  it('"ne paie plus" NE déclenche PAS urbanisme (plu dans plus)', () => {
+    // Régression #1 : "plu" est un sous-string de "plus" — doit être ignoré
+    const res = detectDomains('Mon locataire ne paie plus depuis 3 mois, puis-je résilier le bail ?')
+    expect(res).not.toContain('urbanisme')
+    // Le domaine attendu est baux_habitation
+    expect(res[0]).toBe('baux_habitation')
+  })
+
+  it('"PLU de la commune" déclenche urbanisme (plu isolé)', () => {
+    // "PLU" doit matcher quand il est un mot entier
+    const res = detectDomains('Le PLU de la commune interdit les constructions dans cette zone.')
+    expect(res[0]).toBe('urbanisme')
+  })
+
+  it('"DPE" isolé déclenche diagnostics', () => {
+    // "dpe" doit matcher quand c'est un token seul
+    const res = detectDomains('Le DPE de mon appartement est classé G.')
+    expect(res[0]).toBe('diagnostics')
+  })
+
+  it('"dpeur" NE déclenche PAS diagnostics (dpe dans dpeur)', () => {
+    // Vérification de la règle inverse : "dpe" ne doit pas matcher dans un mot plus long
+    // (cas artificiel pour valider la frontière)
+    const res = detectDomains('Le dpeur est passé hier.')
+    // "dpeur" n'est pas un vrai mot — soit diagnostics (si \b fonctionne comme substring ici)
+    // → avec \b, "dpe" NE matche PAS dans "dpeur" car "r" suit "e" = word char
+    expect(res).not.toContain('diagnostics')
+  })
+
+  it('"ne paie plus" + baux_habitation : pas de contamination urbanisme ni en 2e domaine', () => {
+    const res = detectDomains(
+      'Mon locataire ne paie plus le loyer depuis 2 mois. La clause résolutoire peut-elle jouer ?',
+    )
+    expect(res[0]).toBe('baux_habitation')
+    expect(res).not.toContain('urbanisme')
+  })
+
+})

@@ -369,9 +369,18 @@ export function findFreeFormArticleCitations(text: string): FreeArticleCitation[
 }
 
 /**
- * Remplace les citations libres d'articles par "la disposition applicable".
+ * Remplace les citations libres d'articles par des formulations neutres — V2.
  * Actif uniquement si des tags [A1][A2]… sont définis (allowedArticleTags non vide).
  * Si aucun tag n'est actif → retour sans modification (mode libre autorisé).
+ *
+ * V2 applique des patterns contextuels dans l'ordre suivant :
+ *  1. Blocs parenthétiques  : "(Art. X ...)"  → supprimé entièrement
+ *  2. Liens markdown        : "[Art. X](url)" → "la règle applicable"
+ *  3. Prépositions connues  : "selon l'art. X", "en vertu de l'art. X" → "selon la règle applicable"
+ *  4. Article comme sujet   : "l'art. X prévoit/dispose/précise" → "la règle applicable prévoit/…"
+ *  5. Fallback générique    : toute citation restante → "la règle applicable"
+ *
+ * Chaque passe est loguée ; les passes sont mutuellement exclusives grâce à leur ordre.
  */
 export function stripUnauthorizedArticleCitations(
   text: string,
@@ -382,11 +391,73 @@ export function stripUnauthorizedArticleCitations(
     return { cleaned: text, found }
   }
 
-  const re = new RegExp(FREE_ARTICLE_RE.source, FREE_ARTICLE_RE.flags)
-  const cleaned = text.replace(re, (match) => {
-    console.warn(`[post-process] ⚠️ Citation libre article supprimée : "${match.trim()}"`)
-    return 'la disposition applicable'
+  // ── Passe 1 : blocs parenthétiques "(Art. X [du Code Y])" ─────────────────
+  // Capture tout le bloc entre parenthèses dès qu'il contient une citation libre.
+  // Limité à 120 chars pour éviter de supprimer des parenthèses légitimes longues.
+  let cleaned = text.replace(
+    /\(\s*(?:l[''])?art(?:icle)?s?\.?\s+(?:[LRDA]\.?\s*)?\d[\d\-\.]*[^)]{0,100}\)/gi,
+    (match) => {
+      console.warn(`[post-process] ⚠️ V2-P1 bloc parenthétique supprimé : "${match.trim()}"`)
+      return ''
+    },
+  )
+
+  // ── Passe 2 : liens markdown "[Art. X ...](url)" ──────────────────────────
+  // Pattern : [texte contenant art. XXX](url) → "la règle applicable"
+  cleaned = cleaned.replace(
+    /\[(?:[^\]]*?(?:l[''])?art(?:icle)?s?\.?\s+(?:[LRDA]\.?\s*)?\d[\d\-\.]*[^\]]*?)\]\([^)]{0,200}\)/gi,
+    (match) => {
+      console.warn(`[post-process] ⚠️ V2-P2 lien markdown article supprimé : "${match.trim()}"`)
+      return 'la règle applicable'
+    },
+  )
+
+  // ── Passe 3 : prépositions connues ─────────────────────────────────────────
+  // "selon l'art. X", "conformément à l'art. X", "en vertu de l'art. X",
+  // "d'après l'art. X", "au sens de l'art. X" → formule de remplacement appropriée
+  const PREPOSITION_PATTERNS: Array<[RegExp, string]> = [
+    [/selon\s+l['']art(?:icle)?s?\.?\s+(?:[LRDA]\.?\s*)?\d[\d\-\.]*(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou)\b)\S+){0,4})?/gi, 'selon la règle applicable'],
+    [/conformément\s+(?:aux?|à\s+l[''])?art(?:icle)?s?\.?\s+(?:[LRDA]\.?\s*)?\d[\d\-\.]*(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou)\b)\S+){0,4})?/gi, 'conformément à la règle applicable'],
+    [/en\s+vertu\s+(?:des?|de\s+l[''])?art(?:icle)?s?\.?\s+(?:[LRDA]\.?\s*)?\d[\d\-\.]*(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou)\b)\S+){0,4})?/gi, 'en vertu de la règle applicable'],
+    [/d['']après\s+l['']art(?:icle)?s?\.?\s+(?:[LRDA]\.?\s*)?\d[\d\-\.]*(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou)\b)\S+){0,4})?/gi, 'selon la règle applicable'],
+    [/au\s+sens\s+(?:de\s+)?l['']art(?:icle)?s?\.?\s+(?:[LRDA]\.?\s*)?\d[\d\-\.]*(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou)\b)\S+){0,4})?/gi, 'au sens de la règle applicable'],
+  ]
+
+  for (const [re, replacement] of PREPOSITION_PATTERNS) {
+    cleaned = cleaned.replace(re, (match) => {
+      console.warn(`[post-process] ⚠️ V2-P3 préposition article remplacée : "${match.trim()}"`)
+      return replacement
+    })
+  }
+
+  // ── Passe 4 : article comme sujet avec verbe de disposition ───────────────
+  // "l'art. X prévoit que", "l'art. X dispose que", "l'art. X CC dispose que", etc.
+  // → "la règle applicable prévoit que / dispose que / …"
+  // [^.\n]{0,80}? : lazy — absorbe jusqu'à 80 chars (abréviations, code, références)
+  // entre le numéro d'article et le verbe de disposition.
+  const DISPOSITION_VERBS = '(?:prévoit|dispose|précise|stipule|énonce|impose|interdit|autorise|permet|exige|oblige|fixe|définit)'
+  cleaned = cleaned.replace(
+    new RegExp(
+      `l['']art(?:icle)?s?\\.?\\s+(?:[LRDA]\\.?\\s*)?\\d[\\d\\-\\.]*[^.\\n]{0,80}?\\s+(${DISPOSITION_VERBS})\\b`,
+      'gi',
+    ),
+    (match, verb) => {
+      console.warn(`[post-process] ⚠️ V2-P4 article-sujet remplacé : "${match.trim()}"`)
+      return `la règle applicable ${verb}`
+    },
+  )
+
+  // ── Passe 5 : fallback générique ───────────────────────────────────────────
+  // Toute citation libre restante qui n'a pas été capturée par les passes précédentes.
+  const reFallback = new RegExp(FREE_ARTICLE_RE.source, FREE_ARTICLE_RE.flags)
+  cleaned = cleaned.replace(reFallback, (match) => {
+    console.warn(`[post-process] ⚠️ V2-P5 citation libre (fallback) : "${match.trim()}"`)
+    return 'la règle applicable'
   })
+
+  // Nettoyage cosmétique : espaces multiples laissés par les suppressions de parenthèses
+  cleaned = cleaned.replace(/[ \t]{2,}/g, ' ').replace(/\(\s*\)/g, '').trim()
+
   return { cleaned, found }
 }
 

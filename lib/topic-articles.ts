@@ -677,6 +677,9 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
   },
 
   // ── SERVITUDES ────────────────────────────────────────────────────────
+  // Articles pivots : 682 (droit de passage enclave), 683 (tracé du chemin),
+  // 684 (largeur), 653 (mitoyenneté). Éviter les articles périphériques sauf
+  // si la question porte explicitement sur eux.
 
   {
     id: 'servitudes_mitoyennete',
@@ -685,14 +688,66 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       'mitoyenneté', 'mitoyennete', 'mur mitoyen', 'clôture mitoyenne',
       'servitude de vue', 'servitude légale', 'servitude legale',
       'passage enclavé', 'passage enclave', 'terrain enclavé', 'terrain enclave',
+      'fonds enclavé', 'fonds enclave', 'fonds dominant', 'fonds servant',
     ],
     forcedArticles: [
-      { law: 'code civil', artNum: '682', label: 'Art. 682 C. civ. — droit de passage en cas d\'enclave' },
+      { law: 'code civil', artNum: '682', label: 'Art. 682 C. civ. — droit de passage en cas d\'enclave (principe)' },
+      { law: 'code civil', artNum: '683', label: 'Art. 683 C. civ. — tracé du chemin de passage (lieu le plus court)' },
+      { law: 'code civil', artNum: '684', label: 'Art. 684 C. civ. — servitude de passage sans enclave (titre ou prescription)' },
       { law: 'code civil', artNum: '653', label: 'Art. 653 C. civ. — présomption de mitoyenneté' },
       { law: 'code civil', artNum: '678', label: 'Art. 678 C. civ. — distance des vues droites (1,90 m)' },
     ],
     curatedCaseIds: [],
-    answerNote: 'Le propriétaire d\'un fonds enclavé a droit à un passage sur les fonds voisins (art. 682 C. civ.) moyennant indemnité. La mitoyenneté d\'un mur se présume (art. 653) et implique un entretien partagé. Les vues droites nécessitent 1,90 m de distance (art. 678) et les vues obliques 0,60 m (art. 679). Les servitudes conventionnelles s\'éteignent par non-usage pendant 30 ans (art. 706).',
+    answerNote: 'ARTICLES PIVOTS pour les servitudes de passage : art. 682 (droit de passage si fonds enclavé, moyennant indemnité), art. 683 (tracé au lieu le plus court depuis la voie publique), art. 684 (servitude par titre ou prescription trentenaire sans enclave). NE PAS citer des articles périphériques du Code de l\'urbanisme ou du Code de l\'environnement si la question porte sur le droit privé de passage. Pour la mitoyenneté : art. 653 (présomption) ; entretien partagé ; les vues droites nécessitent 1,90 m (art. 678). Servitudes conventionnelles : s\'éteignent par non-usage 30 ans (art. 706).',
+  },
+
+  // ── IMPAYÉS DE LOYER — PROCÉDURE COMPLÈTE ────────────────────────────
+  // Priorité : loi du 6 juillet 1989 (art. 24) avant Code civil.
+  // Ce topic doit apparaître AVANT treve_hivernale dans l'index pour être
+  // sélectionné en premier sur les questions procédurales générales.
+
+  {
+    id: 'loyers_impayes_procedure',
+    triggers: [
+      'impayé de loyer', 'impayés de loyer', 'loyers impayés', 'loyer impayé',
+      'locataire ne paie', 'ne paye plus', 'ne paie plus le loyer',
+      'commandement de payer loyer', 'clause résolutoire bail',
+      'résiliation bail impayé', 'resiliation bail impaye',
+      'procédure impayé', 'procedure impaye', 'expulsion pour impayé',
+      'recouvrement loyer', 'dette de loyer', 'arriéré de loyer',
+      'locataire mauvais payeur', 'loyers arriérés',
+    ],
+    excludeTriggers: ['trêve hivernale', 'treve hivernale'],
+    forcedArticles: [
+      { law: 'loi 89-462', artNum: '24', label: 'Art. 24 loi 89-462 (6 juil. 1989) — commandement de payer et clause résolutoire' },
+      { law: 'loi 89-462', artNum: '24-1', label: 'Art. 24-1 loi 89-462 — saisine CCAPEX et protocole de cohésion sociale' },
+      { law: 'cpce', artNum: 'L412-6', label: 'Art. L412-6 CPCE — trêve hivernale (suspension expulsion nov.–mars)' },
+    ],
+    curatedCaseIds: ['curated-clause-resolutoire-commandement', 'curated-treve-hivernale-expulsion-urgente'],
+    answerNote: 'PROCÉDURE IMPAYÉS DE LOYER (loi 89-462) — Articles pivots à utiliser EN PRIORITÉ avant tout article du Code civil :\n1. Art. 24 loi 89-462 : commandement de payer par commissaire de justice → délai 2 mois pour régulariser → clause résolutoire s\'acquiert automatiquement si pas de paiement.\n2. Art. 24-1 : saisine CCAPEX obligatoire si allocataire CAF + FSL mobilisable.\n3. Art. L412-6 CPCE : trêve hivernale du 1er nov. au 31 mars → suspend l\'expulsion physique uniquement, pas la procédure judiciaire.\nÉTAPES : commandement de payer (J) → 2 mois → assignation TJ (J+2 mois) → jugement (J+3 à 6 mois) → commandement de quitter les lieux (J+2 mois après jugement) → expulsion (hors trêve hivernale).\nNE PAS PRIORITAIREMENT citer le Code civil pour cette procédure — la loi 89-462 est la lex specialis.',
+  },
+
+  // ── ANC / SPANC / FOSSE SEPTIQUE ─────────────────────────────────────
+  // Stratégie PRUDENTE : ne pas proposer automatiquement des articles très
+  // lourds du Code de l'environnement si la question est avant tout pratique
+  // (vente, conformité, obligations vendeur/acheteur).
+
+  {
+    id: 'spanc_anc_fosse',
+    triggers: [
+      'spanc', 'assainissement non collectif', 'anc', 'fosse septique',
+      'fosse toutes eaux', 'micro-station', 'filière d\'assainissement',
+      'assainissement individuel', 'contrôle assainissement',
+      'non-conformité assainissement', 'mise en conformité assainissement',
+      'fosse non conforme', 'fosse septique non conforme',
+      'diagnostic assainissement', 'servitude assainissement',
+    ],
+    forcedArticles: [
+      { law: 'code de la santé publique', artNum: 'L1331-1-1', label: 'Art. L1331-1-1 CSP — assainissement non collectif : obligation de contrôle SPANC' },
+      { law: 'code de la santé publique', artNum: 'L1331-11-1', label: 'Art. L1331-11-1 CSP — information de l\'acquéreur sur l\'état de l\'installation ANC' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'STRATÉGIE PRUDENTE ANC/SPANC — Les questions sur la fosse septique portent généralement sur :\n1. OBLIGATION DE CONTRÔLE : le SPANC (Service Public d\'Assainissement Non Collectif) contrôle les installations (art. L1331-1-1 CSP). Un diagnostic est obligatoire lors d\'une vente (art. L1331-11-1 CSP).\n2. VENTE AVEC ANC NON CONFORME : le diagnostic SPANC doit être annexé au compromis. L\'acquéreur dispose de 1 an après la vente pour mettre en conformité. Le vendeur n\'est pas obligé de réaliser les travaux avant la vente.\n3. MISE EN CONFORMITÉ : si le SPANC conclut à une non-conformité présentant un risque sanitaire, la commune peut mettre en demeure le propriétaire. ATTENTION : ne pas citer automatiquement les articles du Code de l\'environnement sur les ICPE ou la pollution des sols — ils ne concernent pas l\'ANC résidentiel ordinaire.',
   },
 
 ]

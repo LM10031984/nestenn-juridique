@@ -408,18 +408,42 @@ const DOMAIN_KEYWORDS: DomainEntry[] = [
 // Matching
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Échappe les caractères spéciaux regex dans une chaîne littérale. */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * Vérifie si un terme matche dans le texte.
- * - Match exact (substring) toujours testé.
- * - Si fuzzy:true ET terme >= 5 chars : teste aussi la racine (6 premiers chars max).
+ *
+ * RÈGLE TERMES COURTS (≤ 4 caractères — ex : plu, dpe, zan, gli, sci, anc) :
+ *   → Frontière de mot stricte (\b...\b) UNIQUEMENT.
+ *   → Jamais de substring brut (text.includes) pour éviter que "plu" matche dans "plus".
+ *   → Jamais de fuzzy sur ces termes.
+ *
+ * RÈGLE TERMES LONGS (> 4 caractères) :
+ *   → Substring exact (text.includes) — cas normal.
+ *   → Si fuzzy:true : teste aussi la racine tronquée (6 premiers chars max).
  */
 function matchesKeyword(text: string, kw: WeightedKeyword): boolean {
   const term = kw.term.toLowerCase()
+
+  // Termes courts : word boundary strict, jamais de fuzzy
+  if (term.length <= 4) {
+    // \b fonctionne sur les caractères ASCII ; suffisant pour nos acronymes (plu, dpe, zan…)
+    const re = new RegExp(`\\b${escapeRegex(term)}\\b`, 'i')
+    return re.test(text)
+  }
+
+  // Termes longs : substring classique
   if (text.includes(term)) return true
+
+  // Fuzzy uniquement sur les termes longs explicitement marqués
   if (kw.fuzzy && term.length >= 5) {
     const stem = term.slice(0, Math.min(term.length - 1, 6))
     return text.includes(stem)
   }
+
   return false
 }
 

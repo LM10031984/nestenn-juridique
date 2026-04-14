@@ -92,11 +92,18 @@ const FINAL_DISCLAIMER = `---
 
 function buildArticleRules(hasTaggedArticles: boolean): string {
   if (hasTaggedArticles) {
-    return `**Articles de loi — tags fermés actifs**
-- Les articles autorisés te sont fournis avec des **tags fermés [A1], [A2]…** Utilise **uniquement** ces tags pour les citer.
-- Il est **INTERDIT** d'écrire librement un nom d'article (ex : "art. L.1331-8 du Code de la santé publique") si cet article ne correspond pas à un tag autorisé.
-- Si la règle que tu veux évoquer n'a pas de tag autorisé, formule-la **sans citer l'article précis** (ex : "selon la règle applicable en matière de raccordement").
-- Si tu n'es pas certain d'un article, écris "à vérifier sur Légifrance" sans inventer de référence.`
+    return `**Articles de loi — MODE TAGS FERMÉS STRICT (PRIORITÉ ABSOLUE)**
+
+⛔ INTERDICTION TOTALE DES CITATIONS LIBRES D'ARTICLES
+- Toute citation libre d'article est une **erreur grave**. Même si tu es certain de l'article, tu NE DOIS PAS l'écrire directement.
+- Exemples INTERDITS : "art. 24 de la loi 89-462", "l'art. L412-6 du CPCE", "article 1641 du Code civil"
+- Seuls les tags fermés **[A1], [A2], [A3]…** sont autorisés pour citer un article.
+- Si la règle que tu veux évoquer n'a pas de tag autorisé, formule-la **sans aucune référence précise** : "selon la règle applicable", "la procédure légale prévoit que", "le texte impose que".
+- Si tu n'es pas certain, écris "à vérifier sur Légifrance" — jamais un article inventé.
+
+⛔ MODÈLES DE LETTRES ET DÉVELOPPEMENTS LONGS INTERDITS
+- En mode tags actifs : pas de modèle de lettre complet, pas de tableau à plus de 4 lignes, pas d'analyse de cas secondaires non demandés.
+- L'objectif est la **précision**, pas l'exhaustivité.`
   }
   return `**Articles de loi**
 - Aucun article tagué n'est disponible pour cette question. Tu peux citer des articles librement si tu en es certain.
@@ -188,7 +195,7 @@ Maintenant, réponds à la question de l'agent en suivant strictement ces règle
 
 function buildSmallRules(hasTaggedArticles: boolean): string {
   const articleLine = hasTaggedArticles
-    ? `- Les articles autorisés ont des **tags fermés [A1], [A2]…** : utilise **uniquement** ces tags. Il est **INTERDIT** d'écrire librement un nom d'article si cet article ne correspond pas à un tag autorisé. Si la règle n'a pas de tag, formule-la sans citer l'article précis.`
+    ? `- ⛔ MODE TAGS FERMÉS STRICT : toute citation libre d'article est **interdite**. Utilise **uniquement** [A1], [A2]… Si la règle n'a pas de tag, formule-la SANS citer l'article (ex : "selon la règle applicable"). Pas de modèle de lettre long, pas de tableau > 4 lignes.`
     : `- Aucun article tagué fourni. Tu peux citer des articles librement si tu en es certain.`
 
   return `# Règles absolues (respecte-les à chaque réponse)
@@ -269,6 +276,29 @@ Les sources jurisprudentielles disponibles sont limitées. Adapte ta réponse en
 - Si un point dépend du contenu exact du document ou d'une jurisprudence non disponible, dis-le explicitement
 - N'ajoute pas de jurisprudence pour "faire bien" si aucun arrêt autorisé n'est pertinent`
 
+/**
+ * Bloc injecté quand hasTaggedArticles=true (P5 — longueur maîtrisée).
+ * Les réponses longues favorisent les citations libres parasites.
+ */
+const TAGS_ACTIVE_LENGTH_BLOCK = `# Mode tags actifs — réponse ciblée et concise
+
+Des articles sources ont été fournis avec des tags fermés. Adapte ta réponse :
+
+**Priorité absolue** (dans cet ordre) :
+1. Qualification juridique de la situation (1-2 phrases)
+2. Règle applicable selon les sources fournies (via tags [A1][A2]…)
+3. Étapes concrètes si procédure (tableau court, max 5 étapes)
+4. Points de vigilance critiques (max 3)
+5. Actions immédiates recommandées (max 3)
+
+**À éviter en mode tags actifs :**
+- Modèles de lettres complets (trop longs → génèrent des citations parasites)
+- Tableaux à plus de 5 lignes
+- Analyse de cas secondaires ou hypothétiques non demandés
+- Citations libres d'articles pour "compléter" — si un article n'est pas dans la liste, ne le cite pas
+
+**Longueur cible : 250-400 mots**. Une réponse courte et juste vaut mieux qu'une longue avec des erreurs.`
+
 export function buildMistralSystemPrompt(params: BuildMistralPromptParams): string {
   const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false } = params
 
@@ -293,10 +323,12 @@ ${pgJurisprudence || "Aucun arrêt de référence disponible."}
 ${liveSectionHeader}`
 
   const strictBlock = strictConcise ? `\n\n${STRICT_CONCISE_BLOCK}` : ''
+  // P5 : longueur maîtrisée quand des tags articles sont actifs (réduit les citations parasites)
+  const tagsLengthBlock = hasTaggedArticles ? `\n\n${TAGS_ACTIVE_LENGTH_BLOCK}` : ''
 
   return `${IDENTITY}
 
-${rules}${strictBlock}
+${rules}${strictBlock}${tagsLengthBlock}
 
 ${sourcesSection}
 

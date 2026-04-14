@@ -290,11 +290,11 @@ describe('findFreeFormArticleCitations', () => {
 // ── stripUnauthorizedArticleCitations ────────────────────────────────────────
 
 describe('stripUnauthorizedArticleCitations', () => {
-  it('should replace free citations with "la disposition applicable" when tags exist', () => {
+  it('should replace free citations with "la règle applicable" when tags exist', () => {
     const text = 'Le raccordement est prévu par art. L.1331-8 du Code de la santé publique.'
     const { cleaned, found } = stripUnauthorizedArticleCitations(text, ['A1', 'A2'])
     expect(found.length).toBeGreaterThanOrEqual(1)
-    expect(cleaned).toContain('la disposition applicable')
+    expect(cleaned).toContain('la règle applicable')
     expect(cleaned).not.toContain('L.1331-8')
   })
 
@@ -316,7 +316,7 @@ describe('stripUnauthorizedArticleCitations', () => {
     const text = 'Voir art. 215 du Code civil et article 1641 du Code civil.'
     const { cleaned, found } = stripUnauthorizedArticleCitations(text, ['A1'])
     expect(found.length).toBeGreaterThanOrEqual(2)
-    expect(cleaned.match(/la disposition applicable/g)?.length).toBeGreaterThanOrEqual(2)
+    expect(cleaned.match(/la règle applicable/g)?.length).toBeGreaterThanOrEqual(2)
   })
 })
 
@@ -514,4 +514,119 @@ describe('safety mode trigger logic', () => {
     expect(reasons).toContain('free_article_citations')
     expect(reasons).toContain('high_normative_density')
   })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P3 — V2 stripUnauthorizedArticleCitations : patterns contextuels
+// Phrases réelles issues des logs de production
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('stripUnauthorizedArticleCitations — V2 patterns contextuels', () => {
+
+  const TAGS = ['A1', 'A2']  // tags actifs → mode strict
+
+  it('P1 — bloc parenthétique "(Art. 24 loi 89-462)" supprimé', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'La clause résolutoire joue (Art. 24 loi 89-462) dès le commandement.',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/Art\.\s*24/)
+    expect(cleaned).toContain('La clause résolutoire joue')
+    expect(cleaned).toContain('dès le commandement')
+  })
+
+  it('P1 — bloc parenthétique ne laisse pas de parenthèses vides', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'La servitude est légale (art. 682 du Code civil).',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/\(\s*\)/)
+    expect(cleaned).not.toMatch(/art\.\s*682/i)
+  })
+
+  it('P2 — lien markdown "[Art. X](url)" remplacé par "la règle applicable"', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'Selon [Art. 24 de la loi 89-462](https://example.com/art24), la procédure est obligatoire.',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/Art\.\s*24/)
+    expect(cleaned).toContain('la règle applicable')
+    // Ne doit pas laisser de lien markdown brisé
+    expect(cleaned).not.toMatch(/\]\(https?:/)
+  })
+
+  it('P2 — lien markdown brisé "[la disposition applicable traverse..." ne doit pas apparaître', () => {
+    // Régression : "[Art. X traverse une habitation](url)" ne doit pas devenir
+    // "[la disposition applicable traverse une habitation](...)"
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'La servitude [art. 682 du Code civil traverse une habitation](https://example.com) est légale.',
+      TAGS,
+    )
+    // Pas de fragment de lien markdown brisé
+    expect(cleaned).not.toMatch(/\[la disposition applicable/)
+    expect(cleaned).not.toMatch(/\]\(https?:/)
+  })
+
+  it('P3 — "selon l\'art. X" → "selon la règle applicable"', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'Le bailleur peut résilier selon l\'art. 24 de la loi 89-462 le bail.',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/art\.\s*24/i)
+    expect(cleaned).toContain('selon la règle applicable')
+  })
+
+  it('P3 — "conformément à l\'art. X" → "conformément à la règle applicable"', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'L\'expulsion est prononcée conformément à l\'art. L412-6 du CPCE.',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/art\.\s*L412/i)
+    expect(cleaned).toContain('conformément à la règle applicable')
+  })
+
+  it('P4 — "l\'art. X prévoit que" → "la règle applicable prévoit que"', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'L\'art. 1641 du Code civil prévoit que le vendeur répond des vices cachés.',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/art\.\s*1641/i)
+    expect(cleaned).toContain('la règle applicable prévoit')
+    // Pas de sortie brisée type "la disposition applicable suivre"
+    expect(cleaned).not.toMatch(/applicable\s+(?:suivre|traverse|dispose\b)/i)
+  })
+
+  it('P4 — "l\'art. X dispose que" → "la règle applicable dispose que"', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'L\'art. 1738 CC dispose que le bail peut être tacitement reconduit.',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/art\.\s*1738/i)
+    expect(cleaned).toContain('la règle applicable dispose')
+  })
+
+  it('P5 — fallback générique pour citation non capturée', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'Le vendeur est tenu par art. 1641.',
+      TAGS,
+    )
+    expect(cleaned).not.toMatch(/art\.\s*1641/i)
+    expect(cleaned).toContain('la règle applicable')
+  })
+
+  it('NO-OP si aucun tag actif (mode libre)', () => {
+    const input = 'Le bailleur peut résilier selon l\'art. 24 de la loi 89-462.'
+    const { cleaned } = stripUnauthorizedArticleCitations(input, [])
+    expect(cleaned).toBe(input)
+  })
+
+  it('préserve les tags [A1][A2] — ne les neutralise pas', () => {
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'Selon [A1], la procédure est obligatoire. L\'art. 1641 s\'applique aussi.',
+      TAGS,
+    )
+    expect(cleaned).toContain('[A1]')
+    expect(cleaned).not.toMatch(/art\.\s*1641/i)
+  })
+
 })
