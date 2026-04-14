@@ -402,6 +402,14 @@ describe('detectDomains — rgpd_agence vs agent_immobilier', () => {
 
 describe('detectDomains — anti-régression après Sprint 1', () => {
 
+  it('dégradations + état des lieux incomplet + agence de gestion → gestion_locative en 1er', () => {
+    const res = detectDomains(
+      'Le propriétaire me demande de retenir une partie du dépôt de garantie pour des dégradations, ' +
+      "mais l'état des lieux de sortie est incomplet. Que peut faire l'agence de gestion ?",
+    )
+    expect(res[0]).toBe('gestion_locative')
+  })
+
   it('mandat de vente (agent_immobilier) ≠ mandat de gestion (gestion_locative)', () => {
     const res = detectDomains(
       'Mon mandat de vente est exclusif. L\'agence réclame sa commission alors que j\'ai trouvé l\'acheteur moi-même.',

@@ -370,6 +370,8 @@ const DOMAIN_KEYWORDS: DomainEntry[] = [
   // ── 14. Gestion locative ─────────────────────────────────────────────────
   //    Distinct de baux_habitation : ici l'agent gère pour le compte du bailleur.
   //    Termes discriminants = mandat de gestion, compte rendu de gérance, ADB.
+  //    Tie-break vs baux_habitation : "agence de gestion" à 2.0 pour surclasser
+  //    "dépôt de garantie" (1.5) sur les questions de pratique d'agence.
   {
     keywords: [
       { term: 'mandat de gestion locative',    weight: 2.0 },
@@ -380,7 +382,9 @@ const DOMAIN_KEYWORDS: DomainEntry[] = [
       { term: 'résiliation mandat gestion',    weight: 2.0 },
       { term: 'restitution dépôt garantie agence', weight: 2.0 },
       { term: 'mauvais état des lieux agence', weight: 2.0 },
-      { term: 'agence de gestion',             weight: 1.5 },
+      { term: 'agence de gestion',             weight: 2.0 }, // was 1.5 — tie-break vs baux_habitation
+      { term: 'mandataire',                    weight: 1.5 }, // pratique d'agence (non locataire)
+      { term: 'état des lieux de sortie',      weight: 1.5 }, // fin de bail géré par agence
       { term: 'indexation loyer irl',          weight: 1.5 },
       { term: 'irl',                           weight: 1.5 },
       { term: 'reddition de comptes',          weight: 1.5 },

@@ -110,6 +110,8 @@ const LEGITEXT_MAP: Record<string, string> = {
   'code rural':              'LEGITEXT000006071367', // Code rural (SAFER, préemption)
   'code-urbanisme':          'LEGITEXT000006074075', // alias avec tiret
   'code-construction':       'LEGITEXT000006074096', // alias CCH
+  // Loi Hoguet — alias littéral pour le lookup depuis les shortlists
+  'loi hoguet':               'LEGITEXT000006068387',
   // Loi Informatique et Libertés (loi 78-17 modifiée par ordonnance 2018-1125 transposant le RGPD)
   'loi-informatique-libertes': 'LEGITEXT000006068624',
   '78-17':                   'LEGITEXT000006068624',

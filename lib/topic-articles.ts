@@ -794,12 +794,33 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       'agence ne rend pas le dépôt', 'dépôt non restitué agence',
       'gestion locative agence',
     ],
+    // Trio discriminant : mandat (loi Hoguet) | dépôt garantie | preuve dégradations.
+    // loi hoguet est maintenant résolvable via LEGITEXT000006068387 (alias ajouté).
     forcedArticles: [
-      { law: 'loi hoguet', artNum: '6', label: 'Art. 6 loi Hoguet — mandat de gestion : forme écrite, durée, résiliation' },
-      { law: 'loi 89-462', artNum: '22', label: 'Art. 22 loi 89-462 — dépôt de garantie : restitution dans 1 ou 2 mois' },
+      {
+        law: 'loi hoguet',
+        artNum: '6',
+        displayLawLabel: 'Loi Hoguet (loi n° 70-9)',
+        displayShortLabel: 'Mandat de gestion : forme, durée, résiliation',
+        label: 'Art. 6 loi Hoguet — mandat de gestion : forme écrite, durée, résiliation',
+      },
+      {
+        law: 'loi 89-462',
+        artNum: '22',
+        displayLawLabel: 'Loi n° 89-462 du 6 juillet 1989',
+        displayShortLabel: 'Dépôt de garantie : restitution 1 ou 2 mois',
+        label: 'Art. 22 loi 89-462 — dépôt de garantie : restitution dans 1 ou 2 mois',
+      },
+      {
+        law: 'loi 89-462',
+        artNum: '7',
+        displayLawLabel: 'Loi n° 89-462 du 6 juillet 1989',
+        displayShortLabel: 'Obligations du locataire — preuve des dégradations',
+        label: 'Art. 7 loi 89-462 — obligations du locataire : restitution du logement, preuve des dégradations',
+      },
     ],
     curatedCaseIds: [],
-    answerNote: 'GESTION LOCATIVE — MANDAT ET RESTITUTION DU DÉPÔT :\n1. MANDAT DE GESTION (art. 6 loi Hoguet) : doit être écrit, signé, avec durée et rémunération précisées. Résiliable selon les conditions du mandat (en général 3 mois de préavis). L\'agence doit restituer tous les documents et fonds à la fin du mandat.\n2. DÉPÔT DE GARANTIE GÉRÉ PAR L\'AGENCE : l\'agence détient le dépôt pour le compte du bailleur. La restitution au locataire (art. 22 loi 89-462) est de 1 mois si pas de dégradations, 2 mois sinon. La responsabilité en cas de non-restitution incombe d\'abord au bailleur ; l\'agence peut engager sa responsabilité si elle a commis une faute dans la gestion.\n3. COMPTE RENDU DE GÉRANCE : l\'agence doit rendre compte périodiquement (mensuel ou trimestriel selon mandat) et verser les loyers au bailleur. Tout manquement engage sa responsabilité contractuelle (art. 1231-1 C.civ.).',
+    answerNote: 'GESTION LOCATIVE — MANDAT ET RESTITUTION DU DÉPÔT :\n1. MANDAT DE GESTION (art. 6 loi Hoguet) : doit être écrit, signé, avec durée et rémunération précisées. Résiliable selon les conditions du mandat (en général 3 mois de préavis). L\'agence doit restituer tous les documents et fonds à la fin du mandat.\n2. DÉPÔT DE GARANTIE GÉRÉ PAR L\'AGENCE : l\'agence détient le dépôt pour le compte du bailleur. La restitution au locataire (art. 22 loi 89-462) est de 1 mois si pas de dégradations, 2 mois sinon. La responsabilité en cas de non-restitution incombe d\'abord au bailleur ; l\'agence peut engager sa responsabilité si elle a commis une faute dans la gestion.\n3. PREUVE DES DÉGRADATIONS (art. 7 loi 89-462) : c\'est au bailleur de prouver les dégradations imputables au locataire, via la comparaison état des lieux d\'entrée / sortie. Un état des lieux de sortie incomplet ou absent fragilise toute retenue sur le dépôt.\n4. COMPTE RENDU DE GÉRANCE : l\'agence doit rendre compte périodiquement (mensuel ou trimestriel selon mandat) et verser les loyers au bailleur. Tout manquement engage sa responsabilité contractuelle (art. 1231-1 C.civ.).',
   },
 
   // ── LOCATION TOURISTIQUE — ENREGISTREMENT & CHANGEMENT D'USAGE ───────────
