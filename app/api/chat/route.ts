@@ -312,29 +312,38 @@ export async function POST(req: NextRequest) {
   const taggedLiveCases = buildTaggedLiveCases(liveJuriCases)
   const pgTaggedArticles = buildTaggedArticles(chunks)
 
-  // ── Consolidation live conditionnelle (legiPart → getArticle) ────────────────
-  // Déclencheurs : pas d'articles pgvector OU domaine sensible à réglementation récente
-  const LIVE_RESOLUTION_DOMAINS = new Set(['urbanisme', 'environnement', 'environnement_immo', 'fiscalite', 'servitudes'])
-  const needsLiveResolution =
-    !!process.env.PISTE_CLIENT_ID &&
-    (pgTaggedArticles.length === 0 || domains.some(d => LIVE_RESOLUTION_DOMAINS.has(d)))
-
+  // ── Consolidation live (legiPart → getArticle) ───────────────────────────────
+  // La shortlist métier est TOUJOURS prioritaire sur pgvector quand PISTE est configuré.
+  // Bug corrigé : l'ancienne condition excluait baux_habitation/copropriété si pgvector
+  // avait trouvé des articles — la shortlist n'était alors jamais injectée.
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
 
-  if (needsLiveResolution) {
+  if (!!process.env.PISTE_CLIENT_ID) {
     const topicMatch = detectTopicArticles(correctedMessage)
+    console.info(`[article-debug] topicMatch=${topicMatch?.id ?? 'none'} pgTaggedArticles=${pgTaggedArticles.length}`)
 
     if (topicMatch && topicMatch.forcedArticles.length > 0) {
       // Convertir ForcedArticle[] → candidats { textId, articleNum, lawName }
       const candidates = topicMatch.forcedArticles.flatMap(fa => {
         const textId = lookupLegitext(fa.law)
-        if (!textId) return []
+        if (!textId) {
+          console.warn(`[article-debug] lookupLegitext manquant: law="${fa.law}" artNum="${fa.artNum}"`)
+          return []
+        }
         return [{ textId, articleNum: fa.artNum, lawName: fa.label ?? fa.law }]
       })
+
+      console.info(
+        `[article-debug] candidates=${candidates.length}`
+        + (candidates.length > 0
+          ? ` — ${candidates.map(c => `${c.articleNum}(${c.textId})`).join(', ')}`
+          : ' — aucun candidat résolvable')
+      )
 
       if (candidates.length > 0) {
         const resolved = await resolveLiveArticles(candidates).catch(() => [])
         liveChunks = resolvedArticlesToChunks(resolved)
+        console.info(`[article-debug] resolved=${resolved.length} → liveChunks=${liveChunks.length}`)
       }
     }
   }
@@ -344,6 +353,13 @@ export async function POST(req: NextRequest) {
   const taggedArticles = liveChunks.length > 0
     ? buildTaggedArticles(allChunks)
     : pgTaggedArticles
+
+  console.info(
+    `[article-debug] taggedArticles=${taggedArticles.length}`
+    + (taggedArticles.length > 0
+      ? ` tagged=[${taggedArticles.map(a => `${a.tag}:${a.title.slice(0, 35)}`).join(' | ')}]`
+      : ' → aucun article éligible au tag')
+  )
 
   // Signal pré-génération : aucun article du corpus disponible pour cette question
   const noArticleGrounding = allChunks.length === 0

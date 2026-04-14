@@ -458,6 +458,24 @@ export function stripUnauthorizedArticleCitations(
   // Nettoyage cosmétique : espaces multiples laissés par les suppressions de parenthèses
   cleaned = cleaned.replace(/[ \t]{2,}/g, ' ').replace(/\(\s*\)/g, '').trim()
 
+  // ── Passe 6 : reformulation des lignes-titres orphelines ─────────────────
+  // "📌 la règle applicable" / "## la règle applicable" = résidu d'une citation en titre.
+  // Ces lignes sont trop pauvres → remplacer par une formulation complète et utile.
+  cleaned = cleaned.replace(
+    /^([^\S\n]*(?:[📌🔹📎•🔸►]+\s*)?(?:\*{0,2}|-{1,3}|#{1,3})?\s*)(?:\*{0,2})la règle applicable(?:\*{0,2})[^\S\n]*$/gm,
+    (match, prefix) => {
+      const strippedPrefix = prefix.replace(/\s+$/, '')
+      // La ligne n'est composée que de décorateurs + "la règle applicable" → reformuler
+      console.warn(`[post-process] ⚠️ V2-P6 ligne-titre reformulée : "${match.trim()}"`)
+      return strippedPrefix
+        ? `${strippedPrefix} Le fondement légal exact doit être vérifié dans le texte applicable.`
+        : ''
+    }
+  )
+
+  // Réduire les lignes vides multiples produites par les suppressions/reformulations
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n')
+
   return { cleaned, found }
 }
 
