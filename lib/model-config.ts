@@ -1,5 +1,6 @@
 import type { SourceChunk, JuriCase } from '@/lib/system-prompt'
 import type { TaggedCase, TaggedArticle } from '@/lib/post-treatment'
+import type { PrecisionBudget } from '@/lib/precision-budget'
 import { buildClaudeSystemPrompt } from '@/lib/prompts/claude-system-prompt'
 import { buildMistralLargeSystemPrompt, buildMistralSmallSystemPrompt } from '@/lib/prompts/mistral-system-prompt'
 
@@ -35,6 +36,14 @@ export interface PromptContext {
    * « à vérifier sur Légifrance ».
    */
   liveArticleResolutionFailed?: boolean
+  /**
+   * Niveau de précision normative autorisé pour cette requête, calculé à partir
+   * de la qualité réelle du grounding (live sync, tagging, jurisprudence).
+   * - high   : délais / montants / procédures précises autorisés si taggés
+   * - medium : prudence sur sanctions et automatismes
+   * - low    : interdire tout chiffre, délai ou sanction précis non taggé
+   */
+  precisionBudget?: PrecisionBudget
 }
 
 type SystemPromptBuilder = (

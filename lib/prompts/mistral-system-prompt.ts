@@ -20,6 +20,8 @@ interface BuildMistralPromptParams {
   topicNote?: string
   /** true si legifrance-sync a totalement échoué sur un domaine critique — prudence normative */
   liveArticleResolutionFailed?: boolean
+  /** Niveau de précision normative autorisé — piloté par computePrecisionBudget */
+  precisionBudget?: 'high' | 'medium' | 'low'
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -304,7 +306,7 @@ Des articles sources ont été fournis avec des tags fermés. Adapte ta réponse
 **Longueur cible : 250-400 mots**. Une réponse courte et juste vaut mieux qu'une longue avec des erreurs.`
 
 export function buildMistralSystemPrompt(params: BuildMistralPromptParams): string {
-  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false, topicNote, liveArticleResolutionFailed } = params
+  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false, topicNote, liveArticleResolutionFailed, precisionBudget } = params
 
   const rules = tier === 'large' ? buildLargeRules(hasTaggedArticles) : buildSmallRules(hasTaggedArticles)
   const example = tier === 'large' ? LARGE_EXAMPLE : SMALL_EXAMPLE
@@ -334,9 +336,16 @@ ${liveSectionHeader}`
     ? `\n\n# ATTENTION — SYNC RÉGLEMENTAIRE INDISPONIBLE\n\nLes textes officiels spécifiques attendus pour ce domaine n'ont pas pu être récupérés en temps réel. Dans ce contexte :\n- N'affirme pas de délais, seuils ou obligations précises sans les nuancer\n- Préfère : "en principe", "selon la réglementation habituelle", "à vérifier sur Légifrance"\n- Évite les formulations directes du type "la loi impose", "vous devez impérativement"\n- Signale explicitement si une règle devrait être vérifiée sur le texte officiel`
     : ''
 
+  const precisionBudgetBlock =
+    precisionBudget === 'low'
+      ? `\n\n# CONTRAINTE NORMATIVE STRICTE (budget=low)\n\n- Pas de délai précis sans tag [Ax] correspondant\n- Pas de montant, seuil ou sanction chiffrée sans source taggée\n- Pas d'automatisme ("cela entraîne automatiquement X") sans source taggée\n- Formule en termes généraux : "en principe", "selon la réglementation applicable", "à vérifier sur Légifrance"`
+    : precisionBudget === 'medium'
+      ? `\n\n# PRUDENCE NORMATIVE (budget=medium)\n\n- Prudence sur les délais et sanctions automatiques : ne les cite que s'ils correspondent à un tag [Ax]\n- Évite les automatismes non sourcés — préfère "cela peut entraîner X" plutôt que "cela entraîne automatiquement X"`
+    : ''
+
   return `${IDENTITY}
 
-${rules}${strictBlock}${tagsLengthBlock}${topicNoteBlock}${liveSyncFailedBlock}
+${rules}${strictBlock}${tagsLengthBlock}${topicNoteBlock}${liveSyncFailedBlock}${precisionBudgetBlock}
 
 ${sourcesSection}
 
@@ -368,6 +377,7 @@ export function buildMistralLargeSystemPrompt(
     hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
     topicNote: context?.topicNote,
     liveArticleResolutionFailed: context?.liveArticleResolutionFailed,
+    precisionBudget: context?.precisionBudget,
   })
 }
 
@@ -386,5 +396,6 @@ export function buildMistralSmallSystemPrompt(
     hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
     topicNote: context?.topicNote,
     liveArticleResolutionFailed: context?.liveArticleResolutionFailed,
+    precisionBudget: context?.precisionBudget,
   })
 }

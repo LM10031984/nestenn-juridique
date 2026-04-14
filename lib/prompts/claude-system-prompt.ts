@@ -35,5 +35,6 @@ export function buildClaudeSystemPrompt(
     forceDomainJuri,
     topicNote: context?.topicNote,
     liveArticleResolutionFailed: context?.liveArticleResolutionFailed,
+    precisionBudget: context?.precisionBudget,
   })
 }

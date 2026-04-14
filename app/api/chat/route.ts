@@ -18,6 +18,7 @@ import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
 import { resolveLiveArticles, resolvedArticlesToChunks } from '@/lib/legifrance-resolver'
+import { computePrecisionBudget, BUDGET_TO_SOFTEN_LEVEL } from '@/lib/precision-budget'
 import { lookupLegitext } from '@/lib/legifrance'
 import { detectTopicArticles, getShortlistByDomain } from '@/lib/topic-articles'
 import {
@@ -321,6 +322,8 @@ export async function POST(req: NextRequest) {
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
   let topicMatch: ReturnType<typeof detectTopicArticles> = null
   let liveArticleResolutionFailed = false
+  let liveArticlesResolved = 0
+  let candidatesCount = 0
 
   if (!!process.env.PISTE_CLIENT_ID) {
     const msgTopicMatch = detectTopicArticles(correctedMessage)
@@ -364,7 +367,9 @@ export async function POST(req: NextRequest) {
       )
 
       if (candidates.length > 0) {
+        candidatesCount = candidates.length
         const resolved = await resolveLiveArticles(candidates).catch(() => [])
+        liveArticlesResolved = resolved.length
         liveChunks = resolvedArticlesToChunks(resolved)
         console.info(`[article-debug] resolved=${resolved.length} → liveChunks=${liveChunks.length}`)
 
@@ -416,6 +421,19 @@ export async function POST(req: NextRequest) {
   // Signal pré-génération : aucun article du corpus disponible pour cette question
   const noArticleGrounding = allChunks.length === 0
 
+  const domainSafetyLevel = primaryDomain ? getDomainPolicy(primaryDomain)?.safetyLevel : undefined
+  const { budget: precisionBudget, reasons: budgetReasons } = computePrecisionBudget({
+    safetyLevel: domainSafetyLevel,
+    liveArticlesResolved,
+    liveArticleResolutionFailed,
+    taggedArticles: taggedArticles.length,
+    juriSupport: liveJuriCases.length + filteredPgJuriCases.length,
+    noArticleGrounding,
+    hasTopicNote: !!topicMatch?.answerNote,
+    candidatesCount,
+  })
+  console.info(`[precision-budget] domain=${primaryDomain ?? 'none'} budget=${precisionBudget} reasons=${budgetReasons.join(',')}`)
+
   const promptContext: PromptContext = {
     taggedLiveCases,
     taggedArticles,
@@ -423,6 +441,7 @@ export async function POST(req: NextRequest) {
     domains,
     topicNote: topicMatch?.answerNote,
     liveArticleResolutionFailed,
+    precisionBudget,
   }
 
   if (promptContext.strictConcise) {
@@ -595,17 +614,16 @@ export async function POST(req: NextRequest) {
       finalText = optionallyDowngradeUnsupportedNormativeClaims(finalText)
     }
 
-    // Passe 3.7 — diagnostic high-risk-claims + softening adaptatif selon safetyLevel
+    // Passe 3.7 — diagnostic high-risk-claims + softening piloté par precisionBudget
     const highRiskClaims = detectHighRiskClaims(finalText)
     if (highRiskClaims.length > 0) {
       const claimTypes = [...new Set(highRiskClaims.map(c => c.type))]
       console.info(`[high-risk-claims] detected=${highRiskClaims.length} types=[${claimTypes.join(', ')}]`)
     }
-    // safetyLevel issu de domain-policies : medium (aucun soften), high ou critical
-    const domainSafetyLevel = primaryDomain ? getDomainPolicy(primaryDomain)?.safetyLevel : undefined
-    if (domainSafetyLevel && domainSafetyLevel !== 'medium' && highRiskClaims.length > 0) {
-      finalText = softenHighRiskClaims(finalText, { safetyLevel: domainSafetyLevel })
-      console.info(`[high-risk-claims] soften applied safetyLevel=${domainSafetyLevel}`)
+    const effectiveSoftenLevel = BUDGET_TO_SOFTEN_LEVEL[precisionBudget]
+    if (effectiveSoftenLevel !== 'medium' && highRiskClaims.length > 0) {
+      finalText = softenHighRiskClaims(finalText, { safetyLevel: effectiveSoftenLevel })
+      console.info(`[high-risk-claims] soften applied budget=${precisionBudget} level=${effectiveSoftenLevel}`)
     }
 
     // Passe 4 — filet final : tout numéro résiduel post-injection → [arrêt non vérifié]

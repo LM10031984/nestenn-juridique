@@ -43,6 +43,8 @@ export function getSystemPromptAugmented(
      * Injecte une consigne de prudence normative dans le prompt.
      */
     liveArticleResolutionFailed?: boolean
+    /** Niveau de précision normative autorisé — piloté par computePrecisionBudget */
+    precisionBudget?: 'high' | 'medium' | 'low'
   },
 ): string {
   const today = new Date().toLocaleDateString('fr-FR', {
@@ -52,7 +54,7 @@ export function getSystemPromptAugmented(
 
   const sourcesBlock = formatSources(chunks)
 
-  const { forceJuri = false, forceDomainJuri = false, topicNote, liveArticleResolutionFailed = false } = options ?? {}
+  const { forceJuri = false, forceDomainJuri = false, topicNote, liveArticleResolutionFailed = false, precisionBudget } = options ?? {}
   const hasLiveCases = (liveJuriCases?.length ?? 0) > 0
 
   // Si liveJuriCases est fourni, on sépare les deux sources ; sinon compat ascendante
@@ -87,11 +89,19 @@ export function getSystemPromptAugmented(
     ? `\nATTENTION — SYNC RÉGLEMENTAIRE INDISPONIBLE : Les textes officiels spécifiques attendus pour ce domaine n'ont pas pu être récupérés en temps réel. Dans ce contexte :\n- N'affirme pas de délais, seuils ou obligations précises sans les nuancer\n- Préfère : "en principe", "selon la réglementation habituelle", "à vérifier sur Légifrance"\n- Évite les formulations directes du type "la loi impose", "vous devez impérativement"\n- Signale explicitement si une règle devrait être vérifiée sur le texte officiel\n`
     : ''
 
+  // Contrainte de précision normative selon le precision budget
+  const precisionBudgetBlock =
+    precisionBudget === 'low'
+      ? `\nCONTRAINTE NORMATIVE STRICTE (budget=low) — Le niveau de sourçage disponible ne permet pas d'affirmer des délais, montants ou procédures précises.\nRÈGLES IMPÉRATIVES :\n- Pas de délai précis (ex : "15 jours", "3 mois") sans tag [Ax] correspondant\n- Pas de montant, seuil ou sanction chiffrée sans source taggée\n- Pas d'automatisme ("cela entraîne automatiquement X") sans source taggée\n- Formule en termes généraux : "en principe", "selon la réglementation applicable", "à vérifier sur Légifrance"\n- Si tu ne peux pas sourcer une règle précise, dis-le plutôt que de l'inventer\n`
+    : precisionBudget === 'medium'
+      ? `\nPRUDENCE NORMATIVE (budget=medium) — Sources partiellement disponibles.\n- Prudence sur les délais et sanctions automatiques : ne les cite que s'ils correspondent à un tag [Ax]\n- Évite les automatismes non sourcés : "cela entraîne automatiquement X" → "cela peut entraîner X"\n- Les procédures détaillées non taggées doivent être formulées avec des nuances\n`
+    : ''  // budget=high : pas de contrainte supplémentaire
+
   return `Tu es l'assistant juridique de Nestenn, réseau immobilier français. Date : ${today}.
 
 Tu réponds aux questions de droit immobilier en mobilisant tes connaissances ET les textes officiels ci-dessous.
 
-${sourcesBlock}${juriBlock}${domainJuriBlock}${topicNoteBlock}${liveSyncFailedBlock}
+${sourcesBlock}${juriBlock}${domainJuriBlock}${topicNoteBlock}${liveSyncFailedBlock}${precisionBudgetBlock}
 COMMENT UTILISER CES SOURCES :
 - Elles te servent à confirmer tes affirmations avec la référence exacte et le lien
 - Si un texte fourni contredit ce que tu sais → le texte en vigueur a raison, corrige ta réponse
