@@ -115,6 +115,19 @@ const LEGITEXT_MAP: Record<string, string> = {
 const API_BASE = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'
 
 // ---------------------------------------------------------------------------
+// 2b. Lookup public LEGITEXT_MAP (pour les modules externes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Résout un identifiant loi/décret/code en LEGITEXT.
+ * Exemples : 'loi 2021-1104' → 'LEGITEXT000043957598', 'CCH' → 'LEGITEXT000006074096'
+ * Retourne null si inconnu (pas de fallback réseau — utiliser resolveLegitext pour ça).
+ */
+export function lookupLegitext(law: string): string | null {
+  return LEGITEXT_MAP[law] ?? LEGITEXT_MAP[law.toLowerCase()] ?? null
+}
+
+// ---------------------------------------------------------------------------
 // 3. resolveLegitext — LEGITEXT_MAP puis fallback /search LODA_DATE
 // ---------------------------------------------------------------------------
 

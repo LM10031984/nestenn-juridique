@@ -17,6 +17,9 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
+import { resolveLiveArticles, resolvedArticlesToChunks } from '@/lib/legifrance-resolver'
+import { lookupLegitext } from '@/lib/legifrance'
+import { detectTopicArticles } from '@/lib/topic-articles'
 import {
   sanitizeJuriNumbers,
   buildTaggedLiveCases,
@@ -306,10 +309,43 @@ export async function POST(req: NextRequest) {
 
   // Construire les tags fermés avant le prompt — le LLM ne voit que des [J1][A1]
   const taggedLiveCases = buildTaggedLiveCases(liveJuriCases)
-  const taggedArticles = buildTaggedArticles(chunks)
+  const pgTaggedArticles = buildTaggedArticles(chunks)
+
+  // ── Consolidation live conditionnelle (legiPart → getArticle) ────────────────
+  // Déclencheurs : pas d'articles pgvector OU domaine sensible à réglementation récente
+  const LIVE_RESOLUTION_DOMAINS = new Set(['urbanisme', 'environnement', 'environnement_immo', 'fiscalite', 'servitudes'])
+  const needsLiveResolution =
+    !!process.env.PISTE_CLIENT_ID &&
+    (pgTaggedArticles.length === 0 || domains.some(d => LIVE_RESOLUTION_DOMAINS.has(d)))
+
+  let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
+
+  if (needsLiveResolution) {
+    const topicMatch = detectTopicArticles(correctedMessage)
+
+    if (topicMatch && topicMatch.forcedArticles.length > 0) {
+      // Convertir ForcedArticle[] → candidats { textId, articleNum, lawName }
+      const candidates = topicMatch.forcedArticles.flatMap(fa => {
+        const textId = lookupLegitext(fa.law)
+        if (!textId) return []
+        return [{ textId, articleNum: fa.artNum, lawName: fa.label ?? fa.law }]
+      })
+
+      if (candidates.length > 0) {
+        const resolved = await resolveLiveArticles(candidates).catch(() => [])
+        liveChunks = resolvedArticlesToChunks(resolved)
+      }
+    }
+  }
+
+  // Les articles live sont injectés en tête (priorité maximale sur pgvector)
+  const allChunks = liveChunks.length > 0 ? [...liveChunks, ...chunks] : chunks
+  const taggedArticles = liveChunks.length > 0
+    ? buildTaggedArticles(allChunks)
+    : pgTaggedArticles
 
   // Signal pré-génération : aucun article du corpus disponible pour cette question
-  const noArticleGrounding = taggedArticles.length === 0
+  const noArticleGrounding = allChunks.length === 0
 
   const promptContext: PromptContext = {
     taggedLiveCases,
@@ -322,7 +358,7 @@ export async function POST(req: NextRequest) {
   }
 
   const modelConfig = getModelById(selectedModel)
-  const systemPrompt = modelConfig.buildSystemPrompt(chunks, filteredPgJuriCases, liveJuriCases, promptContext)
+  const systemPrompt = modelConfig.buildSystemPrompt(allChunks, filteredPgJuriCases, liveJuriCases, promptContext)
   const history = sanitizeHistory(body.conversationHistory)
 
   const messages: OpenRouterMessage[] = [

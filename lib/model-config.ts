@@ -1,11 +1,29 @@
 import type { SourceChunk, JuriCase } from '@/lib/system-prompt'
+import type { TaggedCase, TaggedArticle } from '@/lib/post-treatment'
 import { buildClaudeSystemPrompt } from '@/lib/prompts/claude-system-prompt'
 import { buildMistralLargeSystemPrompt, buildMistralSmallSystemPrompt } from '@/lib/prompts/mistral-system-prompt'
+
+/**
+ * Contexte de contrôle des citations passé aux builders de prompt.
+ * Distingue ce que le LLM peut citer de ce qu'il utilise pour raisonner.
+ */
+export interface PromptContext {
+  /** Arrêts live autorisés à citer — le LLM doit utiliser uniquement leurs tags [J1]… */
+  taggedLiveCases: TaggedCase[]
+  /** Articles citables — le LLM doit utiliser uniquement leurs tags [A1]… */
+  taggedArticles: TaggedArticle[]
+  /**
+   * Activer quand les sources jurisprudentielles sont faibles (≤1 live, 0 pgvector).
+   * Force une réponse courte, sans spéculation, centrée sur la règle certaine.
+   */
+  strictConcise: boolean
+}
 
 type SystemPromptBuilder = (
   chunks: SourceChunk[],
   pgJuri: JuriCase[],
   liveJuri: JuriCase[],
+  context?: PromptContext,
 ) => string
 
 export interface ModelConfig {
