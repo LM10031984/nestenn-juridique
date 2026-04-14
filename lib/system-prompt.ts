@@ -65,6 +65,13 @@ export function getSystemPromptAugmented(
     ? `- Jurisprudence : n'écris jamais un numéro d'arrêt directement. Des arrêts te sont fournis (identifiants [J1], [J2], [J3]) : tu DOIS en intégrer au moins un dans ta qualification juridique. Utilise uniquement l'identifiant fermé [J1], [J2] ou [J3].`
     : `- Jurisprudence : n'écris jamais un numéro d'arrêt directement. Si une jurisprudence fournie est pertinente, cite uniquement son identifiant fermé [J1], [J2] ou [J3]. Si aucune n'est pertinente, ne cite aucune jurisprudence.`
 
+  // ── Log debug prompt jurisprudence ───────────────────────────────────────
+  console.info(
+    `[prompt-debug] judilibreChunks=${liveJuriCases?.length ?? 0} `
+    + `forceJuri=${forceJuri} forceDomainJuri=${forceDomainJuri} `
+    + `juriRule="${juriRule.slice(0, 110)}"`
+  )
+
   // Bloc domaine critique — jurisprudence indispensable
   const domainJuriBlock = forceDomainJuri && hasLiveCases
     ? `\nDOMAINE CRITIQUE : Dans ce domaine, la jurisprudence est indispensable à la qualification. L'utilisation d'au moins un arrêt [J1]/[J2]/[J3] dans la réponse est OBLIGATOIRE.\n`

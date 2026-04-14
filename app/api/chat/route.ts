@@ -35,6 +35,7 @@ import {
   NORMATIVE_DENSITY_HIGH,
 } from '@/lib/post-treatment'
 import type { PromptContext } from '@/lib/model-config'
+import { FORCE_JURISPRUDENCE_DOMAINS } from '@/lib/system-prompt'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -426,9 +427,49 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── Retry forcé jurisprudence (domaines critiques) ────────────────────
+    // Condition : domaine critique + arrêts live disponibles + aucun tag J utilisé
+    let workingText = noFreeCaseNumbers
+
+    const needsJuriRetry =
+      validCaseTags.length === 0 &&
+      liveJuriCases.length > 0 &&
+      domains.some(d => FORCE_JURISPRUDENCE_DOMAINS.has(d))
+
+    if (needsJuriRetry) {
+      console.warn('[pipeline] retry-forced-jurisprudence activé')
+      try {
+        const retryMessages: OpenRouterMessage[] = [
+          { role: 'system', content: systemPrompt },
+          ...history,
+          { role: 'user', content: trimmedMessage },
+          { role: 'assistant', content: responseText },
+          {
+            role: 'user',
+            content: `INSTRUCTION SYSTÈME : La réponse précédente est invalide car aucun arrêt jurisprudentiel [J1]/[J2]/[J3] n'a été utilisé alors qu'ils sont obligatoires dans ce domaine. Réécris intégralement la réponse en intégrant au moins un tag [J1], [J2] ou [J3] dans la qualification juridique.`,
+          },
+        ]
+        const retryRaw = await openRouterChat(retryMessages, selectedModel, modelConfig.maxTokens)
+        if (retryRaw?.trim()) {
+          const { cleaned: retryNoCaseNumbers } = stripUnauthorizedCaseNumbers(retryRaw)
+          const retryValidTags = validateUsedCaseTags(retryNoCaseNumbers, allowedCaseTags)
+          if (retryValidTags.length > 0) {
+            console.info('[pipeline] retry-forced-jurisprudence succès — tags utilisés: ' + retryValidTags.join(', '))
+            workingText = retryNoCaseNumbers
+          } else {
+            console.warn('[pipeline] retry-forced-jurisprudence échec — aucun tag J dans le retry')
+          }
+        } else {
+          console.warn('[pipeline] retry-forced-jurisprudence échec — réponse vide')
+        }
+      } catch (err) {
+        console.error('[pipeline] retry-forced-jurisprudence erreur:', err)
+      }
+    }
+
     // Passe 2.5 — détecter et neutraliser les citations libres d'articles
     const { cleaned: noFreeArticles, found: freeArticleCitations } =
-      stripUnauthorizedArticleCitations(noFreeCaseNumbers, allowedArticleTags)
+      stripUnauthorizedArticleCitations(workingText, allowedArticleTags)
 
     // Signal de confiance article
     let articleCitationMode: 'tagged' | 'free' | 'mixed'
