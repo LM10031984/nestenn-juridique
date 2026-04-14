@@ -660,3 +660,74 @@ describe('stripUnauthorizedArticleCitations — V2 patterns contextuels', () => 
   })
 
 })
+
+// ── Scénario SPANC — stripping citations parasites ────────────────────────────
+// Simule le cas environnement_immo : A1=L1331-1-1, A2=L1331-11-1 résolus,
+// LLM cite quand même L1331-6, L1331-8 et 222-33-2-2 librement.
+
+describe('stripUnauthorizedArticleCitations — SPANC environnement_immo', () => {
+  const SPANC_TAGS = ['A1', 'A2']
+
+  it('supprime la citation libre L1331-6 quand seuls A1/A2 sont autorisés', () => {
+    const text = 'Le SPANC peut constater la non-conformité (art. L1331-6 CSP). Par ailleurs [A1] impose le contrôle.'
+    const { cleaned } = stripUnauthorizedArticleCitations(text, SPANC_TAGS)
+    expect(cleaned).not.toMatch(/L1331-6/i)
+    expect(cleaned).toContain('[A1]')
+  })
+
+  it('supprime la citation libre L1331-8 quand seuls A1/A2 sont autorisés', () => {
+    const text = 'Selon l\'art. L1331-8, le logement peut être déclaré impropre. [A2] précise l\'obligation.'
+    const { cleaned } = stripUnauthorizedArticleCitations(text, SPANC_TAGS)
+    expect(cleaned).not.toMatch(/L1331-8/i)
+    expect(cleaned).toContain('[A2]')
+  })
+
+  it('supprime la citation libre 222-33-2-2 (Code pénal hors sujet)', () => {
+    const text = 'Des sanctions pénales peuvent s\'appliquer (art. 222-33-2-2 du Code pénal).'
+    const { cleaned } = stripUnauthorizedArticleCitations(text, SPANC_TAGS)
+    expect(cleaned).not.toMatch(/222-33-2-2/i)
+  })
+
+  it('préserve [A1] et [A2] — seuls tags autorisés pour SPANC', () => {
+    const text = '[A1] impose le contrôle SPANC. [A2] régit l\'information de l\'acquéreur. Art. L1331-6 ne doit pas apparaître.'
+    const { cleaned } = stripUnauthorizedArticleCitations(text, SPANC_TAGS)
+    expect(cleaned).toContain('[A1]')
+    expect(cleaned).toContain('[A2]')
+    expect(cleaned).not.toMatch(/L1331-6/i)
+  })
+
+  it('buildTaggedArticles — 2 live chunks SPANC → seulement A1 et A2 taggés', () => {
+    const liveChunks = [
+      { sourceLaw: 'Code de la santé publique', sourceArticle: 'L1331-1-1', sourceUrl: 'https://legifrance.fr/1', chunkText: '...', similarity: 1.0 },
+      { sourceLaw: 'Code de la santé publique', sourceArticle: 'L1331-11-1', sourceUrl: 'https://legifrance.fr/2', chunkText: '...', similarity: 1.0 },
+    ]
+    const pgvectorChunks = [
+      { sourceLaw: 'Code de l\'environnement', sourceArticle: 'L161-2', sourceUrl: null, chunkText: '...', similarity: 0.65 },
+      { sourceLaw: 'Code de la santé publique', sourceArticle: 'L1331-6', sourceUrl: null, chunkText: '...', similarity: 0.58 },
+    ]
+
+    // Simule la logique route.ts : quand liveChunks résolus, tagger UNIQUEMENT liveChunks
+    const tagged = buildTaggedArticles(liveChunks)
+
+    expect(tagged).toHaveLength(2)
+    expect(tagged[0].tag).toBe('A1')
+    expect(tagged[0].sourceArticle).toBe('L1331-1-1')
+    expect(tagged[1].tag).toBe('A2')
+    expect(tagged[1].sourceArticle).toBe('L1331-11-1')
+
+    // L161-2 et L1331-6 (pgvector) ne doivent PAS avoir de tag
+    const allTags = tagged.map(t => t.sourceArticle)
+    expect(allTags).not.toContain('L161-2')
+    expect(allTags).not.toContain('L1331-6')
+
+    // pgvectorChunks ignorés → stripUnauthorizedArticleCitations les neutralise si cités librement
+    const allowedTags = tagged.map(t => t.tag)
+    const { cleaned } = stripUnauthorizedArticleCitations(
+      'La règle [A1] s\'applique. Art. L161-2 Code env. est cité librement. Art. L1331-6 aussi.',
+      allowedTags,
+    )
+    expect(cleaned).toContain('[A1]')
+    expect(cleaned).not.toMatch(/L161-2/i)
+    expect(cleaned).not.toMatch(/L1331-6/i)
+  })
+})

@@ -194,3 +194,87 @@ describe('detectTopicArticles — RGPD CRM & prospects', () => {
   })
 
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPANC / ANC — fosse septique, dénonciation voisin, citations interdites
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('spanc_anc_fosse — noyau strict', () => {
+
+  it('détecte spanc_anc_fosse sur question fosse septique voisin', () => {
+    const entry = detectTopicArticles('Mon voisin a une fosse septique non conforme. Peut-il être dénoncé au SPANC ?')
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('spanc_anc_fosse')
+  })
+
+  it('détecte spanc_anc_fosse sur "assainissement non collectif"', () => {
+    const entry = detectTopicArticles('L\'acquéreur doit-il refaire l\'assainissement non collectif avant de vendre ?')
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('spanc_anc_fosse')
+  })
+
+  it('forcedArticles contient UNIQUEMENT L1331-1-1 et L1331-11-1 (pivots CSP)', () => {
+    const entry = detectTopicArticles('fosse septique non conforme — obligations du vendeur')
+    expect(entry).not.toBeNull()
+    const artNums = entry!.forcedArticles.map(fa => fa.artNum)
+    expect(artNums).toContain('L1331-1-1')
+    expect(artNums).toContain('L1331-11-1')
+    // Articles périphériques interdits dans la shortlist noyau
+    expect(artNums).not.toContain('L1331-6')
+    expect(artNums).not.toContain('L1331-8')
+    expect(artNums).not.toContain('L161-2')
+  })
+
+  it('tous les forcedArticles pointent vers le Code de la santé publique', () => {
+    const entry = detectTopicArticles('diagnostic assainissement lors d\'une vente immobilière')
+    expect(entry).not.toBeNull()
+    const allCSP = entry!.forcedArticles.every(fa => fa.law === 'code de la santé publique')
+    expect(allCSP).toBe(true)
+  })
+
+  it('answerNote interdit explicitement L1331-6, L1331-8, 222-33-2-2 et L161-2', () => {
+    const entry = detectTopicArticles('fosse septique non conforme')
+    const note = entry?.answerNote ?? ''
+    expect(note).toMatch(/L1331-6/)
+    expect(note).toMatch(/L1331-8/)
+    expect(note).toMatch(/222-33-2-2/)
+    expect(note).toMatch(/L161-2/)
+  })
+
+  it('answerNote mentionne les identifiants fermés [A1] et [A2]', () => {
+    const entry = detectTopicArticles('fosse septique')
+    const note = entry?.answerNote ?? ''
+    expect(note).toContain('[A1]')
+    expect(note).toContain('[A2]')
+  })
+
+})
+
+describe('spanc_sanctions_execution — sous-topic sanctions SPANC', () => {
+
+  it('détecte spanc_sanctions_execution sur "mise en demeure spanc"', () => {
+    const entry = detectTopicArticles('Le SPANC a envoyé une mise en demeure spanc. Que risque le propriétaire ?')
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('spanc_sanctions_execution')
+  })
+
+  it('détecte spanc_sanctions_execution sur "travaux d\'office assainissement"', () => {
+    const entry = detectTopicArticles('La commune peut-elle lancer des travaux d\'office assainissement aux frais du propriétaire ?')
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('spanc_sanctions_execution')
+  })
+
+  it('forcedArticles vide — pas de live sync sur les sanctions (montants variables)', () => {
+    const entry = detectTopicArticles('mise en demeure spanc refus contrôle')
+    expect(entry).not.toBeNull()
+    expect(entry!.forcedArticles).toHaveLength(0)
+  })
+
+  it('answerNote interdit les montants précis et L1331-6/L1331-8/222-33-2-2', () => {
+    const entry = detectTopicArticles('astreinte assainissement non collectif')
+    const note = entry?.answerNote ?? ''
+    expect(note).toMatch(/L1331-6/)
+    expect(note).toMatch(/222-33-2-2/)
+  })
+
+})

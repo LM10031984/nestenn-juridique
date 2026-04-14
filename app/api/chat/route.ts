@@ -398,8 +398,12 @@ export async function POST(req: NextRequest) {
 
   // Les articles live sont injectés en tête (priorité maximale sur pgvector)
   const allChunks = liveChunks.length > 0 ? [...liveChunks, ...activeChunks] : activeChunks
+  // Quand des articles live sont résolus, SEULS ces articles reçoivent un tag [A1][A2]…
+  // Les chunks pgvector restent dans allChunks (contexte LLM) mais sans tag assigné.
+  // Cela empêche les articles périphériques pgvector (ex : L161-2 Code env.) d'obtenir
+  // un identifiant fermé et d'être cités via [A3][A4] dans la réponse finale.
   const taggedArticles = liveChunks.length > 0
-    ? buildTaggedArticles(allChunks)
+    ? buildTaggedArticles(liveChunks)
     : buildTaggedArticles(activeChunks)
 
   console.info(

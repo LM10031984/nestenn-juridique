@@ -743,12 +743,42 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       'fosse non conforme', 'fosse septique non conforme',
       'diagnostic assainissement', 'servitude assainissement',
     ],
+    // Céder la priorité au sous-topic spanc_sanctions_execution quand la question
+    // porte sur des mesures coercitives (sanctions, travaux d'office, mise en demeure).
+    excludeTriggers: [
+      'mise en demeure spanc', 'mise en demeure assainissement',
+      'travaux d\'office assainissement', 'travaux d\'office spanc',
+      'travaux forcés assainissement', 'exécution d\'office assainissement',
+      'astreinte assainissement', 'sanction spanc',
+      'refus contrôle spanc', 'refus de contrôle assainissement',
+      'pénalité spanc', 'amende assainissement',
+    ],
     forcedArticles: [
       { law: 'code de la santé publique', artNum: 'L1331-1-1', label: 'Art. L1331-1-1 CSP — assainissement non collectif : obligation de contrôle SPANC' },
       { law: 'code de la santé publique', artNum: 'L1331-11-1', label: 'Art. L1331-11-1 CSP — information de l\'acquéreur sur l\'état de l\'installation ANC' },
     ],
     curatedCaseIds: [],
-    answerNote: 'STRATÉGIE PRUDENTE ANC/SPANC — Les questions sur la fosse septique portent généralement sur :\n1. OBLIGATION DE CONTRÔLE : le SPANC (Service Public d\'Assainissement Non Collectif) contrôle les installations (art. L1331-1-1 CSP). Un diagnostic est obligatoire lors d\'une vente (art. L1331-11-1 CSP).\n2. VENTE AVEC ANC NON CONFORME : le diagnostic SPANC doit être annexé au compromis. L\'acquéreur dispose de 1 an après la vente pour mettre en conformité. Le vendeur n\'est pas obligé de réaliser les travaux avant la vente.\n3. MISE EN CONFORMITÉ : si le SPANC conclut à une non-conformité présentant un risque sanitaire, la commune peut mettre en demeure le propriétaire. ATTENTION : ne pas citer automatiquement les articles du Code de l\'environnement sur les ICPE ou la pollution des sols — ils ne concernent pas l\'ANC résidentiel ordinaire.',
+    answerNote: 'STRATÉGIE STRICTE ANC/SPANC — Seuls [A1] (L1331-1-1 CSP) et [A2] (L1331-11-1 CSP) sont des sources autorisées pour citation dans cette réponse.\n\nPOINTS COUVERTS :\n1. OBLIGATION DE CONTRÔLE : le SPANC (Service Public d\'Assainissement Non Collectif) contrôle les installations ANC ([A1]). Un diagnostic est obligatoire lors d\'une vente ([A2]).\n2. VENTE AVEC ANC NON CONFORME : le diagnostic SPANC doit être annexé au compromis. L\'acquéreur dispose en principe de 1 an après la vente pour mettre en conformité. Le vendeur n\'est pas obligé de réaliser les travaux avant la vente.\n3. MISE EN CONFORMITÉ : si le SPANC conclut à une non-conformité présentant un risque sanitaire, la commune peut mettre en demeure le propriétaire — formuler de manière prudente sans affirmer de délai précis.\n\nINTERDICTIONS STRICTES — ne jamais citer les articles suivants, même s\'ils apparaissent dans les sources fournies :\n- Art. L1331-6 CSP (sanctions contrôle ANC) — non tagué, non autorisé\n- Art. L1331-8 CSP (locaux impropres à l\'habitation) — hors sujet ANC\n- Art. 222-33-2-2 Code pénal — hors sujet immobilier\n- Art. L161-2 Code de l\'environnement — concerne ICPE, pas l\'ANC résidentiel\n- Tout article du Code de l\'environnement sur la pollution des sols ou les ICPE\n\nSi la question porte sur des sanctions ou travaux d\'office, formuler en termes généraux (« la commune peut intervenir ») sans citer d\'article non tagué.',
+  },
+
+  // ── ANC / SPANC — SANCTIONS & EXÉCUTION D'OFFICE ────────────────────────
+  // Sous-topic dédié aux questions de sanctions, travaux forcés et mise en demeure SPANC.
+  // NE PAS mélanger avec le noyau spanc_anc_fosse (contrôle + vente).
+  // Pas d'articles live : les textes de sanction (L1331-29 à L1331-31 CSP) sont
+  // instables — préférer une réponse prudente sans citer de délais ou montants précis.
+
+  {
+    id: 'spanc_sanctions_execution',
+    triggers: [
+      'sanction spanc', 'travaux d\'office spanc', 'travaux d\'office assainissement',
+      'travaux forcés assainissement', 'mise en demeure spanc', 'mise en demeure assainissement',
+      'refus contrôle spanc', 'refus de contrôle assainissement',
+      'exécution d\'office assainissement', 'astreinte assainissement',
+      'amende assainissement non collectif', 'pénalité spanc',
+    ],
+    forcedArticles: [],
+    curatedCaseIds: [],
+    answerNote: 'SANCTIONS ANC/SPANC — Ce domaine porte sur les mesures coercitives (mise en demeure, travaux d\'office, astreintes).\n\nSTRATÉGIE PRUDENTE : les articles de sanction du CSP (L1331-29 à L1331-31) sont présents mais les délais et montants précis varient selon arrêté communal. Ne jamais affirmer de montant d\'astreinte ou de délai fixe sans source taggée.\n\nFORMULATIONS AUTORISÉES :\n- "La commune peut mettre en demeure le propriétaire de réaliser les travaux"\n- "En cas de carence, des travaux d\'office aux frais du propriétaire sont possibles"\n- "Des astreintes journalières peuvent être prononcées — les montants sont à vérifier avec le SPANC local"\n\nINTERDICTIONS : ne pas citer L1331-6, L1331-8, 222-33-2-2, L161-2 Code env.',
   },
 
   // ── CONSTRUCTION — GARANTIES & MALFAÇONS ─────────────────────────────────
