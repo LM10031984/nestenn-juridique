@@ -5,7 +5,7 @@
 // Lancer : npx vitest run __tests__/high-risk-claims.test.ts
 
 import { describe, it, expect } from 'vitest'
-import { detectHighRiskClaims, softenHighRiskClaims, type HighRiskClaimType } from '@/lib/high-risk-claims'
+import { detectHighRiskClaims, softenHighRiskClaims, type HighRiskClaimType, type SoftenLevel } from '@/lib/high-risk-claims'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -294,6 +294,299 @@ describe('softenHighRiskClaims — intégrité syntaxique', () => {
   it('gère un texte vide sans erreur', () => {
     expect(() => softenHighRiskClaims('')).not.toThrow()
     expect(softenHighRiskClaims('')).toBe('')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. Nouveaux patterns — automatic_effect : déclencheurs (run environnement_immo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectHighRiskClaims — automatic_effect : déclencheurs', () => {
+
+  it('détecte "déclenche" (run environnement_immo)', () => {
+    const t = "Un défaut de conformité déclenche généralement un contrôle de l'administration."
+    expect(types(t)).toContain('automatic_effect')
+  })
+
+  it('détecte "déclenchent" (pluriel)', () => {
+    const t = "Ces infractions déclenchent une procédure de mise en demeure."
+    expect(types(t)).toContain('automatic_effect')
+  })
+
+  it('détecte "entraîne" (run baux_habitation)', () => {
+    const t = "Le défaut de restitution entraîne la responsabilité du bailleur."
+    expect(types(t)).toContain('automatic_effect')
+  })
+
+  it('détecte "entraînent" (pluriel)', () => {
+    const t = "Ces manquements entraînent une résiliation de plein droit."
+    expect(types(t)).toContain('automatic_effect')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. Nouveaux patterns — mandatory_procedure : obligations pratiques
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectHighRiskClaims — mandatory_procedure : obligations pratiques', () => {
+
+  it('détecte "doit restituer" (run gestion_locative)', () => {
+    const t = "L'agence doit restituer le dépôt de garantie dans le délai légal."
+    expect(types(t)).toContain('mandatory_procedure')
+  })
+
+  it('détecte "doit réaliser" (run gestion_locative)', () => {
+    const t = "Le bailleur doit réaliser l'état des lieux de sortie contradictoirement."
+    expect(types(t)).toContain('mandatory_procedure')
+  })
+
+  it('détecte "impossible sans" (run baux_habitation)', () => {
+    const t = "La retenue sur dépôt est impossible sans état des lieux contradictoire."
+    expect(types(t)).toContain('mandatory_procedure')
+  })
+
+  it('détecte "impose de" (run environnement_immo)', () => {
+    const t = "Le décret impose de réaliser une mise en conformité sous 4 ans."
+    expect(types(t)).toContain('mandatory_procedure')
+  })
+
+  it('détecte "impose que" (run rgpd_agence)', () => {
+    const t = "Le RGPD impose que le consentement soit explicite."
+    expect(types(t)).toContain('mandatory_procedure')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. Nouveaux patterns — liability_or_causation : additionnels
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectHighRiskClaims — liability_or_causation : additionnels', () => {
+
+  it('détecte "rend X impossible" (run baux_habitation)', () => {
+    const t = "L'absence d'EDL rend impossible la récupération des retenues."
+    expect(types(t)).toContain('liability_or_causation')
+  })
+
+  it('détecte "est imputable à" (run gestion_locative)', () => {
+    const t = "La dégradation est imputable au locataire selon l'état des lieux."
+    expect(types(t)).toContain('liability_or_causation')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. Nouveaux patterns — delay : "sous X ans"
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectHighRiskClaims — delay : sous X ans', () => {
+
+  it('détecte "sous 4 ans" (run environnement_immo)', () => {
+    const t = "La mise en conformité doit être réalisée sous 4 ans."
+    expect(types(t)).toContain('delay')
+  })
+
+  it('détecte "sous 3 ans" (prescription)', () => {
+    const t = "L'action en garantie se prescrit sous 3 ans."
+    expect(types(t)).toContain('delay')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. softenHighRiskClaims — niveau high (gestion_locative)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('softenHighRiskClaims — safetyLevel=high', () => {
+
+  it('"déclenche" → "peut déclencher"', () => {
+    const r = softenHighRiskClaims(
+      "Un défaut déclenche généralement un contrôle.",
+      { safetyLevel: 'high' }
+    )
+    expect(r).toContain('peut déclencher')
+    expect(r).not.toMatch(/\bdéclenche\b/)
+  })
+
+  it('"entraîne" → "peut entraîner"', () => {
+    const r = softenHighRiskClaims(
+      "Le défaut entraîne la résiliation du bail.",
+      { safetyLevel: 'high' }
+    )
+    expect(r).toContain('peut entraîner')
+  })
+
+  it('"doit restituer" → "doit en principe restituer"', () => {
+    const r = softenHighRiskClaims(
+      "L'agence doit restituer le dépôt sous 30 jours.",
+      { safetyLevel: 'high' }
+    )
+    expect(r).toContain('doit en principe restituer')
+    expect(r).not.toMatch(/\bdoit restituer\b/)
+  })
+
+  it('"impossible sans" → "difficile à justifier sans"', () => {
+    const r = softenHighRiskClaims(
+      "La retenue est impossible sans état des lieux.",
+      { safetyLevel: 'high' }
+    )
+    expect(r).toContain('difficile à justifier sans')
+  })
+
+  it('"rend X impossible" → "rend X très difficile"', () => {
+    const r = softenHighRiskClaims(
+      "L'absence d'EDL rend la récupération impossible.",
+      { safetyLevel: 'high' }
+    )
+    expect(r.toLowerCase()).toContain('très difficile')
+  })
+
+  it('"est imputable à / au" → "serait en principe imputable"', () => {
+    const r = softenHighRiskClaims(
+      "La dégradation est imputable au locataire.",
+      { safetyLevel: 'high' }
+    )
+    expect(r).toContain('serait en principe imputable au locataire')
+  })
+
+  it('"impose de" → "prévoit en principe de"', () => {
+    const r = softenHighRiskClaims(
+      "Le décret impose de réaliser les travaux.",
+      { safetyLevel: 'high' }
+    )
+    expect(r).toContain('prévoit en principe de')
+  })
+
+  // Les règles critical NE doivent PAS s'appliquer en high
+  it('ne reformule PAS "amende jusqu\'à X €" en mode high', () => {
+    const t = "Une amende jusqu'à 1 500 € peut être infligée."
+    const r = softenHighRiskClaims(t, { safetyLevel: 'high' })
+    expect(r).toContain('1 500')   // le montant reste visible
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 15. softenHighRiskClaims — niveau critical (environnement_immo, rgpd_agence)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('softenHighRiskClaims — safetyLevel=critical', () => {
+
+  it('"amende jusqu\'à 1 500 €" → reformulation prudente', () => {
+    const t = "Une amende jusqu'à 1 500 € peut être infligée par la DGCCRF."
+    const r = softenHighRiskClaims(t, { safetyLevel: 'critical' })
+    expect(r).toContain('peuvent être encourues selon la situation')
+    expect(r).not.toContain("amende jusqu'à")
+  })
+
+  it('"sous 4 ans" → reformulation avec réserve (run environnement_immo)', () => {
+    const t = "La mise en conformité doit être réalisée sous 4 ans."
+    const r = softenHighRiskClaims(t, { safetyLevel: 'critical' })
+    expect(r).toContain('sous réserve des textes applicables')
+    expect(r).toContain('4 ans')           // le chiffre reste
+    expect(r).not.toMatch(/\bsous 4 ans\b/)
+  })
+
+  it('"amende de 20 M€" → reformulation sans montant brut', () => {
+    const t = "La CNIL peut infliger une amende de 20 M€ au responsable."
+    const r = softenHighRiskClaims(t, { safetyLevel: 'critical' })
+    expect(r).toContain('sanctions administratives importantes')
+    expect(r).not.toContain('amende de 20')
+  })
+
+  it('applique aussi les règles high et medium en mode critical', () => {
+    const t = "Le défaut déclenche un contrôle et doit restituer le dépôt."
+    const r = softenHighRiskClaims(t, { safetyLevel: 'critical' })
+    expect(r).toContain('peut déclencher')
+    expect(r).toContain('doit en principe restituer')
+  })
+
+  it('compat. descendante : aggressive=true équivaut à critical', () => {
+    const t = "La CNIL peut infliger une amende de 20 M€."
+    const rAggressive = softenHighRiskClaims(t, { aggressive: true })
+    const rCritical   = softenHighRiskClaims(t, { safetyLevel: 'critical' })
+    expect(rAggressive).toBe(rCritical)
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 16. softenHighRiskClaims — niveau medium (défaut)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('softenHighRiskClaims — safetyLevel=medium (défaut)', () => {
+
+  it('applique les règles de base en mode medium', () => {
+    const t = "Un état des lieux incomplet engage sa responsabilité."
+    const r = softenHighRiskClaims(t, { safetyLevel: 'medium' })
+    expect(r).toContain('peut engager sa responsabilité')
+  })
+
+  it('ne reformule PAS "déclenche" en mode medium', () => {
+    const t = "Cette action déclenche un contrôle."
+    const r = softenHighRiskClaims(t, { safetyLevel: 'medium' })
+    // déclenche est une règle high — ne doit pas être transformé en medium
+    expect(r).toContain('déclenche')
+  })
+
+  it('sans options = même résultat que medium', () => {
+    const t = "La clause est nulle et non avenue."
+    expect(softenHighRiskClaims(t)).toBe(softenHighRiskClaims(t, { safetyLevel: 'medium' }))
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 17. Runs complets par domaine
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('runs complets — gestion_locative (safetyLevel=high)', () => {
+
+  const GESTION_RUN = `
+    L'agence doit restituer le dépôt dans un délai de 30 jours.
+    L'absence d'état des lieux rend impossible la récupération des retenues.
+    Un EDL incomplet engage sa responsabilité envers le propriétaire.
+    La retenue est impossible sans état des lieux de sortie contradictoire.
+  `
+
+  it('détecte delay, mandatory_procedure et liability_or_causation', () => {
+    const detected = types(GESTION_RUN)
+    expect(detected).toContain('delay')
+    expect(detected).toContain('mandatory_procedure')
+    expect(detected).toContain('liability_or_causation')
+  })
+
+  it('reformule toutes les formulations trop absolues en high', () => {
+    const r = softenHighRiskClaims(GESTION_RUN, { safetyLevel: 'high' })
+    expect(r).toContain('doit en principe restituer')
+    expect(r).toContain('difficile à justifier sans')
+    expect(r).toContain('peut engager sa responsabilité')
+  })
+
+})
+
+describe('runs complets — environnement_immo (safetyLevel=critical)', () => {
+
+  const ENV_RUN = `
+    Un défaut de conformité déclenche généralement un contrôle.
+    La mise en conformité doit être réalisée sous 4 ans.
+    Le règlement impose de signaler tout dépassement dans les 30 jours.
+    En cas de violation grave, une amende jusqu'à 1 500 € peut être prononcée.
+    Cette situation entraîne la responsabilité du propriétaire de plein droit.
+  `
+
+  it('détecte au moins 4 types différents', () => {
+    expect(types(ENV_RUN).length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('reformule les signaux forts en critical', () => {
+    const r = softenHighRiskClaims(ENV_RUN, { safetyLevel: 'critical' })
+    expect(r).toContain('peut déclencher')
+    expect(r).toContain('sous réserve des textes applicables')
+    expect(r).toContain('peuvent être encourues selon la situation')
+    expect(r).toContain('peut entraîner')
   })
 
 })

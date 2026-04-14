@@ -36,6 +36,7 @@ import {
 } from '@/lib/post-treatment'
 import type { PromptContext } from '@/lib/model-config'
 import { FORCE_JURISPRUDENCE_DOMAINS } from '@/lib/system-prompt'
+import { getDomainPolicy } from '@/lib/domain-policies'
 import { detectHighRiskClaims, softenHighRiskClaims } from '@/lib/high-risk-claims'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -563,15 +564,17 @@ export async function POST(req: NextRequest) {
       finalText = optionallyDowngradeUnsupportedNormativeClaims(finalText)
     }
 
-    // Passe 3.7 — diagnostic high-risk-claims + softening domaines critiques
+    // Passe 3.7 — diagnostic high-risk-claims + softening adaptatif selon safetyLevel
     const highRiskClaims = detectHighRiskClaims(finalText)
     if (highRiskClaims.length > 0) {
       const claimTypes = [...new Set(highRiskClaims.map(c => c.type))]
       console.info(`[high-risk-claims] detected=${highRiskClaims.length} types=[${claimTypes.join(', ')}]`)
     }
-    if (domains.some(d => FORCE_JURISPRUDENCE_DOMAINS.has(d)) && highRiskClaims.length > 0) {
-      finalText = softenHighRiskClaims(finalText)
-      console.info('[high-risk-claims] soften applied (critical domain)')
+    // safetyLevel issu de domain-policies : medium (aucun soften), high ou critical
+    const domainSafetyLevel = primaryDomain ? getDomainPolicy(primaryDomain)?.safetyLevel : undefined
+    if (domainSafetyLevel && domainSafetyLevel !== 'medium' && highRiskClaims.length > 0) {
+      finalText = softenHighRiskClaims(finalText, { safetyLevel: domainSafetyLevel })
+      console.info(`[high-risk-claims] soften applied safetyLevel=${domainSafetyLevel}`)
     }
 
     // Passe 4 — filet final : tout numéro résiduel post-injection → [arrêt non vérifié]
