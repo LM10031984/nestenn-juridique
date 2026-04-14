@@ -18,6 +18,8 @@ interface BuildMistralPromptParams {
   hasTaggedArticles?: boolean
   /** Note métier issue du shortlist — guide le LLM sur les articles attendus */
   topicNote?: string
+  /** true si legifrance-sync a totalement échoué sur un domaine critique — prudence normative */
+  liveArticleResolutionFailed?: boolean
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -302,7 +304,7 @@ Des articles sources ont été fournis avec des tags fermés. Adapte ta réponse
 **Longueur cible : 250-400 mots**. Une réponse courte et juste vaut mieux qu'une longue avec des erreurs.`
 
 export function buildMistralSystemPrompt(params: BuildMistralPromptParams): string {
-  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false, topicNote } = params
+  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false, topicNote, liveArticleResolutionFailed } = params
 
   const rules = tier === 'large' ? buildLargeRules(hasTaggedArticles) : buildSmallRules(hasTaggedArticles)
   const example = tier === 'large' ? LARGE_EXAMPLE : SMALL_EXAMPLE
@@ -328,10 +330,13 @@ ${liveSectionHeader}`
   // P5 : longueur maîtrisée quand des tags articles sont actifs (réduit les citations parasites)
   const tagsLengthBlock = hasTaggedArticles ? `\n\n${TAGS_ACTIVE_LENGTH_BLOCK}` : ''
   const topicNoteBlock = topicNote ? `\n\n# Note métier (priorité haute)\n\n${topicNote}` : ''
+  const liveSyncFailedBlock = liveArticleResolutionFailed
+    ? `\n\n# ATTENTION — SYNC RÉGLEMENTAIRE INDISPONIBLE\n\nLes textes officiels spécifiques attendus pour ce domaine n'ont pas pu être récupérés en temps réel. Dans ce contexte :\n- N'affirme pas de délais, seuils ou obligations précises sans les nuancer\n- Préfère : "en principe", "selon la réglementation habituelle", "à vérifier sur Légifrance"\n- Évite les formulations directes du type "la loi impose", "vous devez impérativement"\n- Signale explicitement si une règle devrait être vérifiée sur le texte officiel`
+    : ''
 
   return `${IDENTITY}
 
-${rules}${strictBlock}${tagsLengthBlock}${topicNoteBlock}
+${rules}${strictBlock}${tagsLengthBlock}${topicNoteBlock}${liveSyncFailedBlock}
 
 ${sourcesSection}
 
@@ -362,6 +367,7 @@ export function buildMistralLargeSystemPrompt(
     strictConcise: context?.strictConcise,
     hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
     topicNote: context?.topicNote,
+    liveArticleResolutionFailed: context?.liveArticleResolutionFailed,
   })
 }
 
@@ -379,5 +385,6 @@ export function buildMistralSmallSystemPrompt(
     strictConcise: context?.strictConcise,
     hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
     topicNote: context?.topicNote,
+    liveArticleResolutionFailed: context?.liveArticleResolutionFailed,
   })
 }

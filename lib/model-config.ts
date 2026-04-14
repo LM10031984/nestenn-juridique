@@ -28,6 +28,13 @@ export interface PromptContext {
    * ne couvrent pas le référentiel (ex : RGPD = règlement EU, hors PISTE).
    */
   topicNote?: string
+  /**
+   * true quand la résolution des articles live (PISTE/legiPart) a totalement échoué
+   * pour un domaine safetyLevel=critical. Signale au system prompt d'adopter une posture
+   * plus prudente : éviter les affirmations normatives directes, préférer « en principe »,
+   * « à vérifier sur Légifrance ».
+   */
+  liveArticleResolutionFailed?: boolean
 }
 
 type SystemPromptBuilder = (

@@ -323,6 +323,68 @@ describe('resolveLiveArticles', () => {
     expect(results).toHaveLength(0)
     expect(global.fetch).not.toHaveBeenCalled()
   })
+
+  it('retourne tableau vide quand fetch lève AbortError (timeout simulé)', async () => {
+    // Simule le cas environnement_immo : legiPart timeout sur les articles SPANC
+    const abortError = new DOMException('The operation was aborted.', 'AbortError')
+    global.fetch = vi.fn().mockRejectedValue(abortError)
+
+    const results = await resolveLiveArticles([
+      { textId: 'LEGITEXT000006074096', articleNum: 'L.2224-8', lawName: 'Code général des collectivités territoriales' },
+      { textId: 'LEGITEXT000006074096', articleNum: 'L.2224-9', lawName: 'Code général des collectivités territoriales' },
+    ])
+
+    // Tous les articles doivent échouer silencieusement (Promise.allSettled)
+    expect(results).toHaveLength(0)
+  })
+})
+
+// ── fallback-critical-mode : logique de détection d'échec ─────────────────────
+
+describe('détection fallback-critical-mode (environnement_immo / SPANC)', () => {
+  let originalFetch: typeof global.fetch
+
+  beforeEach(() => { originalFetch = global.fetch })
+  afterEach(() => {
+    global.fetch = originalFetch
+    vi.restoreAllMocks()
+  })
+
+  it('retourne 0 articles quand tous les candidats échouent avec AbortError', async () => {
+    // Scénario réel : legiPart timeout sur les articles SPANC (Art. L.2224-8/9 CGCT)
+    global.fetch = vi.fn().mockRejectedValue(
+      new DOMException('The operation was aborted.', 'AbortError')
+    )
+
+    const SPANC_CANDIDATES = [
+      { textId: 'LEGITEXT000006074096', articleNum: 'L.2224-8', lawName: 'CGCT' },
+      { textId: 'LEGITEXT000006074096', articleNum: 'L.2224-9', lawName: 'CGCT' },
+      { textId: 'LEGITEXT000006074096', articleNum: 'L.2224-10', lawName: 'CGCT' },
+    ]
+
+    const resolved = await resolveLiveArticles(SPANC_CANDIDATES)
+
+    // Aucun article résolu → le pipeline doit activer fallback-critical-mode
+    expect(resolved).toHaveLength(0)
+
+    // Tous les candidats ont été tentés (legiPart appelé pour chacun)
+    expect(global.fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('ne retourne pas d\'articles résolus quand legiPart répond 503 sur tous les candidats', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: 'Service Unavailable' }),
+      text: async () => 'Service Unavailable',
+    })
+
+    const resolved = await resolveLiveArticles([
+      { textId: 'LEGITEXT000006074096', articleNum: 'L.2224-8', lawName: 'CGCT' },
+    ])
+
+    expect(resolved).toHaveLength(0)
+  })
 })
 
 // ── resolvedArticlesToChunks ──────────────────────────────────────────────────

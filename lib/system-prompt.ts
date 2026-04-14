@@ -38,6 +38,11 @@ export function getSystemPromptAugmented(
     forceDomainJuri?: boolean
     /** Note métier issue du shortlist — guide le LLM sur les articles attendus */
     topicNote?: string
+    /**
+     * true si legifrance-sync a totalement échoué sur un domaine critique.
+     * Injecte une consigne de prudence normative dans le prompt.
+     */
+    liveArticleResolutionFailed?: boolean
   },
 ): string {
   const today = new Date().toLocaleDateString('fr-FR', {
@@ -47,7 +52,7 @@ export function getSystemPromptAugmented(
 
   const sourcesBlock = formatSources(chunks)
 
-  const { forceJuri = false, forceDomainJuri = false, topicNote } = options ?? {}
+  const { forceJuri = false, forceDomainJuri = false, topicNote, liveArticleResolutionFailed = false } = options ?? {}
   const hasLiveCases = (liveJuriCases?.length ?? 0) > 0
 
   // Si liveJuriCases est fourni, on sépare les deux sources ; sinon compat ascendante
@@ -77,11 +82,16 @@ export function getSystemPromptAugmented(
     ? `\nNOTE MÉTIER (priorité haute) :\n${topicNote}\n`
     : ''
 
+  // Avertissement sync indisponible — prudence normative quand les articles live ont échoué
+  const liveSyncFailedBlock = liveArticleResolutionFailed
+    ? `\nATTENTION — SYNC RÉGLEMENTAIRE INDISPONIBLE : Les textes officiels spécifiques attendus pour ce domaine n'ont pas pu être récupérés en temps réel. Dans ce contexte :\n- N'affirme pas de délais, seuils ou obligations précises sans les nuancer\n- Préfère : "en principe", "selon la réglementation habituelle", "à vérifier sur Légifrance"\n- Évite les formulations directes du type "la loi impose", "vous devez impérativement"\n- Signale explicitement si une règle devrait être vérifiée sur le texte officiel\n`
+    : ''
+
   return `Tu es l'assistant juridique de Nestenn, réseau immobilier français. Date : ${today}.
 
 Tu réponds aux questions de droit immobilier en mobilisant tes connaissances ET les textes officiels ci-dessous.
 
-${sourcesBlock}${juriBlock}${domainJuriBlock}${topicNoteBlock}
+${sourcesBlock}${juriBlock}${domainJuriBlock}${topicNoteBlock}${liveSyncFailedBlock}
 COMMENT UTILISER CES SOURCES :
 - Elles te servent à confirmer tes affirmations avec la référence exacte et le lien
 - Si un texte fourni contredit ce que tu sais → le texte en vigueur a raison, corrige ta réponse

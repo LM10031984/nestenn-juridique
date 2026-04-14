@@ -320,6 +320,7 @@ export async function POST(req: NextRequest) {
   // avait trouvé des articles — la shortlist n'était alors jamais injectée.
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
   let topicMatch: ReturnType<typeof detectTopicArticles> = null
+  let liveArticleResolutionFailed = false
 
   if (!!process.env.PISTE_CLIENT_ID) {
     const msgTopicMatch = detectTopicArticles(correctedMessage)
@@ -366,15 +367,40 @@ export async function POST(req: NextRequest) {
         const resolved = await resolveLiveArticles(candidates).catch(() => [])
         liveChunks = resolvedArticlesToChunks(resolved)
         console.info(`[article-debug] resolved=${resolved.length} → liveChunks=${liveChunks.length}`)
+
+        // Détection échec total sur domaine critique — activer le mode fallback prudent
+        if (resolved.length === 0) {
+          const domainPolicy = primaryDomain ? getDomainPolicy(primaryDomain) : null
+          if (domainPolicy?.safetyLevel === 'critical') {
+            liveArticleResolutionFailed = true
+            console.warn(
+              `[legifrance-sync] critical-sync-failed domain=${primaryDomain}`
+              + ` candidates=${candidates.map(c => c.articleNum).join(',')}`
+            )
+            console.warn('[legifrance-sync] fallback-critical-mode activé')
+          }
+        }
       }
     }
   }
 
+  // En mode fallback-critical (live sync échoué sur domaine critique), on réduit
+  // les chunks pgvector aux 3 premiers pour éviter que des articles périphériques
+  // peu pertinents ne prennent le dessus sur la shortlist métier.
+  const MAX_FALLBACK_CRITICAL_CHUNKS = 3
+  const activeChunks = liveArticleResolutionFailed
+    ? chunks.slice(0, MAX_FALLBACK_CRITICAL_CHUNKS)
+    : chunks
+
+  if (liveArticleResolutionFailed) {
+    console.warn('[pipeline] reduced-normativity-because-live-sync-failed')
+  }
+
   // Les articles live sont injectés en tête (priorité maximale sur pgvector)
-  const allChunks = liveChunks.length > 0 ? [...liveChunks, ...chunks] : chunks
+  const allChunks = liveChunks.length > 0 ? [...liveChunks, ...activeChunks] : activeChunks
   const taggedArticles = liveChunks.length > 0
     ? buildTaggedArticles(allChunks)
-    : pgTaggedArticles
+    : buildTaggedArticles(activeChunks)
 
   console.info(
     `[article-debug] taggedArticles=${taggedArticles.length}`
@@ -392,6 +418,7 @@ export async function POST(req: NextRequest) {
     strictConcise: liveJuriCases.length <= 1 && filteredPgJuriCases.length === 0,
     domains,
     topicNote: topicMatch?.answerNote,
+    liveArticleResolutionFailed,
   }
 
   if (promptContext.strictConcise) {
