@@ -37,6 +37,36 @@ const CHUNKS = [
   { sourceLaw: 'Code civil',    sourceArticle: '1641', sourceUrl: null }, // doublon
 ]
 
+// ── Orphan tag [A116] — régression ───────────────────────────────────────────
+
+describe('injectRealArticleCitations — tag orphelin', () => {
+  it('[A116] est remplacé par [article non autorisé]', () => {
+    const tagged: TaggedArticle[] = [
+      { tag: 'A1', title: 'Art. 5 — loi 78-17', sourceLaw: 'loi 78-17', sourceArticle: '5' },
+    ]
+    // Le LLM a écrit [A116] en confondant article 116 et tag A116
+    const text = 'Selon [A1] et également [A116] du règlement...'
+    const result = injectRealArticleCitations(text, tagged)
+    expect(result).toContain('Art. 5 — loi 78-17')
+    expect(result).toContain('[article non autorisé]')
+    expect(result).not.toContain('[A116]')
+  })
+
+  it('les tags [A1] à [A5] valides sont tous remplacés correctement', () => {
+    const tagged: TaggedArticle[] = Array.from({ length: 5 }, (_, i) => ({
+      tag: `A${i + 1}`,
+      title: `Art. ${i + 1} — loi test`,
+      sourceLaw: 'loi test',
+      sourceArticle: `${i + 1}`,
+    }))
+    const text = '[A1] [A2] [A3] [A4] [A5] [A6]'
+    const result = injectRealArticleCitations(text, tagged)
+    expect(result).not.toContain('[A1]')
+    expect(result).not.toContain('[A5]')
+    expect(result).toContain('[article non autorisé]') // [A6] orphelin
+  })
+})
+
 // ── buildTaggedLiveCases ──────────────────────────────────────────────────────
 
 describe('buildTaggedLiveCases', () => {

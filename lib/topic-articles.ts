@@ -8,6 +8,7 @@
 //   - Les deux systèmes se combinent : playbook en priorité, T2AI en fallback
 
 import type { ForcedArticle } from './playbooks'
+import { DOMAIN_POLICIES } from './domain-policies'
 
 export interface TopicArticleEntry {
   id: string
@@ -862,10 +863,11 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
       'opt-in prospect', 'opt-out prospect', 'durée conservation prospect',
       'conserver les données d\'un prospect', 'conservation données prospect',
     ],
+    // RGPD = règlement UE — non disponible via PISTE (API française uniquement).
+    // Loi 78-17 (loi-informatique-libertes) est la transposition FR du RGPD.
+    // Les articles RGPD 6/13/21 sont cités dans answerNote pour guider le LLM.
     forcedArticles: [
-      { law: 'règlement ue 2016/679', artNum: '6',  label: 'Art. 6 RGPD — licéité du traitement (bases légales)' },
-      { law: 'règlement ue 2016/679', artNum: '13', label: 'Art. 13 RGPD — information des personnes lors de la collecte de données' },
-      { law: 'règlement ue 2016/679', artNum: '21', label: 'Art. 21 RGPD — droit d\'opposition au traitement' },
+      { law: 'loi-informatique-libertes', artNum: '5', label: 'Art. 5 — Loi 78-17 / RGPD — principes relatifs au traitement des données' },
     ],
     curatedCaseIds: [],
     answerNote: 'RGPD PROSPECTION IMMOBILIÈRE — CRM & PROSPECTS :\n1. BASE LÉGALE (art. 6 RGPD) : pour enregistrer un prospect en CRM, la base légale est l\'intérêt légitime (art. 6-1-f) si la relation est préexistante, ou le consentement (art. 6-1-a) pour la prospection à froid. La base "exécution d\'un contrat" ne s\'applique pas avant la signature.\n2. INFORMATION OBLIGATOIRE (art. 13) : dès la collecte, informer le prospect de l\'identité du responsable de traitement, de la finalité, de la durée de conservation et de ses droits.\n3. DROIT D\'OPPOSITION (art. 21) : le prospect peut s\'opposer à tout moment au traitement fondé sur l\'intérêt légitime. L\'agence doit alors cesser le traitement sauf motif légitime impérieux.\n4. DURÉE DE CONSERVATION recommandée par la CNIL pour les prospects non convertis : 3 ans à compter du dernier contact. Au-delà = obligation de supprimer ou de renouveler le consentement.\nATTENTION : intégrer un mécanisme d\'opt-out dans tous les emails de prospection. Conserver la preuve du consentement ou de l\'intérêt légitime documenté.',
@@ -900,6 +902,17 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
 // ---------------------------------------------------------------------------
 // Détection du topic
 // ---------------------------------------------------------------------------
+
+/**
+ * Retourne la shortlist métier associée à un domaine via DOMAIN_POLICIES.shortlistStrategy.
+ * Utilisé en fallback quand detectTopicArticles() ne trouve pas de match par triggers.
+ * Rend shortlistStrategy opérationnel au runtime (était purement documentaire avant).
+ */
+export function getShortlistByDomain(domain: string): TopicArticleEntry | null {
+  const strategy = DOMAIN_POLICIES[domain]?.shortlistStrategy
+  if (!strategy) return null
+  return TOPIC_ARTICLE_INDEX.find(e => e.id === strategy) ?? null
+}
 
 export function detectTopicArticles(message: string): TopicArticleEntry | null {
   const lower = message.toLowerCase()

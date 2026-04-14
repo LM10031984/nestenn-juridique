@@ -30,5 +30,5 @@ export function buildClaudeSystemPrompt(
     )
   }
 
-  return getSystemPromptAugmented(chunks, pgJuri, liveJuri, { forceJuri, forceDomainJuri })
+  return getSystemPromptAugmented(chunks, pgJuri, liveJuri, { forceJuri, forceDomainJuri, topicNote: context?.topicNote })
 }

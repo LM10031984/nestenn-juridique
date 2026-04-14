@@ -19,7 +19,7 @@ import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
 import { resolveLiveArticles, resolvedArticlesToChunks } from '@/lib/legifrance-resolver'
 import { lookupLegitext } from '@/lib/legifrance'
-import { detectTopicArticles } from '@/lib/topic-articles'
+import { detectTopicArticles, getShortlistByDomain } from '@/lib/topic-articles'
 import {
   sanitizeJuriNumbers,
   buildTaggedLiveCases,
@@ -319,8 +319,15 @@ export async function POST(req: NextRequest) {
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
 
   if (!!process.env.PISTE_CLIENT_ID) {
-    const topicMatch = detectTopicArticles(correctedMessage)
-    console.info(`[article-debug] topicMatch=${topicMatch?.id ?? 'none'} pgTaggedArticles=${pgTaggedArticles.length}`)
+    const msgTopicMatch = detectTopicArticles(correctedMessage)
+    const domainTopicMatch = msgTopicMatch === null && primaryDomain
+      ? getShortlistByDomain(primaryDomain)
+      : null
+    const topicMatch = msgTopicMatch ?? domainTopicMatch
+    const topicMatchSource = msgTopicMatch ? 'message-triggers'
+      : domainTopicMatch ? `domain-shortlist(${primaryDomain})`
+      : 'none'
+    console.info(`[article-debug] topicMatch=${topicMatch?.id ?? 'none'} source=${topicMatchSource} pgTaggedArticles=${pgTaggedArticles.length}`)
 
     if (topicMatch && topicMatch.forcedArticles.length > 0) {
       // Convertir ForcedArticle[] → candidats { textId, articleNum, lawName }
@@ -369,6 +376,7 @@ export async function POST(req: NextRequest) {
     taggedArticles,
     strictConcise: liveJuriCases.length <= 1 && filteredPgJuriCases.length === 0,
     domains,
+    topicNote: topicMatch?.answerNote,
   }
 
   if (promptContext.strictConcise) {

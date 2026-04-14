@@ -1,0 +1,191 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║        NESTENN JURIDIQUE — ENRICHISSEMENT CORPUS             ║
+╚══════════════════════════════════════════════════════════════╝
+
+Config : vague=V2 domaine=tous dry-run=true reindex=false
+Domaines à enrichir : responsabilite_agent, location_touristique, environnement_immo
+
+✅ Token PISTE OK
+
+
+🏷️  Domaine [V2] : responsabilite_agent — Responsabilité de l'agent
+
+  📄 Source : Loi 70-9 — Hoguet (art. 4)
+     Articles VIGUEUR : 38 (traitement : 38)
+     [DRY] Art. 1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 1-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 2 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 3 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 3-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 4 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 4-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 4-2 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 4-3 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 5 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 6 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 6-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 6-2 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 7 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 8 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 8-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 8-2 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 8-2-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 8-3 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 9 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 10 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 11 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 12 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 13 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 19 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 19-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 20 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 13-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 13-2 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 13-3 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 13-4 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 14 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 15 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 16 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 17 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 17-1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 17-2 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 18 — (tag domaine: responsabilite_agent)
+
+  📄 Source : Décret 2015-1090 — Déontologie
+     Articles VIGUEUR : 4 (traitement : 4)
+     [DRY] Art. 1 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 2 — (tag domaine: responsabilite_agent)
+     [DRY] Art. 3 — (tag domaine: responsabilite_agent)
+     [DRY] Art.  — CODE DE DÉONTOLOGIE DES AGENTS IMMOBILIERS, DES ADMINISTRATE…
+
+  📄 Source : Code civil — Responsabilité délictuelle (art. 1240-1242)
+     ⚠️  Section LEGISCTA000032021508 introuvable dans LEGITEXT000006070721
+     ℹ️  Note : Art. 1240 (faute), 1241 (imprudence), 1242 (fait autrui). Vérifier LEGISCTA via find-legiscta.ts.
+
+🏷️  Domaine [V2] : location_touristique — Location touristique
+
+  📄 Source : Code tourisme — L324 (législatif)
+     Articles VIGUEUR : 8 (traitement : 8)
+     [DRY] Art. L324-1 — (tag domaine: location_touristique)
+     [DRY] Art. L324-1-1 — (tag domaine: location_touristique)
+     [DRY] Art. L324-2 — (tag domaine: location_touristique)
+     [DRY] Art. L324-2-1 — (tag domaine: location_touristique)
+     [DRY] Art. L324-3 — (tag domaine: location_touristique)
+     [DRY] Art. L324-4 — (tag domaine: location_touristique)
+     [DRY] Art. L324-5 — (tag domaine: location_touristique)
+     [DRY] Art. L324-6 — (tag domaine: location_touristique)
+
+  📄 Source : Code tourisme — R324 (réglementaire)
+     Articles VIGUEUR : 29 (traitement : 29)
+     [DRY] Art. D324-1 — (tag domaine: location_touristique)
+     [DRY] Art. D324-1-1 — (tag domaine: location_touristique)
+     [DRY] Art. R324-1-2 — (tag domaine: location_touristique)
+     [DRY] Art. D324-1-3 — (tag domaine: location_touristique)
+     [DRY] Art. R324-1-5 — (tag domaine: location_touristique)
+     [DRY] Art. R324-1-6 — (tag domaine: location_touristique)
+     [DRY] Art. R324-1-7 — (tag domaine: location_touristique)
+     [DRY] Art. R324-2 — (tag domaine: location_touristique)
+     [DRY] Art. R324-2-1 — (tag domaine: location_touristique)
+     [DRY] Art. R324-2-2 — (tag domaine: location_touristique)
+     [DRY] Art. R324-2-3 — (tag domaine: location_touristique)
+     [DRY] Art. R324-2-4 — (tag domaine: location_touristique)
+     [DRY] Art. R324-2-5 — (tag domaine: location_touristique)
+     [DRY] Art. R324-2-6 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2-7 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2-8 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2-9 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2-10 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2-11 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2-12 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2-13 — (tag domaine: location_touristique)
+     [DRY] Art. D324-2 — (tag domaine: location_touristique)
+     [DRY] Art. D324-3 — (tag domaine: location_touristique)
+     [DRY] Art. D324-4 — (tag domaine: location_touristique)
+     [DRY] Art. D324-5 — (tag domaine: location_touristique)
+     [DRY] Art. D324-6 — (tag domaine: location_touristique)
+     [DRY] Art. D324-6-1 — (tag domaine: location_touristique)
+     [DRY] Art. R324-7 — (tag domaine: location_touristique)
+     [DRY] Art. R324-8 — (tag domaine: location_touristique)
+
+  📄 Source : CCH — Changement d'usage (L631-7 et s.)
+     ⚠️  Section LEGISCTA000006159521 introuvable dans LEGITEXT000006074096
+     ℹ️  Note : Art. L631-7 (autorisation changement usage), L631-7-1 (numéro enregistrement), L631-9 (sanctions). Vérifier LEGISCTA.
+
+🏷️  Domaine [V2] : environnement_immo — Environnement et pollution immobilière
+
+  📄 Source : Code de l'environnement — Information sur les sols pollués (L.125-1 à L.125-9)
+     Articles VIGUEUR : 11 (traitement : 11)
+     [DRY] Art. L125-1 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-2 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-2-1 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-2-2 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-3 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-4 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-5 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-6 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-7 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-8 — (tag domaine: environnement_immo)
+     [DRY] Art. L125-9 — 1. Les baux conclus ou renouvelés portant sur des locaux de …
+
+  📄 Source : Code de l'environnement — ICPE Dispositions générales (L.511-1 et s.)
+     Articles VIGUEUR : 3 (traitement : 3)
+     [DRY] Art. L511-1 A — Au sens du présent titre, l'usage et la réhabilitation s'ent…
+     [DRY] Art. L511-1 — Sont soumis aux dispositions du présent titre les usines, at…
+     [DRY] Art. L511-2 — Les installations visées à l'article L. 511-1 sont définies …
+
+  📄 Source : Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)
+     Articles VIGUEUR : 38 (traitement : 38)
+     [DRY] Art. L160-1 — Le présent titre définit les conditions dans lesquelles sont…
+     [DRY] Art. L161-1 — I. - Constituent des dommages causés à l'environnement au se…
+     [DRY] Art. L161-2 — Le présent titre ne s'applique pas aux dommages à l'environn…
+     [DRY] Art. L161-3 — Le présent titre s'applique sans préjudice du droit pour un …
+     [DRY] Art. L161-4 — Le présent titre ne s'applique pas lorsque plus de trente an…
+     [DRY] Art. L161-5 — Le présent titre n'est pas applicable non plus : 1° Lorsque …
+     [DRY] Art. L162-1 — Sont prévenus ou réparés selon les modalités définies par le…
+     [DRY] Art. L162-2 — Une personne victime d'un préjudice résultant d'un dommage e…
+     [DRY] Art. L162-3 — En cas de menace imminente de dommage, l'exploitant prend sa…
+     [DRY] Art. L162-4 — En cas de dommage, l'exploitant en informe sans délai l'auto…
+     [DRY] Art. L162-5 — Pour mettre en œuvre dans les propriétés privées les mesures…
+     [DRY] Art. L162-6 — L'autorité visée au 2° de l'article L. 165-2 procède à l'éva…
+     [DRY] Art. L162-7 — L'exploitant soumet à l'approbation de l'autorité visée au 2…
+     [DRY] Art. L162-8 — Dans les cas visés au 1° du I de l'article L. 161-1 , les me…
+     [DRY] Art. L162-9 — Les mesures de réparation des dommages affectant les eaux et…
+     [DRY] Art. L162-10 — Après avoir, le cas échéant, demandé à l'exploitant de compl…
+     [DRY] Art. L162-11 — Après avoir mis l'exploitant en mesure de présenter ses obse…
+     [DRY] Art. L162-12 — I.-Les mesures de réparation prescrites par l'autorité visée…
+     [DRY] Art. L162-13 — En cas de menace imminente de dommage, ou lorsqu'un tel domm…
+     [DRY] Art. L162-14 — Lorsque l'exploitant n'a pas pris les mesures prévues aux ar…
+     [DRY] Art. L162-15 — En cas d'urgence et lorsque l'exploitant tenu de prévenir ou…
+     [DRY] Art. L162-16 — L'autorité visée au 2° de l'article L. 165-2 peut, à tout mo…
+     [DRY] Art. L162-17 — L'exploitant tenu de prévenir ou de réparer un dommage en ap…
+     [DRY] Art. L162-18 — Lorsqu'un dommage à l'environnement a plusieurs causes, le c…
+     [DRY] Art. L162-19 — Lorsqu'elle a procédé ou fait procéder à l'exécution d'offic…
+     [DRY] Art. L162-20 — Les personnes visées à l'article L. 162-15 ont droit au remb…
+     [DRY] Art. L162-21 — L'autorité visée au 2° de l'article L. 165-2 peut engager co…
+     [DRY] Art. L162-22 — L'exploitant peut recouvrer par toutes voies de droit approp…
+     [DRY] Art. L162-23 — Le coût des mesures visées aux articles L. 162-4 , L. 162-8 …
+     [DRY] Art. L163-1-A — I. - Des opérations de restauration ou de développement d'él…
+     [DRY] Art. L163-1 — I. - Les mesures de compensation des atteintes à la biodiver…
+     [DRY] Art. L163-2 — Lorsque des mesures de compensation des atteintes à la biodi…
+     [DRY] Art. L163-4 — Lorsqu'une personne soumise à une obligation de mettre en œu…
+     [DRY] Art. L163-5 — Les mesures de compensation des atteintes à la biodiversité …
+     [DRY] Art. L164-1 — L'application du présent titre ne fait obstacle à la mise en…
+     [DRY] Art. L164-2 — Les mesures de réparation prises en application du présent t…
+     [DRY] Art. L165-1 — Les décisions de l'autorité visée au 2° de l'article L. 165-…
+     [DRY] Art. L165-2 — Un décret en Conseil d'Etat détermine les conditions d'appli…
+
+  📄 Source : Code de l'environnement — Sites et sols pollués (L.556-1 à L.556-3)
+     Articles VIGUEUR : 4 (traitement : 4)
+     [DRY] Art. L556-1 A — I.-Au sens du présent chapitre, l'usage est défini comme la …
+     [DRY] Art. L556-1 — Sans préjudice des articles L. 512-6-1 , L. 512-7-6 et L. 51…
+     [DRY] Art. L556-2 — Les projets de construction ou de lotissement prévus dans un…
+     [DRY] Art. L556-3 — I. ― En cas de pollution des sols ou de risques de pollution…
+
+══════════════════════════════════════════════════════════════
+📊 RÉSULTAT : ✅ 135 indexés | ⏭  0 déjà présents | ❌ 2 erreurs
+   (dry-run — rien écrit en base)
+
+→ Relancer l'audit : npx tsx scripts/audit-coverage.ts
+→ Lancer le benchmark : npx tsx scripts/benchmark.ts --limit 120
+

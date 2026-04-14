@@ -36,6 +36,8 @@ export function getSystemPromptAugmented(
     forceJuri?: boolean
     /** true = domaine critique où la jurisprudence est indispensable */
     forceDomainJuri?: boolean
+    /** Note métier issue du shortlist — guide le LLM sur les articles attendus */
+    topicNote?: string
   },
 ): string {
   const today = new Date().toLocaleDateString('fr-FR', {
@@ -45,7 +47,7 @@ export function getSystemPromptAugmented(
 
   const sourcesBlock = formatSources(chunks)
 
-  const { forceJuri = false, forceDomainJuri = false } = options ?? {}
+  const { forceJuri = false, forceDomainJuri = false, topicNote } = options ?? {}
   const hasLiveCases = (liveJuriCases?.length ?? 0) > 0
 
   // Si liveJuriCases est fourni, on sépare les deux sources ; sinon compat ascendante
@@ -70,11 +72,16 @@ export function getSystemPromptAugmented(
     ? `\nDOMAINE CRITIQUE : Dans ce domaine, la jurisprudence est indispensable à la qualification. L'utilisation d'au moins un arrêt [J1]/[J2]/[J3] dans la réponse est OBLIGATOIRE.\n`
     : ''
 
+  // Note métier — injectée uniquement quand la shortlist a un answerNote
+  const topicNoteBlock = topicNote
+    ? `\nNOTE MÉTIER (priorité haute) :\n${topicNote}\n`
+    : ''
+
   return `Tu es l'assistant juridique de Nestenn, réseau immobilier français. Date : ${today}.
 
 Tu réponds aux questions de droit immobilier en mobilisant tes connaissances ET les textes officiels ci-dessous.
 
-${sourcesBlock}${juriBlock}${domainJuriBlock}
+${sourcesBlock}${juriBlock}${domainJuriBlock}${topicNoteBlock}
 COMMENT UTILISER CES SOURCES :
 - Elles te servent à confirmer tes affirmations avec la référence exacte et le lien
 - Si un texte fourni contredit ce que tu sais → le texte en vigueur a raison, corrige ta réponse

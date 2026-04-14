@@ -110,6 +110,11 @@ const LEGITEXT_MAP: Record<string, string> = {
   'code rural':              'LEGITEXT000006071367', // Code rural (SAFER, préemption)
   'code-urbanisme':          'LEGITEXT000006074075', // alias avec tiret
   'code-construction':       'LEGITEXT000006074096', // alias CCH
+  // Loi Informatique et Libertés (loi 78-17 modifiée par ordonnance 2018-1125 transposant le RGPD)
+  'loi-informatique-libertes': 'LEGITEXT000006068624',
+  '78-17':                   'LEGITEXT000006068624',
+  'loi 78-17':               'LEGITEXT000006068624',
+  'informatique et libertes':'LEGITEXT000006068624',
 }
 
 const API_BASE = process.env.PISTE_API_URL ?? 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app'

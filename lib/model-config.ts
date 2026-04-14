@@ -22,6 +22,12 @@ export interface PromptContext {
    * pour certains domaines où la jurisprudence est essentielle (servitudes, baux, etc.)
    */
   domains?: string[]
+  /**
+   * Note métier injectée dans le system prompt — provient de TopicArticleEntry.answerNote.
+   * Sert à guider le LLM sur les articles et lois attendus quand les sources PISTE
+   * ne couvrent pas le référentiel (ex : RGPD = règlement EU, hors PISTE).
+   */
+  topicNote?: string
 }
 
 type SystemPromptBuilder = (

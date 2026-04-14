@@ -16,6 +16,8 @@ interface BuildMistralPromptParams {
   strictConcise?: boolean
   /** true si des tags [A1][A2]… ont été assignés aux articles — active le mode tags fermés strict */
   hasTaggedArticles?: boolean
+  /** Note métier issue du shortlist — guide le LLM sur les articles attendus */
+  topicNote?: string
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -97,7 +99,7 @@ function buildArticleRules(hasTaggedArticles: boolean): string {
 ⛔ INTERDICTION TOTALE DES CITATIONS LIBRES D'ARTICLES
 - Toute citation libre d'article est une **erreur grave**. Même si tu es certain de l'article, tu NE DOIS PAS l'écrire directement.
 - Exemples INTERDITS : "art. 24 de la loi 89-462", "l'art. L412-6 du CPCE", "article 1641 du Code civil"
-- Seuls les tags fermés **[A1], [A2], [A3]…** sont autorisés pour citer un article.
+- Seuls les tags fermés **[A1], [A2], [A3], [A4], [A5]** sont autorisés pour citer un article — jamais [A6] ou un numéro supérieur.
 - Si la règle que tu veux évoquer n'a pas de tag autorisé, formule-la **sans aucune référence précise** : "selon la règle applicable", "la procédure légale prévoit que", "le texte impose que".
 - Si tu n'es pas certain, écris "à vérifier sur Légifrance" — jamais un article inventé.
 
@@ -183,7 +185,7 @@ const LARGE_CHECKLIST = `# Checklist finale avant de répondre
 
 - ✅ Ai-je identifié TOUS les enjeux juridiques distincts ?
 - ✅ Pour chaque jurisprudence citée, ai-je utilisé uniquement [J1], [J2], [J3] — jamais un n° directement ?
-- ✅ Pour chaque article tagué [A1]…, ai-je utilisé le tag au lieu d'écrire le nom manuellement ?
+- ✅ Pour chaque article tagué [A1] à [A5], ai-je utilisé le tag au lieu d'écrire le nom manuellement (jamais [A6] ou supérieur) ?
 - ✅ Ai-je mentionné les nuances et exceptions pertinentes ?
 - ✅ Si les sources sont limitées, ma réponse est-elle plus courte et plus prudente ?
 
@@ -257,7 +259,7 @@ La clause résolutoire permet la résiliation automatique selon l'**art. 24 de l
 const SMALL_CHECKLIST = `# Vérification avant réponse
 
 - ✅ Si je cite une jurisprudence, ai-je utilisé [J1], [J2] ou [J3] — jamais un n° directement ?
-- ✅ Si un article a un tag [A1]…, ai-je utilisé le tag ?
+- ✅ Si un article a un tag [A1] à [A5], ai-je utilisé le tag (jamais [A6] ou supérieur) ?
 - ✅ Si les sources sont limitées, ma réponse est-elle plus courte et plus prudente ?
 - ✅ Ai-je évité d'ajouter des sources pour "faire bien" ?
 
@@ -300,7 +302,7 @@ Des articles sources ont été fournis avec des tags fermés. Adapte ta réponse
 **Longueur cible : 250-400 mots**. Une réponse courte et juste vaut mieux qu'une longue avec des erreurs.`
 
 export function buildMistralSystemPrompt(params: BuildMistralPromptParams): string {
-  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false } = params
+  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false, topicNote } = params
 
   const rules = tier === 'large' ? buildLargeRules(hasTaggedArticles) : buildSmallRules(hasTaggedArticles)
   const example = tier === 'large' ? LARGE_EXAMPLE : SMALL_EXAMPLE
@@ -325,10 +327,11 @@ ${liveSectionHeader}`
   const strictBlock = strictConcise ? `\n\n${STRICT_CONCISE_BLOCK}` : ''
   // P5 : longueur maîtrisée quand des tags articles sont actifs (réduit les citations parasites)
   const tagsLengthBlock = hasTaggedArticles ? `\n\n${TAGS_ACTIVE_LENGTH_BLOCK}` : ''
+  const topicNoteBlock = topicNote ? `\n\n# Note métier (priorité haute)\n\n${topicNote}` : ''
 
   return `${IDENTITY}
 
-${rules}${strictBlock}${tagsLengthBlock}
+${rules}${strictBlock}${tagsLengthBlock}${topicNoteBlock}
 
 ${sourcesSection}
 
@@ -358,6 +361,7 @@ export function buildMistralLargeSystemPrompt(
     tier: 'large',
     strictConcise: context?.strictConcise,
     hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
+    topicNote: context?.topicNote,
   })
 }
 
@@ -374,5 +378,6 @@ export function buildMistralSmallSystemPrompt(
     tier: 'small',
     strictConcise: context?.strictConcise,
     hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
+    topicNote: context?.topicNote,
   })
 }

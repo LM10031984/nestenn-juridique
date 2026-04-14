@@ -3,7 +3,7 @@
 // Lancer : npx vitest run __tests__/topic-articles.test.ts
 
 import { describe, it, expect } from 'vitest'
-import { detectTopicArticles } from '@/lib/topic-articles'
+import { detectTopicArticles, getShortlistByDomain } from '@/lib/topic-articles'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P2 — Shortlist métier : impayés de loyer
@@ -120,6 +120,17 @@ describe('detectTopicArticles — fosse septique / SPANC / ANC', () => {
       (a.artNum.startsWith('L511') || a.artNum.startsWith('L514') || a.artNum.startsWith('L557')),
     )
     expect(hasHeavyEnvArticle).toBe(false)
+  })
+
+  it('getShortlistByDomain(rgpd_agence) retourne rgpd_agence_prospection', () => {
+    const entry = getShortlistByDomain('rgpd_agence')
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('rgpd_agence_prospection')
+  })
+
+  it('getShortlistByDomain(domaine_sans_strategie) retourne null', () => {
+    expect(getShortlistByDomain('viager_demembrement')).toBeNull()
+    expect(getShortlistByDomain('domaine_inexistant')).toBeNull()
   })
 
   it('la shortlist ANC contient l\'art. L1331-1-1 CSP comme pivot', () => {
