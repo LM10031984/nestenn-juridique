@@ -330,15 +330,27 @@ export async function POST(req: NextRequest) {
       : 'none'
     console.info(`[article-debug] topicMatch=${topicMatch?.id ?? 'none'} source=${topicMatchSource} pgTaggedArticles=${pgTaggedArticles.length}`)
 
+    // Log trio canonique RGPD pour faciliter le diagnostic shortlist
+    if (topicMatch?.id === 'rgpd_agence_prospection') {
+      const trioPivots = topicMatch.forcedArticles
+        .map(fa => fa.displayShortLabel ?? fa.label ?? `${fa.law} Art.${fa.artNum}`)
+        .join(' | ')
+      console.info(`[article-debug] rgpd canonical trio = ${trioPivots}`)
+    }
+
     if (topicMatch && topicMatch.forcedArticles.length > 0) {
       // Convertir ForcedArticle[] → candidats { textId, articleNum, lawName }
+      // Quand displayShortLabel est défini, l'utiliser comme lawName pour le rendu métier.
       const candidates = topicMatch.forcedArticles.flatMap(fa => {
         const textId = lookupLegitext(fa.law)
         if (!textId) {
           console.warn(`[article-debug] lookupLegitext manquant: law="${fa.law}" artNum="${fa.artNum}"`)
           return []
         }
-        return [{ textId, articleNum: fa.artNum, lawName: fa.label ?? fa.law }]
+        const lawName = fa.displayShortLabel
+          ? `${fa.displayShortLabel} — ${fa.displayLawLabel ?? fa.law}`
+          : (fa.label ?? fa.law)
+        return [{ textId, articleNum: fa.artNum, lawName }]
       })
 
       console.info(

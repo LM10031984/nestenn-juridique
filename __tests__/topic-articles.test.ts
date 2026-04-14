@@ -141,3 +141,56 @@ describe('detectTopicArticles — fosse septique / SPANC / ANC', () => {
   })
 
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RGPD agence — trio canonique : base légale / information / opposition
+// Vérifie que la shortlist CRM/prospect expose les 3 pivots métier attendus.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectTopicArticles — RGPD CRM & prospects', () => {
+
+  it('question CRM/prospect/consentement → rgpd_agence_prospection', () => {
+    const entry = detectTopicArticles('Quelles données prospect CRM puis-je conserver sans consentement explicite ?')
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('rgpd_agence_prospection')
+  })
+
+  it('les 3 pivots métier sont présents dans la shortlist finale', () => {
+    const entry = detectTopicArticles('Quelles données puis-je conserver sur un prospect CRM immobilier ?')
+    expect(entry).not.toBeNull()
+
+    const shortLabels = entry!.forcedArticles
+      .map(fa => fa.displayShortLabel)
+      .filter(Boolean) as string[]
+
+    expect(shortLabels).toContain('Base légale du traitement')
+    expect(shortLabels).toContain('Information obligatoire lors de la collecte')
+    expect(shortLabels).toContain("Droit d'opposition au traitement")
+  })
+
+  it('le pivot base légale utilise loi-informatique-libertes comme source technique', () => {
+    const entry = detectTopicArticles('Base légale pour enregistrer un prospect en CRM agence ?')
+    expect(entry).not.toBeNull()
+    const baseLegalePivot = entry!.forcedArticles.find(fa => fa.displayShortLabel === 'Base légale du traitement')
+    expect(baseLegalePivot).toBeDefined()
+    expect(baseLegalePivot!.law).toBe('loi-informatique-libertes')
+  })
+
+  it('tous les pivots affichent RGPD / Informatique et Libertés comme displayLawLabel', () => {
+    const entry = detectTopicArticles('Droit d\'opposition prospect CRM — que faire ?')
+    expect(entry).not.toBeNull()
+    const allHaveLabel = entry!.forcedArticles.every(
+      fa => fa.displayLawLabel === 'RGPD / Informatique et Libertés'
+    )
+    expect(allHaveLabel).toBe(true)
+  })
+
+  it('l\'answerNote interdit les sous-références libres (6-1-a, 6-1-f)', () => {
+    const entry = detectTopicArticles('Consentement ou intérêt légitime pour un prospect CRM ?')
+    expect(entry).not.toBeNull()
+    const note = entry!.answerNote ?? ''
+    expect(note).toContain('6-1-a')  // la règle cite explicitement ces formes pour les interdire
+    expect(note).toContain('RÈGLE DE CITATION')
+  })
+
+})

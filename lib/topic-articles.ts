@@ -865,12 +865,33 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
     ],
     // RGPD = règlement UE — non disponible via PISTE (API française uniquement).
     // Loi 78-17 (loi-informatique-libertes) est la transposition FR du RGPD.
-    // Les articles RGPD 6/13/21 sont cités dans answerNote pour guider le LLM.
+    // Les 3 pivots métier sont : base légale (Art. 5) | information (Art. 13) | opposition (Art. 21).
+    // displayShortLabel + displayLawLabel dissocient la source technique du rendu métier.
     forcedArticles: [
-      { law: 'loi-informatique-libertes', artNum: '5', label: 'Art. 5 — Loi 78-17 / RGPD — principes relatifs au traitement des données' },
+      {
+        law: 'loi-informatique-libertes',
+        artNum: '5',
+        displayLawLabel: 'RGPD / Informatique et Libertés',
+        displayShortLabel: 'Base légale du traitement',
+        label: 'Art. 5 — RGPD / Informatique et Libertés — base légale du traitement',
+      },
+      {
+        law: 'loi-informatique-libertes',
+        artNum: '13',
+        displayLawLabel: 'RGPD / Informatique et Libertés',
+        displayShortLabel: 'Information obligatoire lors de la collecte',
+        label: 'Art. 13 — RGPD / Informatique et Libertés — information des personnes concernées',
+      },
+      {
+        law: 'loi-informatique-libertes',
+        artNum: '21',
+        displayLawLabel: 'RGPD / Informatique et Libertés',
+        displayShortLabel: "Droit d'opposition au traitement",
+        label: "Art. 21 — RGPD / Informatique et Libertés — droit d'opposition",
+      },
     ],
     curatedCaseIds: [],
-    answerNote: 'RGPD PROSPECTION IMMOBILIÈRE — CRM & PROSPECTS :\n1. BASE LÉGALE (art. 6 RGPD) : pour enregistrer un prospect en CRM, la base légale est l\'intérêt légitime (art. 6-1-f) si la relation est préexistante, ou le consentement (art. 6-1-a) pour la prospection à froid. La base "exécution d\'un contrat" ne s\'applique pas avant la signature.\n2. INFORMATION OBLIGATOIRE (art. 13) : dès la collecte, informer le prospect de l\'identité du responsable de traitement, de la finalité, de la durée de conservation et de ses droits.\n3. DROIT D\'OPPOSITION (art. 21) : le prospect peut s\'opposer à tout moment au traitement fondé sur l\'intérêt légitime. L\'agence doit alors cesser le traitement sauf motif légitime impérieux.\n4. DURÉE DE CONSERVATION recommandée par la CNIL pour les prospects non convertis : 3 ans à compter du dernier contact. Au-delà = obligation de supprimer ou de renouveler le consentement.\nATTENTION : intégrer un mécanisme d\'opt-out dans tous les emails de prospection. Conserver la preuve du consentement ou de l\'intérêt légitime documenté.',
+    answerNote: 'RGPD PROSPECTION IMMOBILIÈRE — CRM & PROSPECTS :\n1. BASE LÉGALE DU TRAITEMENT : pour enregistrer un prospect en CRM, la base légale est l\'intérêt légitime si la relation commerciale est préexistante, ou le consentement pour la prospection à froid. La base "exécution d\'un contrat" ne s\'applique pas avant la signature.\n2. INFORMATION OBLIGATOIRE LORS DE LA COLLECTE : dès la collecte, informer le prospect de l\'identité du responsable de traitement, de la finalité, de la durée de conservation et de ses droits (accès, rectification, effacement, opposition).\n3. DROIT D\'OPPOSITION : le prospect peut s\'opposer à tout moment au traitement fondé sur l\'intérêt légitime. L\'agence doit alors cesser le traitement sauf motif légitime impérieux.\n4. DURÉE DE CONSERVATION recommandée par la CNIL pour les prospects non convertis : 3 ans à compter du dernier contact. Au-delà = obligation de supprimer ou de renouveler le consentement.\nATTENTION : intégrer un mécanisme d\'opt-out dans tous les emails de prospection. Conserver la preuve du consentement ou de l\'intérêt légitime documenté.\nRÈGLE DE CITATION — IMPORTANT : ne jamais citer de sous-alinéas libres (ex : art. 6-1-a, art. 6-1-f, art. 6§1 f)). Pour exprimer la distinction consentement / intérêt légitime, utiliser UNIQUEMENT les libellés des sources fournies et le vocabulaire métier ci-dessus.',
   },
 
   // ── RGPD AGENCE — OBLIGATIONS & CONSERVATION ─────────────────────────────

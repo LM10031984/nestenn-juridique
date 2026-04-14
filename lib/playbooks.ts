@@ -10,9 +10,13 @@
 // ---------------------------------------------------------------------------
 
 export interface ForcedArticle {
-  law: string      // ex: 'loi 89-462', 'code civil', 'CCH'
+  law: string      // source technique PISTE (ex: 'loi 89-462', 'loi-informatique-libertes')
   artNum: string   // ex: '24', 'L271-1', '1641'
   label?: string   // ex: 'Art. 24 — commandement de payer'
+  /** Affichage loi dans le prompt : 'RGPD / Informatique et Libertés' */
+  displayLawLabel?: string
+  /** Libellé court métier : 'Base légale du traitement' */
+  displayShortLabel?: string
 }
 
 export interface Playbook {
