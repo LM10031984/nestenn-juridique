@@ -317,13 +317,14 @@ export async function POST(req: NextRequest) {
   // Bug corrigé : l'ancienne condition excluait baux_habitation/copropriété si pgvector
   // avait trouvé des articles — la shortlist n'était alors jamais injectée.
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
+  let topicMatch: ReturnType<typeof detectTopicArticles> = null
 
   if (!!process.env.PISTE_CLIENT_ID) {
     const msgTopicMatch = detectTopicArticles(correctedMessage)
     const domainTopicMatch = msgTopicMatch === null && primaryDomain
       ? getShortlistByDomain(primaryDomain)
       : null
-    const topicMatch = msgTopicMatch ?? domainTopicMatch
+    topicMatch = msgTopicMatch ?? domainTopicMatch
     const topicMatchSource = msgTopicMatch ? 'message-triggers'
       : domainTopicMatch ? `domain-shortlist(${primaryDomain})`
       : 'none'
