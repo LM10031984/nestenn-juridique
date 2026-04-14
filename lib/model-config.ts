@@ -17,6 +17,11 @@ export interface PromptContext {
    * Force une réponse courte, sans spéculation, centrée sur la règle certaine.
    */
   strictConcise: boolean
+  /**
+   * Domaines détectés dans la question — permet d'activer FORCE_JURISPRUDENCE_DOMAINS
+   * pour certains domaines où la jurisprudence est essentielle (servitudes, baux, etc.)
+   */
+  domains?: string[]
 }
 
 type SystemPromptBuilder = (

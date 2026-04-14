@@ -1,16 +1,34 @@
 // lib/prompts/claude-system-prompt.ts
-// NE PAS MODIFIER — prompt validé sur benchmark 96/100
-// Wrapper acceptant le 4e param PromptContext (ignoré ici : le prompt Claude est figé).
+// Prompt Claude — wrapper PromptContext-aware.
+// ⚠️ Core validé benchmark 96/100 — toute modification du system-prompt.ts doit être re-benchmarkée.
 
 import type { SourceChunk, JuriCase } from '@/lib/system-prompt'
+import { getSystemPromptAugmented, FORCE_JURISPRUDENCE_DOMAINS } from '@/lib/system-prompt'
 import type { PromptContext } from '@/lib/model-config'
-import { getSystemPromptAugmented } from '@/lib/system-prompt'
 
 export function buildClaudeSystemPrompt(
   chunks: SourceChunk[],
   pgJuri: JuriCase[],
   liveJuri: JuriCase[],
-  _context?: PromptContext,
+  context?: PromptContext,
 ): string {
-  return getSystemPromptAugmented(chunks, pgJuri, liveJuri)
+  const hasLiveCases = liveJuri.length > 0
+
+  // Forcer la jurisprudence dès qu'il y a des arrêts live disponibles
+  const forceJuri = hasLiveCases
+
+  // Forcer encore plus fort si le domaine est critique pour la jurisprudence
+  const forceDomainJuri = hasLiveCases && (context?.domains ?? []).some(d =>
+    FORCE_JURISPRUDENCE_DOMAINS.has(d)
+  )
+
+  if (hasLiveCases) {
+    console.info(
+      `[claude-prompt] judilibreChunks=${liveJuri.length} `
+      + `forceJuri=${forceJuri} forceDomainJuri=${forceDomainJuri} `
+      + `domains=${context?.domains?.join(',') || '—'}`
+    )
+  }
+
+  return getSystemPromptAugmented(chunks, pgJuri, liveJuri, { forceJuri, forceDomainJuri })
 }

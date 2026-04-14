@@ -351,6 +351,7 @@ export async function POST(req: NextRequest) {
     taggedLiveCases,
     taggedArticles,
     strictConcise: liveJuriCases.length <= 1 && filteredPgJuriCases.length === 0,
+    domains,
   }
 
   if (promptContext.strictConcise) {

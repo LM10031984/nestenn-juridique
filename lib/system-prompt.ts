@@ -20,10 +20,30 @@ export interface JuriCase {
 
 const DISCLAIMER = `⚠️ **Avertissement juridique** : Nestenn Juridique est un outil d'information juridique générale. Il ne constitue en aucun cas une consultation juridique personnalisée, un avis d'avocat ou un acte de conseil au sens de la loi. Les informations, articles de loi et jurisprudences cités sont fournis à titre indicatif et peuvent être incomplets, obsolètes ou inadaptés à votre situation particulière. Aucune responsabilité ne saurait être engagée à l'encontre de l'éditeur de cet outil, du réseau Nestenn ou de ses agents sur la base des informations fournies. Pour toute décision juridique, rapprochez-vous d'un avocat ou d'un notaire.`
 
+/**
+ * Domaines où la jurisprudence est essentielle à la qualification juridique.
+ * Quand ces domaines sont détectés ET des arrêts live sont disponibles,
+ * l'utilisation de la jurisprudence devient obligatoire dans le prompt.
+ */
+export const FORCE_JURISPRUDENCE_DOMAINS = new Set([
+  'servitudes',
+  'baux_habitation',
+  'responsabilite',
+  'copropriete',
+  'vices_caches',
+  'garanties',
+])
+
 export function getSystemPromptAugmented(
   chunks: SourceChunk[],
   juriCases: JuriCase[],
   liveJuriCases?: JuriCase[],
+  options?: {
+    /** true = forcer l'utilisation d'au moins un arrêt quand des J tags existent */
+    forceJuri?: boolean
+    /** true = domaine critique où la jurisprudence est indispensable */
+    forceDomainJuri?: boolean
+  },
 ): string {
   const today = new Date().toLocaleDateString('fr-FR', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -32,16 +52,29 @@ export function getSystemPromptAugmented(
 
   const sourcesBlock = formatSources(chunks)
 
+  const { forceJuri = false, forceDomainJuri = false } = options ?? {}
+  const hasLiveCases = (liveJuriCases?.length ?? 0) > 0
+
   // Si liveJuriCases est fourni, on sépare les deux sources ; sinon compat ascendante
   const juriBlock = liveJuriCases !== undefined
-    ? formatJurisprudenceSplit(liveJuriCases, juriCases)
+    ? formatJurisprudenceSplit(liveJuriCases, juriCases, forceJuri || forceDomainJuri)
     : formatJurisprudence(juriCases)
+
+  // Règle jurisprudence — obligatoire si J tags disponibles, discrétionnaire sinon
+  const juriRule = hasLiveCases
+    ? `- Jurisprudence : n'écris jamais un numéro d'arrêt directement. Des arrêts te sont fournis (identifiants [J1], [J2], [J3]) : tu DOIS en intégrer au moins un dans ta qualification juridique. Utilise uniquement l'identifiant fermé [J1], [J2] ou [J3].`
+    : `- Jurisprudence : n'écris jamais un numéro d'arrêt directement. Si une jurisprudence fournie est pertinente, cite uniquement son identifiant fermé [J1], [J2] ou [J3]. Si aucune n'est pertinente, ne cite aucune jurisprudence.`
+
+  // Bloc domaine critique — jurisprudence indispensable
+  const domainJuriBlock = forceDomainJuri && hasLiveCases
+    ? `\nDOMAINE CRITIQUE : Dans ce domaine, la jurisprudence est indispensable à la qualification. L'utilisation d'au moins un arrêt [J1]/[J2]/[J3] dans la réponse est OBLIGATOIRE.\n`
+    : ''
 
   return `Tu es l'assistant juridique de Nestenn, réseau immobilier français. Date : ${today}.
 
 Tu réponds aux questions de droit immobilier en mobilisant tes connaissances ET les textes officiels ci-dessous.
 
-${sourcesBlock}${juriBlock}
+${sourcesBlock}${juriBlock}${domainJuriBlock}
 COMMENT UTILISER CES SOURCES :
 - Elles te servent à confirmer tes affirmations avec la référence exacte et le lien
 - Si un texte fourni contredit ce que tu sais → le texte en vigueur a raison, corrige ta réponse
@@ -52,7 +85,7 @@ RÈGLES :
 - Cite les articles avec le nom complet de la loi : "art. 24 de la loi n° 89-462 du 6 juillet 1989"
 - Si un lien est fourni dans les sources → le recopier tel quel : [art. 24](url)
 - Si pas de lien → citer sans lien, ne jamais inventer d'URL
-- Jurisprudence : n'écris jamais un numéro d'arrêt directement. Si une jurisprudence fournie est pertinente, cite uniquement son identifiant fermé [J1], [J2] ou [J3]. Si aucune n'est pertinente, ne cite aucune jurisprudence.
+- ${juriRule}
 - Ton professionnel, accessible. Tu parles à des agents immobiliers, pas à des juristes
 - Terminer par 1-2 propositions d'action concrètes
 - Terminer par le disclaimer : ${disclaimer}`
@@ -110,7 +143,7 @@ function formatJurisprudence(cases: JuriCase[]): string {
   return '\nJURISPRUDENCE :\n' + cases.map(formatJuriCase).join('\n') + '\n'
 }
 
-function formatJurisprudenceSplit(liveCases: JuriCase[], pgCases: JuriCase[]): string {
+function formatJurisprudenceSplit(liveCases: JuriCase[], pgCases: JuriCase[], forceJuri = false): string {
   const allCases = [...liveCases, ...pgCases]
   if (allCases.length === 0) return ''
 
@@ -118,6 +151,9 @@ function formatJurisprudenceSplit(liveCases: JuriCase[], pgCases: JuriCase[]): s
 
   if (liveCases.length > 0) {
     result += '\nJURISPRUDENCE AUTORISÉE (identifiants fermés) :\n'
+    if (forceJuri) {
+      result += '⚠️ OBLIGATION : Au moins un de ces arrêts DOIT être intégré dans la qualification juridique.\n'
+    }
     result += 'Pour citer un de ces arrêts, écris uniquement son identifiant entre crochets : [J1], [J2], [J3].\n'
     result += 'N\'écris JAMAIS un numéro d\'arrêt directement.\n'
     result += liveCases.map((c, i) => `[J${i + 1}] ${c.holding}`).join('\n') + '\n'
