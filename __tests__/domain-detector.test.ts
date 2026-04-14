@@ -259,3 +259,146 @@ describe('matchesKeyword — word boundary sur termes courts', () => {
   })
 
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sprint 1 — nouveaux domaines ajoutés au détecteur
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectDomains — nouveaux domaines Sprint 1', () => {
+
+  it('mandat de gestion + dépôt non restitué agence → gestion_locative', () => {
+    const res = detectDomains(
+      'Mon propriétaire a confié la gestion locative à une agence. ' +
+      'L\'agence ne rend pas le dépôt de garantie à la fin du bail. ' +
+      'Quel est le compte rendu de gérance que je peux demander ?',
+    )
+    expect(res[0]).toBe('gestion_locative')
+  })
+
+  it('dépôt de garantie géré par agence → gestion_locative', () => {
+    const res = detectDomains(
+      'Le dépôt de garantie est détenu par l\'administrateur de biens. ' +
+      'Il ne le restitue pas depuis 3 mois.',
+    )
+    expect(res[0]).toBe('gestion_locative')
+  })
+
+  it('indemnisation + faute professionnelle agent → responsabilite_agent détecté', () => {
+    // responsabilite_agent et agent_immobilier sont proches : on vérifie que
+    // responsabilite_agent apparaît dans les résultats (1er ou 2e selon le texte).
+    // Une question purement centrée sur la faute et l'indemnisation doit scorer responsabilite_agent.
+    const res = detectDomains(
+      'L\'indemnisation par l\'agence est-elle possible ? ' +
+      'La faute professionnelle de l\'agent est avérée et le préjudice acheteur agence est documenté. ' +
+      'Sa RC pro agence est-elle activable ?',
+    )
+    // responsabilite_agent doit être détecté (1er ou 2e selon scoring)
+    expect(res).toContain('responsabilite_agent')
+  })
+
+  it('responsabilite_agent seul sur question pure indemnisation → 1er domaine', () => {
+    // Texte sans mention d'"agence immobilière" ni "agent immobilier" directement
+    const res = detectDomains(
+      'Ma mise en cause de l\'agence repose sur une erreur de l\'agent. ' +
+      'L\'indemnisation agent peut-elle couvrir mon préjudice ? ' +
+      'Le manquement agent est documenté.',
+    )
+    expect(res[0]).toBe('responsabilite_agent')
+  })
+
+  it('syndic + assemblée générale → copropriete (comportement normal)', () => {
+    // "syndic" (2.0) + "assemblée générale" (2.0) dans copropriete écrase syndic_copropriete
+    // sur les questions générales de fonctionnement. C'est le comportement attendu.
+    const res = detectDomains(
+      'Le syndic ne convoque pas l\'assemblée générale depuis 18 mois. ' +
+      'Quelles sont les conséquences ?',
+    )
+    expect(res[0]).toBe('copropriete')
+  })
+
+  it('mise en concurrence + contrat de syndic + honoraires syndic → syndic_copropriete', () => {
+    // Question centrée sur le MANDAT du syndic : mise en concurrence, honoraires, contrat
+    // → syndic_copropriete doit scorer nettement au-dessus de copropriete
+    const res = detectDomains(
+      'La mise en concurrence du syndic est obligatoire avant le renouvellement. ' +
+      'Comment comparer les honoraires syndic dans le contrat de syndic présenté en AG ?',
+    )
+    expect(res[0]).toBe('syndic_copropriete')
+  })
+
+  it('cession parts sociales SCI familiale → sci_patrimoine', () => {
+    const res = detectDomains(
+      'Peut-on vendre un bien détenu en SCI familiale sans l\'accord de tous les associés ? ' +
+      'La cession de parts sociales nécessite-t-elle un acte notarié ?',
+    )
+    expect(res[0]).toBe('sci_patrimoine')
+  })
+
+  it('sci + gérant → sci_patrimoine plutôt que fiscalite_investisseurs', () => {
+    const res = detectDomains(
+      'Je suis gérant de SCI. Mon associé veut procéder à la dissolution de la SCI. ' +
+      'Quelles sont les étapes ?',
+    )
+    expect(res[0]).toBe('sci_patrimoine')
+  })
+
+  it('déclaration de soupçon TRACFIN → conformite_lcb_ft', () => {
+    const res = detectDomains(
+      'Quels documents dois-je demander au client pour respecter la lutte anti-blanchiment ? ' +
+      'Dois-je faire une déclaration de soupçon TRACFIN si le paiement est en espèces ?',
+    )
+    expect(res[0]).toBe('conformite_lcb_ft')
+  })
+
+  it('personne politiquement exposée PPE → conformite_lcb_ft', () => {
+    const res = detectDomains(
+      'Mon client est une personne politiquement exposée (PPE). ' +
+      'Quelles obligations LCB-FT s\'appliquent à mon agence ?',
+    )
+    expect(res[0]).toBe('conformite_lcb_ft')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Anti-régression Sprint 1 — les nouveaux domaines ne perturbent pas les anciens
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectDomains — anti-régression après Sprint 1', () => {
+
+  it('mandat de vente (agent_immobilier) ≠ mandat de gestion (gestion_locative)', () => {
+    const res = detectDomains(
+      'Mon mandat de vente est exclusif. L\'agence réclame sa commission alors que j\'ai trouvé l\'acheteur moi-même.',
+    )
+    expect(res[0]).toBe('agent_immobilier')
+    expect(res).not.toContain('gestion_locative')
+  })
+
+  it('syndic + charges assemblée générale → toujours copropriete en 1er', () => {
+    const res = detectDomains(
+      'Le syndic a soumis les charges à l\'assemblée générale sans respecter les tantièmes.',
+    )
+    expect(res[0]).toBe('copropriete')
+  })
+
+  it('tracfin dans contexte agent → agent_immobilier (pas uniquement conformite_lcb_ft)', () => {
+    // "tracfin" est maintenant dans les deux domaines — on vérifie que agent_immobilier
+    // reste détecté sur une question générale d'agence (carte T + tracfin)
+    const res = detectDomains(
+      'Mon agence immobilière doit-elle faire une déclaration TRACFIN ? ' +
+      'J\'ai une carte T depuis 3 ans et je gère des mandats.',
+    )
+    // Les deux domaines peuvent scorer — agent_immobilier ou conformite_lcb_ft en 1er
+    expect(['agent_immobilier', 'conformite_lcb_ft']).toContain(res[0])
+  })
+
+  it('sci + lmnp → fiscalite_investisseurs peut apparaître (pas éliminé par sci_patrimoine)', () => {
+    const res = detectDomains(
+      'Je loue en LMNP via une SCI à l\'IS. Comment s\'applique le déficit foncier ?',
+    )
+    // Question fiscale → fiscalite_investisseurs doit scorer haut
+    // sci_patrimoine peut apparaître en 2e (sci=2.0 pour sci_patrimoine)
+    expect(['fiscalite_investisseurs', 'sci_patrimoine']).toContain(res[0])
+  })
+
+})

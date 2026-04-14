@@ -750,6 +750,127 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
     answerNote: 'STRATÉGIE PRUDENTE ANC/SPANC — Les questions sur la fosse septique portent généralement sur :\n1. OBLIGATION DE CONTRÔLE : le SPANC (Service Public d\'Assainissement Non Collectif) contrôle les installations (art. L1331-1-1 CSP). Un diagnostic est obligatoire lors d\'une vente (art. L1331-11-1 CSP).\n2. VENTE AVEC ANC NON CONFORME : le diagnostic SPANC doit être annexé au compromis. L\'acquéreur dispose de 1 an après la vente pour mettre en conformité. Le vendeur n\'est pas obligé de réaliser les travaux avant la vente.\n3. MISE EN CONFORMITÉ : si le SPANC conclut à une non-conformité présentant un risque sanitaire, la commune peut mettre en demeure le propriétaire. ATTENTION : ne pas citer automatiquement les articles du Code de l\'environnement sur les ICPE ou la pollution des sols — ils ne concernent pas l\'ANC résidentiel ordinaire.',
   },
 
+  // ── CONSTRUCTION — GARANTIES & MALFAÇONS ─────────────────────────────────
+  // Sprint 2 : sécuriser construction (seul domaine avec forceJurisprudence
+  // mais sans topic). Articles pivots : garanties légales obligatoires.
+
+  {
+    id: 'decennale_garanties',
+    triggers: [
+      'garantie décennale', 'garantie decennale', 'responsabilité décennale',
+      'malfaçon', 'malfacon', 'malfaçons', 'désordre construction',
+      'désordres de construction', 'fissures construction',
+      'garantie biennale', 'garantie de parfait achèvement',
+      'parfait achèvement', 'réception des travaux', 'reception travaux',
+      'réserves à la réception', 'levée de réserves',
+      'dommage ouvrage', 'assurance dommage ouvrage', 'assurance do',
+      'constructeur ne répare', 'promoteur refuse',
+      'promoteur immobilier malfaçon', 'vefa malfaçon',
+      'garantie constructeur', 'sinistre décennal',
+    ],
+    forcedArticles: [
+      { law: 'code civil', artNum: '1792', label: 'Art. 1792 C.civ. — garantie décennale : présomption de responsabilité du constructeur' },
+      { law: 'code civil', artNum: '1792-2', label: 'Art. 1792-2 C.civ. — garantie décennale étendue aux éléments d\'équipement indissociables' },
+      { law: 'code civil', artNum: '1792-6', label: 'Art. 1792-6 C.civ. — garantie de parfait achèvement (1 an après réception)' },
+      { law: 'code civil', artNum: '1792-3', label: 'Art. 1792-3 C.civ. — garantie biennale (2 ans) sur éléments d\'équipement dissociables' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'CONSTRUCTION — HIÉRARCHIE DES GARANTIES LÉGALES :\n1. PARFAIT ACHÈVEMENT (art. 1792-6) : 1 an à compter de la réception — couvre toutes les réserves et les désordres signalés. Le constructeur doit réparer sans condition.\n2. BIENNALE (art. 1792-3) : 2 ans — éléments d\'équipement dissociables (chauffage, volets, etc.).\n3. DÉCENNALE (art. 1792) : 10 ans — compromet la solidité ou rend l\'ouvrage impropre à sa destination. Présomption de responsabilité du constructeur ; exonération uniquement si cause étrangère prouvée.\nPOINTS CLÉS : la réception (avec ou sans réserves) est le point de départ des garanties. Un vice apparent non réservé à la réception est présumé accepté. L\'assurance dommage-ouvrage (DO) est obligatoire pour le maître d\'ouvrage avant ouverture de chantier (art. L. 242-1 Code des assurances) — elle permet d\'être indemnisé avant tout jugement.\nATTENTION : ne pas confondre avec la garantie de bon fonctionnement (= biennale) ni avec la RC délictuelle de droit commun (art. 1240). Toujours vérifier si la réception a eu lieu et si les désordres étaient apparents ou cachés.',
+  },
+
+  // ── GESTION LOCATIVE — MANDAT & RESTITUTION ───────────────────────────────
+  // Sprint 3 — domaine actif sans aucun topic. Focus : mandat de gestion
+  // et restitution du dépôt de garantie géré par l'agence.
+
+  {
+    id: 'gestion_locative_mandat',
+    triggers: [
+      'mandat de gestion', 'gestionnaire locatif', 'administrateur de biens',
+      'agence de gestion', 'compte rendu de gérance', 'honoraires de gestion',
+      'reddition de comptes gestion', 'résiliation mandat gestion',
+      'résiliation du mandat de gestion', 'fin du mandat de gestion',
+      'dépôt de garantie géré par agence', 'dépôt de garantie agence',
+      'agence ne rend pas le dépôt', 'dépôt non restitué agence',
+      'gestion locative agence',
+    ],
+    forcedArticles: [
+      { law: 'loi hoguet', artNum: '6', label: 'Art. 6 loi Hoguet — mandat de gestion : forme écrite, durée, résiliation' },
+      { law: 'loi 89-462', artNum: '22', label: 'Art. 22 loi 89-462 — dépôt de garantie : restitution dans 1 ou 2 mois' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'GESTION LOCATIVE — MANDAT ET RESTITUTION DU DÉPÔT :\n1. MANDAT DE GESTION (art. 6 loi Hoguet) : doit être écrit, signé, avec durée et rémunération précisées. Résiliable selon les conditions du mandat (en général 3 mois de préavis). L\'agence doit restituer tous les documents et fonds à la fin du mandat.\n2. DÉPÔT DE GARANTIE GÉRÉ PAR L\'AGENCE : l\'agence détient le dépôt pour le compte du bailleur. La restitution au locataire (art. 22 loi 89-462) est de 1 mois si pas de dégradations, 2 mois sinon. La responsabilité en cas de non-restitution incombe d\'abord au bailleur ; l\'agence peut engager sa responsabilité si elle a commis une faute dans la gestion.\n3. COMPTE RENDU DE GÉRANCE : l\'agence doit rendre compte périodiquement (mensuel ou trimestriel selon mandat) et verser les loyers au bailleur. Tout manquement engage sa responsabilité contractuelle (art. 1231-1 C.civ.).',
+  },
+
+  // ── LOCATION TOURISTIQUE — ENREGISTREMENT & CHANGEMENT D'USAGE ───────────
+  // Sprint 3 — domaine détecté mais sans topic. Focus : obligations légales
+  // numéro d'enregistrement et changement d'usage.
+
+  {
+    id: 'location_touristique_obligations',
+    triggers: [
+      'meublé de tourisme', 'meuble de tourisme', 'location courte durée',
+      'location saisonnière', 'airbnb légal', 'airbnb immeuble',
+      'numéro d\'enregistrement location', 'enregistrement mairie location',
+      'changement d\'usage logement', 'autorisation mairie location',
+      'compensation logement touristique', '120 jours résidence principale',
+      'limite 120 jours', 'taxe de séjour', 'plateforme airbnb déclaration',
+      'réglementation airbnb', 'location touristique règles',
+    ],
+    forcedArticles: [
+      { law: 'code du tourisme', artNum: 'L324-1-1', label: 'Art. L324-1-1 Code du tourisme — déclaration en mairie et numéro d\'enregistrement' },
+      { law: 'code de la construction', artNum: 'L631-7', label: 'Art. L631-7 CCH — changement d\'usage : autorisation préalable dans communes > 200 000 hab.' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'LOCATION TOURISTIQUE — OBLIGATIONS LÉGALES :\n1. DÉCLARATION EN MAIRIE (art. L324-1-1 Code tourisme) : toute location de meublé de tourisme doit faire l\'objet d\'une déclaration préalable en mairie. Dans certaines communes, un numéro d\'enregistrement est obligatoire (affiché sur toute annonce).\n2. CHANGEMENT D\'USAGE (art. L631-7 CCH) : dans les communes de plus de 200 000 habitants (Paris, Lyon, Marseille...) et dans certaines autres communes, la transformation d\'un logement en meublé de tourisme nécessite une autorisation de changement d\'usage. La compensation (achat d\'un m² commercial pour chaque m² transformé) peut être exigée.\n3. LIMITE DES 120 JOURS : un propriétaire peut louer sa résidence principale en courte durée dans la limite de 120 jours par an (art. L324-1-1). Au-delà, l\'autorisation de changement d\'usage est obligatoire.\n4. TAXE DE SÉJOUR : les plateformes (Airbnb, Booking) collectent et reversent la taxe de séjour. Vérifier les obligations locales.\nATTENTION : les règles varient fortement selon la commune — toujours vérifier le règlement local et le règlement de copropriété.',
+  },
+
+  // ── DROIT SOCIAL IMMOBILIER — NÉGOCIATEUR SALARIÉ & CCN ──────────────────
+  // Sprint 3 — domaine actif sans topic. Focus : IDCC 1527, statut du
+  // négociateur salarié, rupture de contrat.
+
+  {
+    id: 'droit_social_immo_statut',
+    triggers: [
+      'négociateur salarié', 'negociateur salarie', 'négociateur vpi',
+      'statut négociateur', 'convention collective immobilier',
+      'ccn immobilier', 'idcc 1527', 'idcc1527',
+      'licenciement négociateur', 'rupture conventionnelle agent',
+      'portage salarial immobilier', 'clause de non-concurrence agent',
+      'clause non-concurrence immobilier', 'prime résultats négociateur',
+      'rémunération variable négociateur', 'salaire négociateur',
+    ],
+    forcedArticles: [
+      { law: 'code du travail', artNum: 'L1221-1', label: 'Art. L1221-1 C.trav. — contrat de travail : définition, forme, conditions' },
+      { law: 'code du travail', artNum: 'L1237-19', label: 'Art. L1237-19 C.trav. — rupture conventionnelle homologuée' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'DROIT SOCIAL IMMOBILIER — POINTS CLÉS :\n1. CONVENTION COLLECTIVE (IDCC 1527) : les négociateurs salariés d\'agences immobilières sont couverts par la Convention Collective Nationale de l\'Immobilier (IDCC 1527). Elle prévoit des dispositions spécifiques sur la rémunération variable, les congés, la formation.\n2. STATUT VPI (Voyageur Placier Intermédiaire) : certains négociateurs sont en statut VPI (agent commercial), non salariés — leur régime juridique est différent (absence de lien de subordination, pas de protection chômage).\n3. RUPTURE CONVENTIONNELLE (art. L1237-19) : possible pour les salariés. Nécessite accord mutuel + homologation DREETS. Indemnité spécifique rupture conventionnelle = au moins indemnité légale de licenciement.\n4. CLAUSE DE NON-CONCURRENCE : doit être limitée dans le temps, l\'espace et rémunérée pour être valide. Sans contrepartie financière = nulle (Cass. soc.).\nATTENTION : bien distinguer négociateur salarié (CDI, droit du travail) et agent commercial (indépendant, droit commercial). La qualification du lien juridique est souvent au cœur des litiges.',
+  },
+
+  // ── RGPD AGENCE — OBLIGATIONS & CONSERVATION ─────────────────────────────
+  // Sprint 3 — domaine actif sans topic. Focus : obligations pratiques
+  // des agences immobilières en matière de données personnelles.
+
+  {
+    id: 'rgpd_agence_obligations',
+    triggers: [
+      'rgpd agence', 'données personnelles agence', 'rgpd immobilier',
+      'conservation données clients', 'durée conservation dossiers',
+      'droit à l\'oubli client', 'droit d\'accès données client',
+      'consentement traitement données', 'fichier clients immobilier',
+      'traitement données locataires', 'traitement données acheteurs',
+      'dpo agence', 'délégué protection données',
+      'cnil immobilier', 'déclaration cnil agence',
+      'violation données personnelles', 'fuite données agence',
+    ],
+    forcedArticles: [
+      { law: 'règlement ue 2016/679', artNum: '5', label: 'Art. 5 RGPD — principes relatifs au traitement des données personnelles' },
+      { law: 'règlement ue 2016/679', artNum: '13', label: 'Art. 13 RGPD — information des personnes lors de la collecte de données' },
+    ],
+    curatedCaseIds: [],
+    answerNote: 'RGPD EN AGENCE IMMOBILIÈRE — OBLIGATIONS PRATIQUES :\n1. BASE LÉGALE DU TRAITEMENT : l\'agence doit identifier une base légale pour chaque traitement (contrat, intérêt légitime, consentement). Pour les candidats locataires : base légale = exécution de mesures précontractuelles.\n2. DURÉE DE CONSERVATION : candidats non retenus = durée limitée (recommandation CNIL : 2 ans maximum). Clients vendeurs/acheteurs = durée du mandat + obligations légales (comptabilité : 10 ans). Dossiers de location : durée du bail + 3 ans après la fin.\n3. INFORMATION DES PERSONNES (art. 13 RGPD) : obligation d\'informer lors de la collecte (identité du responsable, finalités, droits). Mention obligatoire dans les formulaires de candidature et mandats.\n4. DOCUMENTS AUTORISÉS pour candidats locataires : uniquement ceux listés par le décret n° 2015-1437 (liste limitative). Demander un document hors liste = infraction.\nATTENTION : la CNIL a sanctionné des agences pour conservation excessive de données. Mettre en place une politique de durée de conservation est une priorité.',
+  },
+
 ]
 
 // ---------------------------------------------------------------------------

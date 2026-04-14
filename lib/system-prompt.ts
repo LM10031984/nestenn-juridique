@@ -22,17 +22,10 @@ const DISCLAIMER = `⚠️ **Avertissement juridique** : Nestenn Juridique est u
 
 /**
  * Domaines où la jurisprudence est essentielle à la qualification juridique.
- * Quand ces domaines sont détectés ET des arrêts live sont disponibles,
- * l'utilisation de la jurisprudence devient obligatoire dans le prompt.
+ * Dérivé automatiquement depuis DOMAIN_POLICIES (lib/domain-policies.ts).
+ * Ne pas modifier ici — modifier forceJurisprudence dans domain-policies.ts.
  */
-export const FORCE_JURISPRUDENCE_DOMAINS = new Set([
-  'servitudes',
-  'baux_habitation',
-  'responsabilite',
-  'copropriete',
-  'vices_caches',
-  'garanties',
-])
+export { FORCE_JURISPRUDENCE_DOMAINS } from './domain-policies'
 
 export function getSystemPromptAugmented(
   chunks: SourceChunk[],

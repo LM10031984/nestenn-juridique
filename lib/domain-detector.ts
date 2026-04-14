@@ -367,7 +367,118 @@ const DOMAIN_KEYWORDS: DomainEntry[] = [
     domain: { name: 'location_touristique' },
   },
 
-  // ── 14. Environnement & assainissement ───────────────────────────────────
+  // ── 14. Gestion locative ─────────────────────────────────────────────────
+  //    Distinct de baux_habitation : ici l'agent gère pour le compte du bailleur.
+  //    Termes discriminants = mandat de gestion, compte rendu de gérance, ADB.
+  {
+    keywords: [
+      { term: 'mandat de gestion locative',    weight: 2.0 },
+      { term: 'administrateur de biens',       weight: 2.0 },
+      { term: 'gestionnaire locatif',          weight: 2.0 },
+      { term: 'compte rendu de gérance',       weight: 2.0 },
+      { term: 'honoraires de gestion',         weight: 2.0 },
+      { term: 'résiliation mandat gestion',    weight: 2.0 },
+      { term: 'restitution dépôt garantie agence', weight: 2.0 },
+      { term: 'mauvais état des lieux agence', weight: 2.0 },
+      { term: 'agence de gestion',             weight: 1.5 },
+      { term: 'indexation loyer irl',          weight: 1.5 },
+      { term: 'irl',                           weight: 1.5 },
+      { term: 'reddition de comptes',          weight: 1.5 },
+      { term: 'gestion locative',              weight: 1.5 },
+      { term: 'gestion de bien',               weight: 1.0 },
+    ],
+    domain: { name: 'gestion_locative', judilibreTheme: "bail d'habitation", judilibreChamber: 'civ1' },
+  },
+
+  // ── 15. Responsabilité de l'agent immobilier ──────────────────────────────
+  //    Distinct de agent_immobilier (métier, mandat) : ici, faute et indemnisation.
+  //    Se combine souvent avec agent_immobilier (70% rule → 2 domaines retournés).
+  {
+    keywords: [
+      { term: 'indemnisation par l\'agence',   weight: 2.0 },
+      { term: 'indemnisation agent',           weight: 2.0 },
+      { term: 'faute professionnelle agent',   weight: 2.0 },
+      { term: 'responsabilité civile agent',   weight: 2.0 },
+      { term: 'erreur de l\'agent',            weight: 2.0 },
+      { term: 'manquement agent',              weight: 2.0 },
+      { term: 'préjudice acheteur agence',     weight: 2.0 },
+      { term: 'rc pro agence',                 weight: 2.0 },
+      { term: 'obligation d\'information agent', weight: 1.5 },
+      { term: 'dommage causé par l\'agent',    weight: 1.5 },
+      { term: 'mise en cause de l\'agence',    weight: 1.5 },
+      { term: 'article 1240',                  weight: 1.0 },
+      { term: 'article 1231',                  weight: 1.0 },
+    ],
+    domain: { name: 'responsabilite_agent', judilibreTheme: 'agent immobilier', judilibreChamber: 'civ1' },
+  },
+
+  // ── 16. Syndic de copropriété ─────────────────────────────────────────────
+  //    Distinct de copropriete (parties communes, charges AG) :
+  //    ici, mandat du syndic, mise en concurrence, résiliation, honoraires.
+  {
+    keywords: [
+      { term: 'renouvellement mandat syndic',  weight: 2.0 },
+      { term: 'mise en concurrence syndic',    weight: 2.0 },
+      { term: 'résiliation mandat syndic',     weight: 2.0 },
+      { term: 'contrat de syndic',             weight: 2.0 },
+      { term: 'honoraires syndic',             weight: 2.0 },
+      { term: 'syndic bénévole',               weight: 2.0 },
+      { term: 'syndic coopératif',             weight: 2.0 },
+      { term: 'fiche synthétique copropriété', weight: 2.0 },
+      { term: 'extranet copropriété',          weight: 2.0 },
+      { term: 'désignation syndic',            weight: 1.5 },
+      { term: 'absence de syndic',             weight: 1.5 },
+      { term: 'syndic défaillant',             weight: 1.5 },
+      { term: 'responsabilité syndic',         weight: 1.5 },
+      { term: 'copropriété sans syndic',       weight: 1.5 },
+    ],
+    domain: { name: 'syndic_copropriete', judilibreTheme: 'copropriété', judilibreChamber: 'civ3' },
+  },
+
+  // ── 17. SCI & patrimoine ──────────────────────────────────────────────────
+  //    "sci" ≤ 3 chars → word boundary. Ici en weight 2.0 pour surclasser
+  //    fiscalite_investisseurs (weight 1.0) sur les questions de structure.
+  {
+    keywords: [
+      { term: 'sci',                           weight: 2.0 },
+      { term: 'sci familiale',                 weight: 2.0 },
+      { term: 'parts de sci',                  weight: 2.0 },
+      { term: 'parts sociales sci',            weight: 2.0 },
+      { term: 'associés sci',                  weight: 2.0 },
+      { term: 'gérant de sci',                 weight: 2.0 },
+      { term: 'apport en nature sci',          weight: 2.0 },
+      { term: 'statuts sci',                   weight: 2.0 },
+      { term: 'cession parts sociales',        weight: 2.0 },
+      { term: 'dissolution sci',               weight: 2.0 },
+      { term: 'sci à l\'ir',                   weight: 1.5 },
+      { term: 'sci à l\'is',                   weight: 1.5 },
+      { term: 'démembrement parts',            weight: 1.5 },
+    ],
+    domain: { name: 'sci_patrimoine' },
+  },
+
+  // ── 18. Conformité LCB-FT ────────────────────────────────────────────────
+  //    Anti-blanchiment spécifique. "tracfin" et "anti-blanchiment" sont aussi
+  //    dans agent_immobilier (poids faible) — ici en discriminant.
+  {
+    keywords: [
+      { term: 'lcb-ft',                        weight: 2.0 },
+      { term: 'lcb ft',                        weight: 2.0 },
+      { term: 'lutte anti-blanchiment',        weight: 2.0 },
+      { term: 'financement du terrorisme',     weight: 2.0 },
+      { term: 'déclaration de soupçon',        weight: 2.0 },
+      { term: 'gel des avoirs',                weight: 2.0 },
+      { term: 'personne politiquement exposée', weight: 2.0 },
+      { term: 'ppe',                           weight: 2.0 },
+      { term: 'bénéficiaire effectif',         weight: 2.0 },
+      { term: 'vérification d\'identité client', weight: 2.0 },
+      { term: 'tracfin',                       weight: 2.0 },
+      { term: 'signalement tracfin',           weight: 2.0 },
+    ],
+    domain: { name: 'conformite_lcb_ft' },
+  },
+
+  // ── 19. Environnement & assainissement ───────────────────────────────────
   //    Inclut ANC / SPANC / fosse septique — termes critiques manquants
   {
     keywords: [
