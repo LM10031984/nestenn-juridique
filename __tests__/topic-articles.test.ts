@@ -143,6 +143,51 @@ describe('detectTopicArticles — fosse septique / SPANC / ANC', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// P3 — Shortlist métier : offre d'achat & formation du contrat de vente
+// Priorité : art. 1113/1114 (formation), 1589 (offre = vente), L271-1 (rétractation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectTopicArticles — offre d\'achat contresignée', () => {
+
+  it('offre contresignée → vente_compromis_retractation (topicMatch non null)', () => {
+    const entry = detectTopicArticles(
+      'Une offre d\'achat contresignée par le vendeur oblige-t-elle l\'acquéreur à acheter ?',
+    )
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('vente_compromis_retractation')
+  })
+
+  it('vendeur refus de signer compromis après offre → vente_compromis_retractation', () => {
+    const entry = detectTopicArticles(
+      'Le vendeur peut-il refuser de signer le compromis après avoir accepté une offre au prix ?',
+    )
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('vente_compromis_retractation')
+  })
+
+  it('art. 1589 est dans la shortlist offre contresignée', () => {
+    const entry = detectTopicArticles('Une offre contresignée engage-t-elle définitivement le vendeur ?')
+    expect(entry).not.toBeNull()
+    const artNums = entry!.forcedArticles.map(a => a.artNum)
+    expect(artNums).toContain('1589')
+  })
+
+  it('art. L271-1 CCH (rétractation 10 jours) est dans la shortlist', () => {
+    const entry = detectTopicArticles('Rétractation vendeur — l\'offre contresignée engage-t-elle vraiment ?')
+    expect(entry).not.toBeNull()
+    const artNums = entry!.forcedArticles.map(a => a.artNum)
+    expect(artNums).toContain('L271-1')
+  })
+
+  it('getShortlistByDomain(vente_immobiliere) retourne vente_compromis_retractation', () => {
+    const entry = getShortlistByDomain('vente_immobiliere')
+    expect(entry).not.toBeNull()
+    expect(entry!.id).toBe('vente_compromis_retractation')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // RGPD agence — trio canonique : base légale / information / opposition
 // Vérifie que la shortlist CRM/prospect expose les 3 pivots métier attendus.
 // ─────────────────────────────────────────────────────────────────────────────

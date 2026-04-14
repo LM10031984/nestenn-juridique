@@ -129,12 +129,18 @@ const DOMAIN_KEYWORDS: DomainEntry[] = [
       { term: 'compromis de vente',          weight: 2.0 },
       { term: 'promesse de vente',           weight: 2.0 },
       { term: 'offre d\'achat contresignée', weight: 2.0 },
+      { term: 'contresignée',               weight: 2.0 },   // robuste aux apostrophes typographiques
+      { term: 'offre contresignée',          weight: 2.0 },
+      { term: 'acceptation de l\'offre',     weight: 2.0 },
+      { term: 'acceptation offre',           weight: 1.5 },  // variante sans apostrophe
       { term: 'acte authentique',            weight: 2.0 },
       { term: 'vice caché',                  weight: 2.0, fuzzy: true },
       { term: 'rétractation acquéreur',      weight: 2.0, fuzzy: true },
+      { term: 'rétractation vendeur',        weight: 2.0, fuzzy: true },
       { term: 'condition suspensive de vente', weight: 2.0 },
       { term: 'avant-contrat',               weight: 2.0 },
       { term: 'offre d\'achat',              weight: 1.5 },
+      { term: 'séquestre',                   weight: 1.5 },
       { term: 'loi sru',                     weight: 1.5 },
       { term: 'frais de notaire',            weight: 1.5 },
       { term: 'désengagement',               weight: 1.0 },

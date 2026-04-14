@@ -393,6 +393,40 @@ const TOPIC_ARTICLE_INDEX: TopicArticleEntry[] = [
     answerNote: 'Le compromis de vente (promesse synallagmatique) vaut vente dès la signature (art. 1589 C. civ.). Conditions suspensives habituelles : (1) obtention du prêt bancaire (délai 45-60 jours, L313-41 code conso) ; (2) obtention du permis de construire si projet de construction ; (3) absence de préemption par la commune (DPU). Délai de rétractation acheteur : 10 jours (art. L271-1 CCH).',
   },
 
+  // ── VENTE IMMOBILIÈRE — OFFRE D'ACHAT & FORMATION DU CONTRAT ────────────────
+  // Pilote les questions : offre contresignée, engagement acquéreur/vendeur,
+  // désengagement après offre acceptée, conditions suspensives, droit de rétractation.
+  // Cet ID est la shortlistStrategy de domain-policies pour vente_immobiliere.
+  {
+    id: 'vente_compromis_retractation',
+    triggers: [
+      // Offre contresignée — sans apostrophe pour robustesse typographique
+      'contresignée',
+      'offre contresignée',
+      'offre au prix',
+      'acceptation offre',
+      'offre acceptée',
+      // Engagement / désengagement
+      'oblige-t-il',
+      'oblige-t-elle',
+      'rétractation vendeur',
+      'vendeur peut-il refuser de signer',
+      'refuser de signer le compromis',
+      // Formation du contrat
+      'formation du contrat de vente',
+      'avant-contrat et engagement',
+    ],
+    forcedArticles: [
+      { law: 'code civil', artNum: '1113', label: 'Art. 1113 C. civ. — formation du contrat : offre + acceptation' },
+      { law: 'code civil', artNum: '1114', label: 'Art. 1114 C. civ. — l\'offre ferme et définitive' },
+      { law: 'code civil', artNum: '1589', label: 'Art. 1589 C. civ. — la promesse de vente vaut vente' },
+      { law: 'code de la construction et de l\'habitation', artNum: 'L271-1', label: 'Art. L271-1 CCH — droit de rétractation 10 jours (SRU)' },
+      { law: 'code civil', artNum: '1304', label: 'Art. 1304 C. civ. — conditions suspensives' },
+    ],
+    curatedCaseIds: ['curated-condition-suspensive-bonne-foi'],
+    answerNote: 'IMPORTANT — distinguer 3 situations : (1) Offre d\'achat seule (non contresignée) : l\'offre lie l\'acheteur pendant sa durée de validité, mais pas le vendeur avant acceptation. (2) Offre contresignée (acceptée par le vendeur) : le contrat est formé (art. 1113 + 1589 C. civ.) — les deux parties sont en principe liées. Toutefois, l\'acquéreur bénéficie du droit de rétractation de 10 jours de l\'art. L271-1 CCH SI la vente porte sur un immeuble à usage d\'habitation — ce délai court à compter de la notification de l\'acte. (3) Compromis / promesse synallagmatique signé chez le notaire ou sous seing privé : même régime. Le vendeur NE bénéficie PAS du délai de rétractation L271-1 (réservé à l\'acquéreur non professionnel). Une condition suspensive non réalisée (refus de prêt, etc.) libère les deux parties sans pénalité.',
+  },
+
   // ── ERP — DÉFINITION ET OBLIGATION ──────────────────────────────────────────
   {
     id: 'erp_obligation',
