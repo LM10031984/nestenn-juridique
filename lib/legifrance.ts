@@ -88,6 +88,7 @@ const LEGITEXT_MAP: Record<string, string> = {
   // Codes
   'cch':             'LEGITEXT000006074096', // Code de la Construction et Habitation
   'code de la construction': 'LEGITEXT000006074096',
+  'code de la construction et de l\'habitation': 'LEGITEXT000006074096',
   'code de l\'urbanisme':    'LEGITEXT000006074075', // Code de l'urbanisme
   'urbanisme':               'LEGITEXT000006074075',
   'code de l\'environnement':'LEGITEXT000006074220', // Code de l'environnement

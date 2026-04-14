@@ -14,8 +14,8 @@ interface BuildMistralPromptParams {
   liveJurisprudence: string
   tier: MistralTier
   strictConcise?: boolean
-  /** true si des tags [A1][A2]… ont été assignés aux articles — active le mode tags fermés strict */
-  hasTaggedArticles?: boolean
+  /** Nombre d'articles taggés [A1][A2]… — active le mode tags fermés strict et borne les tags autorisés */
+  taggedArticlesCount?: number
   /** Note métier issue du shortlist — guide le LLM sur les articles attendus */
   topicNote?: string
   /** true si legifrance-sync a totalement échoué sur un domaine critique — prudence normative */
@@ -96,14 +96,16 @@ const FINAL_DISCLAIMER = `---
 // VARIANTE LARGE 3 — Profondeur juridique, raisonnement multi-enjeux
 // ═══════════════════════════════════════════════════════════
 
-function buildArticleRules(hasTaggedArticles: boolean): string {
-  if (hasTaggedArticles) {
+function buildArticleRules(taggedCount: number): string {
+  if (taggedCount > 0) {
+    const allowed = Array.from({ length: taggedCount }, (_, i) => `**[A${i + 1}]**`).join(', ')
+    const nextForbidden = `[A${taggedCount + 1}]`
     return `**Articles de loi — MODE TAGS FERMÉS STRICT (PRIORITÉ ABSOLUE)**
 
 ⛔ INTERDICTION TOTALE DES CITATIONS LIBRES D'ARTICLES
 - Toute citation libre d'article est une **erreur grave**. Même si tu es certain de l'article, tu NE DOIS PAS l'écrire directement.
 - Exemples INTERDITS : "art. 24 de la loi 89-462", "l'art. L412-6 du CPCE", "article 1641 du Code civil"
-- Seuls les tags fermés **[A1], [A2], [A3], [A4], [A5]** sont autorisés pour citer un article — jamais [A6] ou un numéro supérieur.
+- Seuls les tags fermés ${allowed} sont autorisés pour citer un article — jamais ${nextForbidden} ou un numéro supérieur.
 - Si la règle que tu veux évoquer n'a pas de tag autorisé, formule-la **sans aucune référence précise** : "selon la règle applicable", "la procédure légale prévoit que", "le texte impose que".
 - Si tu n'es pas certain, écris "à vérifier sur Légifrance" — jamais un article inventé.
 
@@ -132,7 +134,7 @@ const LARGE_REASONING_RULES = `# Règles de raisonnement juridique
 
 5. **Langue : français juridique professionnel**. Vouvoie l'agent.`
 
-function buildLargeRules(hasTaggedArticles: boolean): string {
+function buildLargeRules(taggedCount: number): string {
   return `# Règles absolues de citation
 
 **Jurisprudence**
@@ -140,7 +142,7 @@ function buildLargeRules(hasTaggedArticles: boolean): string {
 - Si tu cites une jurisprudence autorisée, utilise **uniquement** son tag fermé : [J1], [J2], [J3].
 - Si aucune jurisprudence autorisée n'est pertinente pour un point, n'en cite aucune.
 
-${buildArticleRules(hasTaggedArticles)}
+${buildArticleRules(taggedCount)}
 
 **L'exactitude prime sur l'exhaustivité** : mieux vaut une réponse courte et juste qu'une réponse longue avec des sources inventées.
 
@@ -185,23 +187,29 @@ L'**art. 1961 du Code civil** bloque le séquestre tant que la vente n'est pas f
 3. **Dans la semaine** : faire saisir par un avocat spécialisé le juge des contentieux de la protection (art. 468)
 4. **Dans le mois** : informer l'acquéreur par écrit que le séquestre lui sera restitué en cas d'abandon`
 
-const LARGE_CHECKLIST = `# Checklist finale avant de répondre
+function buildLargeChecklist(taggedCount: number): string {
+  const tagRange = taggedCount > 0
+    ? `[A1] à [A${taggedCount}] (jamais [A${taggedCount + 1}] ou supérieur)`
+    : 'aucun article tagué disponible'
+  return `# Checklist finale avant de répondre
 
 - ✅ Ai-je identifié TOUS les enjeux juridiques distincts ?
 - ✅ Pour chaque jurisprudence citée, ai-je utilisé uniquement [J1], [J2], [J3] — jamais un n° directement ?
-- ✅ Pour chaque article tagué [A1] à [A5], ai-je utilisé le tag au lieu d'écrire le nom manuellement (jamais [A6] ou supérieur) ?
+- ✅ Pour chaque article tagué ${tagRange}, ai-je utilisé le tag au lieu d'écrire le nom manuellement ?
 - ✅ Ai-je mentionné les nuances et exceptions pertinentes ?
 - ✅ Si les sources sont limitées, ma réponse est-elle plus courte et plus prudente ?
 
 Maintenant, réponds à la question de l'agent en suivant strictement ces règles.`
+}
 
 // ═══════════════════════════════════════════════════════════
 // VARIANTE SMALL 4 — Structure rigide, concision, règles courtes
 // ═══════════════════════════════════════════════════════════
 
-function buildSmallRules(hasTaggedArticles: boolean): string {
-  const articleLine = hasTaggedArticles
-    ? `- ⛔ MODE TAGS FERMÉS STRICT : toute citation libre d'article est **interdite**. Utilise **uniquement** [A1], [A2]… Si la règle n'a pas de tag, formule-la SANS citer l'article (ex : "selon la règle applicable"). Pas de modèle de lettre long, pas de tableau > 4 lignes.`
+function buildSmallRules(taggedCount: number): string {
+  const maxTag = taggedCount > 0 ? `[A${taggedCount}]` : ''
+  const articleLine = taggedCount > 0
+    ? `- ⛔ MODE TAGS FERMÉS STRICT : toute citation libre d'article est **interdite**. Utilise **uniquement** [A1]…${maxTag} — jamais au-delà. Si la règle n'a pas de tag, formule-la SANS citer l'article (ex : "selon la règle applicable"). Pas de modèle de lettre long, pas de tableau > 4 lignes.`
     : `- Aucun article tagué fourni. Tu peux citer des articles librement si tu en es certain.`
 
   return `# Règles absolues (respecte-les à chaque réponse)
@@ -260,14 +268,19 @@ La clause résolutoire permet la résiliation automatique selon l'**art. 24 de l
 2. **Sous 48h** : vérifier l'éligibilité du locataire au FSL
 3. **Dans la semaine** : contacter un avocat pour préparer l'assignation`
 
-const SMALL_CHECKLIST = `# Vérification avant réponse
+function buildSmallChecklist(taggedCount: number): string {
+  const tagRange = taggedCount > 0
+    ? `[A1] à [A${taggedCount}] (jamais [A${taggedCount + 1}] ou supérieur)`
+    : 'aucun article tagué disponible'
+  return `# Vérification avant réponse
 
 - ✅ Si je cite une jurisprudence, ai-je utilisé [J1], [J2] ou [J3] — jamais un n° directement ?
-- ✅ Si un article a un tag [A1] à [A5], ai-je utilisé le tag (jamais [A6] ou supérieur) ?
+- ✅ Si un article a un tag, ai-je utilisé ${tagRange} ?
 - ✅ Si les sources sont limitées, ma réponse est-elle plus courte et plus prudente ?
 - ✅ Ai-je évité d'ajouter des sources pour "faire bien" ?
 
 Maintenant, réponds.`
+}
 
 // ═══════════════════════════════════════════════════════════
 // FONCTION DE CONSTRUCTION (string-based, exportée pour les tests)
@@ -306,11 +319,11 @@ Des articles sources ont été fournis avec des tags fermés. Adapte ta réponse
 **Longueur cible : 250-400 mots**. Une réponse courte et juste vaut mieux qu'une longue avec des erreurs.`
 
 export function buildMistralSystemPrompt(params: BuildMistralPromptParams): string {
-  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, hasTaggedArticles = false, topicNote, liveArticleResolutionFailed, precisionBudget } = params
+  const { articles, pgJurisprudence, liveJurisprudence, tier, strictConcise, taggedArticlesCount = 0, topicNote, liveArticleResolutionFailed, precisionBudget } = params
 
-  const rules = tier === 'large' ? buildLargeRules(hasTaggedArticles) : buildSmallRules(hasTaggedArticles)
+  const rules = tier === 'large' ? buildLargeRules(taggedArticlesCount) : buildSmallRules(taggedArticlesCount)
   const example = tier === 'large' ? LARGE_EXAMPLE : SMALL_EXAMPLE
-  const checklist = tier === 'large' ? LARGE_CHECKLIST : SMALL_CHECKLIST
+  const checklist = tier === 'large' ? buildLargeChecklist(taggedArticlesCount) : buildSmallChecklist(taggedArticlesCount)
 
   const liveSectionHeader = liveJurisprudence
     ? `## Jurisprudence autorisée (identifiants fermés)\n\nPour citer un de ces arrêts, écris uniquement son identifiant fermé [J1], [J2], [J3]… N'écris jamais de numéro d'arrêt directement.\n\n${liveJurisprudence}`
@@ -330,7 +343,7 @@ ${liveSectionHeader}`
 
   const strictBlock = strictConcise ? `\n\n${STRICT_CONCISE_BLOCK}` : ''
   // P5 : longueur maîtrisée quand des tags articles sont actifs (réduit les citations parasites)
-  const tagsLengthBlock = hasTaggedArticles ? `\n\n${TAGS_ACTIVE_LENGTH_BLOCK}` : ''
+  const tagsLengthBlock = taggedArticlesCount > 0 ? `\n\n${TAGS_ACTIVE_LENGTH_BLOCK}` : ''
   const topicNoteBlock = topicNote ? `\n\n# Note métier (priorité haute)\n\n${topicNote}` : ''
   const liveSyncFailedBlock = liveArticleResolutionFailed
     ? `\n\n# ATTENTION — SYNC RÉGLEMENTAIRE INDISPONIBLE\n\nLes textes officiels spécifiques attendus pour ce domaine n'ont pas pu être récupérés en temps réel. Dans ce contexte :\n- N'affirme pas de délais, seuils ou obligations précises sans les nuancer\n- Préfère : "en principe", "selon la réglementation habituelle", "à vérifier sur Légifrance"\n- Évite les formulations directes du type "la loi impose", "vous devez impérativement"\n- Signale explicitement si une règle devrait être vérifiée sur le texte officiel`
@@ -374,7 +387,7 @@ export function buildMistralLargeSystemPrompt(
     liveJurisprudence: formatLiveJuriWithTags(liveJuri, context?.taggedLiveCases),
     tier: 'large',
     strictConcise: context?.strictConcise,
-    hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
+    taggedArticlesCount: context?.taggedArticles?.length ?? 0,
     topicNote: context?.topicNote,
     liveArticleResolutionFailed: context?.liveArticleResolutionFailed,
     precisionBudget: context?.precisionBudget,
@@ -393,7 +406,7 @@ export function buildMistralSmallSystemPrompt(
     liveJurisprudence: formatLiveJuriWithTags(liveJuri, context?.taggedLiveCases),
     tier: 'small',
     strictConcise: context?.strictConcise,
-    hasTaggedArticles: (context?.taggedArticles?.length ?? 0) > 0,
+    taggedArticlesCount: context?.taggedArticles?.length ?? 0,
     topicNote: context?.topicNote,
     liveArticleResolutionFailed: context?.liveArticleResolutionFailed,
     precisionBudget: context?.precisionBudget,

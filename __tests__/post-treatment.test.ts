@@ -67,6 +67,40 @@ describe('injectRealArticleCitations — tag orphelin', () => {
   })
 })
 
+// ── Tag orphelin quand un article shortlist échoue à la résolution ────────────
+// Scénario : 5 forcedArticles, L271-1 échoue → seulement 4 résolus → A4 = 1304
+// Le LLM ne doit pas générer [A5] (orphelin) car le prompt dit max [A4].
+
+describe('injectRealArticleCitations — shortlist partielle (4 sur 5 résolus)', () => {
+  it('[A4] valide est injecté correctement (pas un orphelin)', () => {
+    const tagged: TaggedArticle[] = [
+      { tag: 'A1', title: 'Art. 1113 — code civil', sourceLaw: 'code civil', sourceArticle: '1113' },
+      { tag: 'A2', title: 'Art. 1114 — code civil', sourceLaw: 'code civil', sourceArticle: '1114' },
+      { tag: 'A3', title: 'Art. 1589 — code civil', sourceLaw: 'code civil', sourceArticle: '1589' },
+      { tag: 'A4', title: 'Art. 1304 — code civil', sourceLaw: 'code civil', sourceArticle: '1304' },
+    ]
+    const text = 'Le contrat est formé ([A1] + [A2]). La vente vaut engagement ([A3]). Conditions suspensives ([A4]).'
+    const result = injectRealArticleCitations(text, tagged)
+    expect(result).toContain('Art. 1113 — code civil')
+    expect(result).toContain('Art. 1304 — code civil')
+    expect(result).not.toContain('[A4]')
+  })
+
+  it('[A5] est orphelin quand seuls A1..A4 existent → remplacé par [article non autorisé]', () => {
+    const tagged: TaggedArticle[] = [
+      { tag: 'A1', title: 'Art. 1113 — code civil', sourceLaw: 'code civil', sourceArticle: '1113' },
+      { tag: 'A2', title: 'Art. 1114 — code civil', sourceLaw: 'code civil', sourceArticle: '1114' },
+      { tag: 'A3', title: 'Art. 1589 — code civil', sourceLaw: 'code civil', sourceArticle: '1589' },
+      { tag: 'A4', title: 'Art. 1304 — code civil', sourceLaw: 'code civil', sourceArticle: '1304' },
+    ]
+    // Le LLM a essayé de citer [A5] = L271-1 qui n'a pas résolu → orphelin
+    const text = 'Le délai de rétractation s\'applique ([A5]).'
+    const result = injectRealArticleCitations(text, tagged)
+    expect(result).toContain('[article non autorisé]')
+    expect(result).not.toContain('[A5]')
+  })
+})
+
 // ── buildTaggedLiveCases ──────────────────────────────────────────────────────
 
 describe('buildTaggedLiveCases', () => {
