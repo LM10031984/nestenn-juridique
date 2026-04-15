@@ -46,6 +46,7 @@ const V1_TIMEOUT_MS = 60_000
 /**
  * callV1 — Appelle /api/chat via HTTP et consomme le stream SSE.
  * Retourne le texte complet ou null si le serveur est inaccessible.
+ * Logs explicites : unreachable | timeout | bad status | malformed chunk
  */
 async function callV1(question: string): Promise<string | null> {
   try {
@@ -66,18 +67,23 @@ async function callV1(question: string): Promise<string | null> {
     clearTimeout(timeoutId)
 
     if (!response.ok) {
+      console.error(`[callV1] ⚠️  bad status: ${response.status} ${response.statusText} — ${V1_BASE_URL}/api/chat`)
       return null
     }
 
-    if (!response.body) return null
+    if (!response.body) {
+      console.error(`[callV1] ⚠️  response.body est null (pas de stream SSE retourné)`)
+      return null
+    }
 
     // Consommer le stream SSE
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let fullText = ''
     let buffer = ''
+    let streamFinished = false
 
-    while (true) {
+    while (!streamFinished) {
       const { done, value } = await reader.read()
       if (done) break
       buffer += decoder.decode(value, { stream: true })
@@ -89,23 +95,29 @@ async function callV1(question: string): Promise<string | null> {
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue
         const payload = line.slice(6).trim()
-        if (payload === '[DONE]') break
+        if (payload === '[DONE]') {
+          streamFinished = true   // interrompt aussi la boucle while externe
+          break
+        }
         try {
           const parsed = JSON.parse(payload) as {
             choices?: Array<{ delta?: { content?: string } }>
           }
           const content = parsed.choices?.[0]?.delta?.content ?? ''
           fullText += content
-        } catch { /* ignorer les lignes non-JSON */ }
+        } catch {
+          console.error(`[callV1] ⚠️  malformed SSE chunk: "${payload.slice(0, 80)}"`)
+        }
       }
     }
 
     return fullText.trim() || null
   } catch (err) {
-    // Serveur inaccessible ou timeout
     if ((err as Error).name === 'AbortError') {
-      return null // timeout
+      console.error(`[callV1] ⚠️  timeout: serveur n'a pas répondu dans ${V1_TIMEOUT_MS}ms — vérifier que npm run dev est lancé`)
+      return null
     }
+    console.error(`[callV1] ⚠️  unreachable: ${(err as Error).message} — vérifier que npm run dev est lancé sur ${V1_BASE_URL}`)
     return null
   }
 }
