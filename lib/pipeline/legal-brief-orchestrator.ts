@@ -35,8 +35,15 @@ export type OrchestratorResult =
       playbookId: string
       precisionBudget: 'high' | 'medium' | 'low'
       legalBrief: LegalBrief
+      // Rétrocompatibilité : answer et validationReport = valeurs finales
       answer: string
       validationReport: ValidationReport
+      // Champs retry
+      initialAnswer: string
+      finalAnswer: string
+      validationReportInitial: ValidationReport
+      validationReportFinal: ValidationReport
+      retried: boolean
       debugMetadata: OrchestratorDebugMetadata
     }
 
@@ -156,8 +163,22 @@ export async function runLegalBriefOrchestrator(
     answer = '[Erreur : impossible de générer la réponse.]'
   }
 
-  // ── Étape 9 : Validation déterministe ────────────────────────────────────────
-  const validationReport = validateAnswerAgainstBrief(answer, legalBrief)
+  // ── Étape 9 : Validation initiale ────────────────────────────────────────────
+  const validationReportInitial = validateAnswerAgainstBrief(answer, legalBrief)
+  const initialAnswer = answer
+
+  // ── Étape 10 : Retry unique si validation échouée ────────────────────────────
+  const retryResult = await runRetryStep(
+    legalBrief,
+    initialAnswer,
+    validationReportInitial,
+    V2_MODEL,
+    V2_MAX_TOKENS
+  )
+
+  const finalAnswer = retryResult.answer
+  const validationReportFinal = retryResult.validationReport
+  const retried = retryResult.retried
 
   // ── Métadonnées debug ─────────────────────────────────────────────────────────
   const debugMetadata: OrchestratorDebugMetadata = {
@@ -179,8 +200,15 @@ export async function runLegalBriefOrchestrator(
     playbookId: playbook.id,
     precisionBudget,
     legalBrief,
-    answer,
-    validationReport,
+    // Rétrocompatibilité : answer et validationReport = valeurs finales
+    answer: finalAnswer,
+    validationReport: validationReportFinal,
+    // Champs retry
+    initialAnswer,
+    finalAnswer,
+    validationReportInitial,
+    validationReportFinal,
+    retried,
     debugMetadata,
   }
 }
@@ -279,4 +307,80 @@ function buildV2UserMessage(userQuestion: string, brief: LegalBrief): string {
     '',
     `Réponds à cette question en respectant strictement les contraintes du brief juridique fourni dans le prompt système.`,
   ].join('\n')
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// buildV2RetryUserMessage
+// Message de correction ciblée — injecte la réponse précédente + les issues
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildV2RetryUserMessage(
+  brief: LegalBrief,
+  previousAnswer: string,
+  validationReport: ValidationReport
+): string {
+  const issueLines = validationReport.issues
+    .map((i) => `- [${i.code}] ${i.message}`)
+    .join('\n')
+
+  return [
+    `Question : ${brief.userQuestion}`,
+    '',
+    `Domaine : ${brief.domain}`,
+    `Archétype : ${brief.archetype}`,
+    '',
+    `[CORRECTION REQUISE]`,
+    `Ta réponse précédente présentait les problèmes suivants :`,
+    issueLines,
+    '',
+    `Corrige UNIQUEMENT ces points signalés. Ne modifie pas ce qui est correct. Ne fais aucune nouvelle affirmation non couverte par le brief.`,
+    '',
+    `Réponse précédente :`,
+    `---`,
+    previousAnswer,
+    `---`,
+  ].join('\n')
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// runRetryStep
+// Retry unique si validationReport.ok === false.
+// Exportée pour tests unitaires.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function runRetryStep(
+  brief: LegalBrief,
+  initialAnswer: string,
+  validationReport: ValidationReport,
+  model: string,
+  maxTokens: number
+): Promise<{
+  answer: string
+  validationReport: ValidationReport
+  retried: boolean
+}> {
+  if (validationReport.ok) {
+    return { answer: initialAnswer, validationReport, retried: false }
+  }
+
+  const systemPrompt = buildV2SystemPrompt(brief)
+  const retryUserMessage = buildV2RetryUserMessage(brief, initialAnswer, validationReport)
+
+  let retryAnswer = initialAnswer
+  try {
+    retryAnswer = await openRouterChat(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: retryUserMessage },
+      ],
+      model,
+      maxTokens
+    )
+  } catch (err) {
+    // Retry LLM échoué → on retourne la réponse initiale avec la validation initiale
+    return { answer: initialAnswer, validationReport, retried: true }
+  }
+
+  const retryValidation = validateAnswerAgainstBrief(retryAnswer, brief)
+  return { answer: retryAnswer, validationReport: retryValidation, retried: true }
 }
