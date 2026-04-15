@@ -38,7 +38,7 @@ const GOLD_Q1: GoldBenchmarkCase = {
   mustAvoid: [
     "l'acquéreur est forcément tenu",
     'vente est définitivement parfaite',
-    'exécution forcée automatique',
+    'exécution forcée immédiate',   // "immédiate" ne peut pas apparaître dans une réponse nuancée
   ],
   // Phrases conceptuelles : apparaissent dans V1 (citations) ET V2 (texte autour des tags)
   keyAuthorities: [
@@ -48,7 +48,7 @@ const GOLD_Q1: GoldBenchmarkCase = {
   ],
   practicalExpectation: [
     'consulter un notaire',
-    'vérifier la rédaction',
+    'vérifier la nature',    // V2 dit "Vérifier la nature du document" — "rédaction" était absent
     'prêt immobilier',
   ],
   comments: [
