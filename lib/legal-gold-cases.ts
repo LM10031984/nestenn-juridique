@@ -71,7 +71,7 @@ const GOLD_Q2: GoldBenchmarkCase = {
     'charge de la preuve',
     'état des lieux incomplet',
     'délai de restitution',
-    "rôle de l'agence",
+    'agence mandataire',           // remplace "rôle de l'agence" — plus robuste sans apostrophe
     'justification des retenues',
   ],
   mustAvoid: [
@@ -140,10 +140,134 @@ const GOLD_Q3: GoldBenchmarkCase = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Q4 — Copropriété : travaux urgents par le syndic sans vote AG
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOLD_Q4: GoldBenchmarkCase = {
+  id: 'Q4',
+  playbookId: 'syndic_travaux_urgents',
+  question:
+    "Le syndic peut-il engager des travaux urgents sans vote préalable de l'assemblée générale ?",
+  mustInclude: [
+    'assemblée générale',
+    'travaux urgents',
+    'information',
+    'charges',
+    'urgence',
+  ],
+  mustAvoid: [
+    'le syndic n\'a jamais le droit',
+    'les copropriétaires ne doivent rien payer',
+    'tout travaux urgent est forcément illégal',
+  ],
+  keyAuthorities: [
+    'loi du 10 juillet 1965',
+    'pouvoirs du syndic',
+    'charges de copropriété',
+  ],
+  practicalExpectation: [
+    'rapport d\'urgence',
+    'informer l\'assemblée',
+    'avocat',
+  ],
+  comments: [
+    "Q4 : le syndic peut agir sans vote si urgence réelle (art. 18 loi 65-557)",
+    "Obligation d'information de l'AG après coup (art. 37 décret 67-223)",
+    "Charges réparties selon tantièmes même sans vote préalable",
+    "Erreur principale : affirmer qu'aucun travaux ne peut être fait sans AG",
+  ],
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q5 — DPE erroné : recours acheteur contre vendeur ou diagnostiqueur
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOLD_Q5: GoldBenchmarkCase = {
+  id: 'Q5',
+  playbookId: 'vente_dpe_errone',
+  question:
+    "Le vendeur peut-il être poursuivi si le DPE était erroné et que l'acheteur découvre après la vente une consommation bien plus élevée ?",
+  mustInclude: [
+    'diagnostiqueur',
+    'opposable',
+    'vice caché',
+    'preuve',
+    'délai',
+  ],
+  mustAvoid: [
+    'nullité automatique de la vente',
+    'vendeur toujours responsable',
+    'indemnisation automatique',
+  ],
+  keyAuthorities: [
+    'code civil',
+    'loi Climat',
+    'code de la construction',
+  ],
+  practicalExpectation: [
+    'nouveau DPE',
+    'avocat',
+    'diagnostiqueur',
+  ],
+  comments: [
+    "Q5 : DPE opposable depuis juillet 2021 (loi Climat-Résilience) — enjeu clé",
+    "Recours principal = diagnostiqueur (art. 1240 Code civil), pas forcément vendeur",
+    "Vendeur engageable si mauvaise foi / vice caché démontré",
+    "Erreur principale : affirmer nullité automatique ou responsabilité automatique du vendeur",
+  ],
+  wrongAuthorityContexts: [
+    {
+      authority: 'L271-1',
+      contexts: ['dpe', 'diagnostiqueur', 'consommation', 'energie'],
+      penalty: 2.5,
+    },
+  ],
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q6 — Responsabilité agent immobilier pour problème connu non signalé
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOLD_Q6: GoldBenchmarkCase = {
+  id: 'Q6',
+  playbookId: 'agent_defaut_information',
+  question:
+    "L'agent immobilier peut-il être responsable s'il n'a pas signalé un problème connu sur le bien au moment de la vente ?",
+  mustInclude: [
+    'devoir',
+    'preuve',
+    'connaissance',
+    'dommages-intérêts',
+    'responsabilité',
+  ],
+  mustAvoid: [
+    'agent automatiquement responsable',
+    'contrat nul automatiquement',
+    'toujours indemnisé',
+  ],
+  keyAuthorities: [
+    'code civil',
+    'loi Hoguet',
+    'mandataire',
+  ],
+  practicalExpectation: [
+    'avocat',
+    'preuve',
+    'mise en demeure',
+  ],
+  comments: [
+    "Q6 : clé = preuve que l'agent connaissait le problème (devoir d'information loi Hoguet)",
+    "Action distincte contre agent (responsabilité) vs vendeur (vice caché)",
+    "Prescription 5 ans (art. 2224 Code civil)",
+    "Erreur principale : affirmer responsabilité automatique sans exiger la preuve",
+  ],
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Export
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const GOLD_CASES: GoldBenchmarkCase[] = [GOLD_Q1, GOLD_Q2, GOLD_Q3]
+export const GOLD_CASES: GoldBenchmarkCase[] = [GOLD_Q1, GOLD_Q2, GOLD_Q3, GOLD_Q4, GOLD_Q5, GOLD_Q6]
 
 export function getGoldCase(id: string): GoldBenchmarkCase | null {
   return GOLD_CASES.find((c) => c.id === id) ?? null

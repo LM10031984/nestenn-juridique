@@ -1,7 +1,8 @@
 // lib/legal-playbooks.ts
 // Playbooks V2 : scénarios juridiques pilotes pour le moteur legal-brief
 // Matching déterministe, sans LLM — normalisation + triggers pondérés
-// Phase 1 : 3 playbooks benchmark uniquement
+// Phase 1 : 3 playbooks benchmark (Q1 vente, Q2 gestion locative, Q3 SPANC)
+// Phase 2 : 3 nouveaux cas (Q4 copropriété travaux, Q5 DPE erroné, Q6 responsabilité agent)
 
 export type PlaybookAuthorityHint = {
   law: string
@@ -27,6 +28,8 @@ export type LegalPlaybook = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PLAYBOOKS: LegalPlaybook[] = [
+  // ── PHASE 1 ───────────────────────────────────────────────────────────────
+
   {
     id: 'vente_offre_contre_signee',
     canonicalQuestion:
@@ -56,11 +59,11 @@ const PLAYBOOKS: LegalPlaybook[] = [
       { law: 'code de la consommation', artNum: 'L313-41', label: 'Art. L313-41 — condition suspensive crédit', required: false },
     ],
     requiredDistinctions: [
-      "offre seule vs offre contresign\u00e9e vs compromis ou promesse synallagmatique",
-      "th\u00e9orie de la formation du contrat vs r\u00e9alit\u00e9 pratique du contentieux",
-      "conditions suspensives (pr\u00eat, urbanisme) et leur impact sur l'engagement",
-      "d\u00e9lai de r\u00e9tractation de 10 jours de l'acqu\u00e9reur non professionnel en mati\u00e8re d'habitation (L271-1 CCH)",
-      "ex\u00e9cution forc\u00e9e th\u00e9oriquement possible mais non automatique en pratique",
+      "offre seule vs offre contresignée vs compromis ou promesse synallagmatique",
+      "théorie de la formation du contrat (Code civil) vs réalité pratique du contentieux",
+      "conditions suspensives (prêt immobilier, urbanisme) et leur impact sur l'engagement",
+      "délai de rétractation de 10 jours de l'acquéreur non professionnel en matière d'habitation (L271-1)",
+      "exécution forcée théoriquement possible mais nécessite une action en justice — non automatique en pratique",
     ],
     forbiddenAssertions: [
       "l'acquéreur est forcément tenu d'acheter",
@@ -69,10 +72,11 @@ const PLAYBOOKS: LegalPlaybook[] = [
       'le vendeur peut obliger mécaniquement l\'acquéreur à signer',
     ],
     practicalOutcome: [
-      "Une offre d'achat contresignée par le vendeur peut en principe engager les deux parties si elle réunit les conditions d'une rencontre des volontés (art. 1113 C. civ.). Vérifier la nature du document est la première démarche : offre simple, offre contresignée, ou compromis de vente ? La qualification juridique du document conditionne toute la suite.",
-      "Cet engagement doit être systématiquement nuancé : vérifier la rédaction du document et les conditions suspensives stipulées (notamment la condition suspensive d'obtention de prêt immobilier, art. L313-41 C. conso.), et la nature du bien (habitation → droit de rétractation L271-1 CCH).",
-      "Le délai de rétractation de 10 jours (L271-1 CCH) constitue la protection centrale de l'acquéreur non professionnel pour un bien à usage d'habitation — il peut se rétracter sans motif ni pénalité.",
-      "L'exécution forcée, fondée sur l'art. 1589 C. civ. (promesse de vente vaut vente), nécessite une action en justice et reste rarement accordée en pratique — les juges privilégient les dommages-intérêts. Consulter un notaire ou un avocat spécialisé pour évaluer les risques et qualifier le document.",
+      "Une offre d'achat contresignée par le vendeur peut en principe engager les deux parties si elle réunit les conditions d'une rencontre des volontés (art. 1113 Code civil). Vérifier la nature du document est la première démarche : offre simple, offre contresignée, ou compromis de vente ? La qualification juridique du document conditionne toute la suite.",
+      "Cet engagement doit être systématiquement nuancé : vérifier la rédaction du document et les conditions suspensives stipulées (notamment la condition suspensive d'obtention de prêt immobilier, art. L313-41 Code de la consommation), et la nature du bien (habitation → droit de rétractation L271-1 Code de la construction et de l'habitation).",
+      "Le délai de rétractation de 10 jours (art. L271-1) constitue la protection centrale de l'acquéreur non professionnel pour un bien à usage d'habitation — il peut se rétracter sans motif ni pénalité.",
+      "L'exécution forcée est théoriquement possible (art. 1589 Code civil — promesse de vente vaut vente), mais elle nécessite une action en justice et reste rarement accordée en pratique : les juges privilégient les dommages-intérêts. L'engagement n'est donc pas automatique.",
+      "Consulter un notaire ou un avocat spécialisé pour qualifier le document (offre simple ou compromis de vente ?) et évaluer l'impact des conditions suspensives, notamment la condition de prêt immobilier. Sans cette qualification, toute conclusion sur l'engagement des parties reste incertaine.",
     ],
     confidenceStyle: 'guarded',
   },
@@ -102,10 +106,10 @@ const PLAYBOOKS: LegalPlaybook[] = [
       { law: 'loi hoguet', artNum: '6', label: 'Art. 6 loi Hoguet — obligations du mandataire', required: false },
     ],
     requiredDistinctions: [
-      "fragilit\u00e9 probatoire li\u00e9e \u00e0 l'incompl\u00e9tude vs impossibilit\u00e9 absolue de toute preuve",
-      "r\u00f4le du bailleur (d\u00e9cision) vs r\u00f4le de l'agence mandataire (conseil et ex\u00e9cution)",
-      "d\u00e9lais de restitution du d\u00e9p\u00f4t (art. 22 loi 89-462) vs justification des retenues",
-      "\u00e9tat des lieux incomplet : quelle valeur probatoire et quels \u00e9l\u00e9ments compl\u00e9mentaires possibles",
+      "fragilité probatoire liée à l'incomplétude vs impossibilité absolue de toute preuve",
+      "rôle du bailleur (décision) vs rôle de l'agence mandataire (conseil et exécution)",
+      "délais de restitution du dépôt (art. 22 loi 89-462) vs justification des retenues",
+      "état des lieux incomplet : quelle valeur probatoire et quels éléments complémentaires possibles",
       "risque contentieux pour le bailleur vs conduite pratique prudente de l'agence",
     ],
     forbiddenAssertions: [
@@ -148,16 +152,15 @@ const PLAYBOOKS: LegalPlaybook[] = [
       { law: 'code de la santé publique', artNum: 'L1331-11-1', label: 'Art. L1331-11-1 CSP — contrôle SPANC et mise en conformité', required: true },
     ],
     requiredDistinctions: [
-      "d\u00e9nonciation du voisin vs d\u00e9clenchement formel d'un contr\u00f4le SPANC : deux choses distinctes",
-      "non-conformit\u00e9 simple vs danger sanitaire ou environnemental av\u00e9r\u00e9 : cons\u00e9quences diff\u00e9rentes",
-      "texte l\u00e9gal applicable vs pratique administrative locale variable selon la commune",
-      "situation lors d'une vente vs exploitation normale du bien : obligations diff\u00e9rentes",
-      "sanctions th\u00e9oriques pr\u00e9vues par les textes vs d\u00e9cision effective de l'administration locale",
+      "dénonciation du voisin vs déclenchement formel d'un contrôle SPANC : deux choses distinctes",
+      "non-conformité simple vs danger sanitaire ou environnemental avéré : conséquences différentes",
+      "texte légal applicable vs pratique administrative locale variable selon la commune",
+      "situation lors d'une vente vs exploitation normale du bien : obligations différentes",
+      "sanctions théoriques prévues par les textes vs décision effective de l'administration locale",
     ],
     forbiddenAssertions: [
       'la dénonciation entraîne automatiquement une sanction',
       'la commune imposera forcément des travaux immédiats',
-      // Les assertions avec montants précis sans source taggée sont interdites
       'amende de [montant précis] euros',
       'délai précis certain sans base textuelle fermée',
     ],
@@ -169,6 +172,168 @@ const PLAYBOOKS: LegalPlaybook[] = [
       "Consulter un professionnel (entreprise de vidange agréée, bureau d'études) avant d'engager des travaux pour s'assurer de la conformité de la solution retenue.",
     ],
     confidenceStyle: 'strict',
+  },
+
+  // ── PHASE 2 ───────────────────────────────────────────────────────────────
+
+  {
+    id: 'syndic_travaux_urgents',
+    canonicalQuestion:
+      "Le syndic peut-il engager des travaux urgents sans vote préalable de l'assemblée générale ?",
+    domain: 'copropriete',
+    triggers: [
+      // Triggers couvrant la question exacte Phase 2
+      'syndic engager travaux urgents sans vote',
+      'syndic travaux urgents vote prealable assemblee',
+      'syndic peut il engager travaux urgents',
+      'travaux urgents sans vote prealable assemblee',
+      // Triggers larges
+      'syndic travaux urgents sans ag',
+      'travaux urgents copropriete sans vote',
+      'syndic travaux sans assemblee',
+      'travaux urgents syndic assemblee',
+      'syndic a fait des travaux sans ag',
+      'travaux copropriete sans vote ag',
+      'syndic urgence travaux vote',
+      'travaux sans convocation assemblee generale',
+      'syndic decidé travaux seul',
+      'travaux non votes copropriete',
+      'travaux urgents sans autorisation ag',
+      'charge travaux urgents copropriete',
+    ],
+    forcedArticles: [
+      { law: 'loi 65-557', artNum: '18', label: 'Art. 18 loi 65-557 — pouvoirs du syndic, travaux urgents', required: true },
+      { law: 'décret 67-223', artNum: '37', label: 'Art. 37 décret 67-223 — travaux urgents, obligation d\'information AG', required: true },
+      { law: 'loi 65-557', artNum: '14', label: 'Art. 14 loi 65-557 — charges de copropriété', required: false },
+      { law: 'code civil', artNum: '1240', label: 'Art. 1240 Code civil — responsabilité délictuelle', required: false },
+    ],
+    requiredDistinctions: [
+      "travaux urgents légalement autorisés (art. 18 loi 65-557) vs travaux courants nécessitant un vote AG",
+      "obligation d'information du syndic à l'AG dans les meilleurs délais après travaux urgents",
+      "répartition des charges : les copropriétaires supportent les charges selon leurs tantièmes, même sans vote",
+      "recours des copropriétaires contre le syndic si les travaux dépassaient l'urgence réelle",
+      "distinction urgence réelle (risque immédiat pour la sécurité ou l'immeuble) vs simple commodité",
+    ],
+    forbiddenAssertions: [
+      'le syndic n\'a jamais le droit de faire des travaux sans AG',
+      'les copropriétaires ne doivent rien payer sans avoir voté',
+      'tout travaux urgent est forcément illégal sans vote',
+    ],
+    practicalOutcome: [
+      "Le syndic dispose légalement du pouvoir d'engager des travaux urgents sans vote préalable en AG (art. 18 loi 65-557 — copropriété). Ce pouvoir est strictement limité : l'urgence doit être réelle (risque immédiat pour la sécurité des personnes ou la conservation de l'immeuble) et non une simple anticipation de travaux courants.",
+      "Après exécution des travaux urgents, le syndic a l'obligation légale d'en informer l'assemblée générale dans les meilleurs délais (art. 37 décret 67-223). À défaut, sa responsabilité peut être engagée vis-à-vis des copropriétaires.",
+      "Les charges résultant de travaux urgents sont réparties entre les copropriétaires selon leurs tantièmes (art. 14 loi 65-557), même en l'absence de vote préalable. Le refus de payer expose le copropriétaire à une action en recouvrement.",
+      "Pour contester les travaux : vérifier que l'urgence était réelle et documentée. Si les travaux dépassaient le cadre de l'urgence, une action en responsabilité contre le syndic (et/ou mise en cause lors de la prochaine AG) est envisageable. Consulter un avocat spécialisé en copropriété ou le conseil syndical.",
+      "Action concrète : demander au syndic le rapport d'urgence justifiant les travaux (devis, rapport de l'entreprise, nature du sinistre). Ce document conditionne la légalité de la procédure.",
+    ],
+    confidenceStyle: 'guarded',
+  },
+
+  {
+    id: 'vente_dpe_errone',
+    canonicalQuestion:
+      "Le vendeur peut-il être poursuivi si le DPE était erroné et que l'acheteur découvre après la vente une consommation bien plus élevée ?",
+    domain: 'vente_immobiliere',
+    triggers: [
+      // Triggers couvrant la question exacte Phase 2
+      'dpe errone vendeur poursuivi',
+      'dpe errone acheteur vente vendeur',
+      'vendeur poursuivi dpe errone',
+      'dpe errone consommation elevee',
+      'dpe errone acheteur decouvre apres vente',
+      // Triggers larges
+      'dpe errone vente',
+      'dpe faux achat immobilier',
+      'diagnostic performance energetique incorrect',
+      'classe energetique fausse vente',
+      'dpe inexact apres achat',
+      'erreur dpe achat maison',
+      'dpe mauvaise classe vente',
+      'diagnostic energetique errone',
+      'dpe opposable erreur',
+      'dpe errone recours',
+      'classe dpe incorrecte achat',
+      'faux dpe immeuble',
+    ],
+    forcedArticles: [
+      { law: 'code de la construction et de l\'habitation', artNum: 'L271-4', label: 'Art. L271-4 CCH — diagnostics techniques obligatoires annexés à l\'avant-contrat', required: true },
+      { law: 'code civil', artNum: '1641', label: 'Art. 1641 Code civil — garantie des vices cachés', required: true },
+      { law: 'code civil', artNum: '1604', label: 'Art. 1604 Code civil — obligation de délivrance conforme', required: false },
+      { law: 'code civil', artNum: '1240', label: 'Art. 1240 Code civil — responsabilité délictuelle du diagnostiqueur', required: false },
+    ],
+    requiredDistinctions: [
+      "DPE opposable depuis le 1er juillet 2021 (loi Climat-Résilience n° 2021-1104) vs anciens DPE informatifs non opposables",
+      "recours contre le vendeur (vice caché art. 1641 Code civil ou délivrance non conforme) vs recours contre le diagnostiqueur (responsabilité délictuelle art. 1240 Code civil)",
+      "DPE erroné mais sans impact sur la décision d'achat (indemnisation limitée) vs DPE erroné déterminant dans la décision d'achat (possibilité de réduction de prix)",
+      "délai d'action : 2 ans pour les vices cachés à compter de la découverte, 5 ans pour la responsabilité contractuelle",
+      "preuve de l'erreur : rapport d'un nouvel expert DPE vs DPE du diagnostiqueur initial",
+    ],
+    forbiddenAssertions: [
+      'le DPE erroné entraîne automatiquement la nullité de la vente',
+      'le vendeur est toujours responsable des erreurs du diagnostiqueur',
+      'tout DPE erroné donne droit à une indemnisation automatique',
+    ],
+    practicalOutcome: [
+      "Le DPE est opposable depuis le 1er juillet 2021 (loi Climat-Résilience n° 2021-1104). Un DPE erroné établi après cette date peut fonder une action contre le diagnostiqueur (art. 1240 Code civil — responsabilité délictuelle) et/ou contre le vendeur si l'erreur a vicié le consentement de l'acheteur.",
+      "Recours prioritaire : faire établir un nouveau DPE par un diagnostiqueur certifié indépendant pour documenter l'écart avec le DPE initial. Cet écart est le fondement de toute action. Sans preuve de l'erreur, aucun recours sérieux n'est possible.",
+      "Contre le vendeur : l'art. 1641 Code civil (vice caché) peut s'appliquer si la mauvaise classe énergétique constitue un défaut rendant le bien impropre à sa destination ou diminuant son usage de manière significative. Délai d'action : 2 ans à compter de la découverte de l'erreur.",
+      "Contre le diagnostiqueur : sa responsabilité civile (art. 1240 Code civil) peut être engagée si une faute dans l'établissement du DPE est démontrée. La réparation couvre le préjudice réel (surcoût de travaux, perte de valeur, etc.).",
+      "Consulter un avocat spécialisé en droit immobilier pour évaluer la stratégie (mise en cause du diagnostiqueur vs. du vendeur) selon la date du DPE, la nature de l'erreur et le préjudice subi. Vérifier également si le diagnostiqueur dispose d'une assurance responsabilité civile professionnelle.",
+    ],
+    confidenceStyle: 'guarded',
+  },
+
+  {
+    id: 'agent_defaut_information',
+    canonicalQuestion:
+      "L'agent immobilier peut-il être responsable s'il n'a pas signalé un problème connu sur le bien au moment de la vente ?",
+    domain: 'vente_immobiliere',
+    triggers: [
+      // Triggers couvrant la question exacte Phase 2
+      'agent immobilier responsable probleme connu vente',
+      'agent signale probleme connu vente',
+      'agent responsable probleme connu bien',
+      'agent immobilier n a pas signale probleme connu',
+      // Triggers larges
+      'agent immobilier n a pas signale probleme',
+      'agent n a pas dit vice',
+      'agent cache probleme vente',
+      'responsabilite agent immobilier defaut information',
+      'agent n a pas informe vice cache',
+      'agent immobilier devoir conseil manquement',
+      'agent n a pas signale defaut',
+      'agent responsable probleme non signale',
+      'agent immobilier n a pas revele probleme',
+      'defaut conseil agent immobilier',
+      'agent n a pas averti acheteur',
+      'agent n a pas mentionne probleme',
+    ],
+    forcedArticles: [
+      { law: 'code civil', artNum: '1240', label: 'Art. 1240 Code civil — responsabilité délictuelle', required: true },
+      { law: 'code civil', artNum: '1231-1', label: 'Art. 1231-1 Code civil — dommages-intérêts contractuels', required: true },
+      { law: 'loi 70-9', artNum: '6', label: 'Art. 6 loi Hoguet — obligations du mandataire', required: false },
+      { law: 'code civil', artNum: '1641', label: 'Art. 1641 Code civil — garantie des vices cachés (vendeur)', required: false },
+    ],
+    requiredDistinctions: [
+      "responsabilité de l'agent (défaut de conseil / devoir d'information) vs responsabilité du vendeur (vice caché art. 1641 Code civil)",
+      "problème que l'agent connaissait effectivement vs problème qu'il ne pouvait pas connaître — la preuve de la connaissance est centrale",
+      "devoir d'information de l'agent envers l'acheteur (obligation légale loi Hoguet) vs devoir de conseil au vendeur (mandant)",
+      "préjudice indemnisable : différence de valeur du bien ou coût des travaux de remise en état",
+      "prescription : 5 ans pour la responsabilité contractuelle et délictuelle (art. 2224 Code civil)",
+    ],
+    forbiddenAssertions: [
+      'l\'agent est automatiquement responsable de tout vice caché',
+      'l\'acheteur est toujours indemnisé si l\'agent n\'a rien dit',
+      'le contrat de vente est nul automatiquement',
+    ],
+    practicalOutcome: [
+      "L'agent immobilier est soumis à un devoir d'information et de conseil envers toutes les parties (loi Hoguet, art. 6 loi 70-9). S'il avait connaissance d'un problème (vice, sinistre passé, contentieux de voisinage, servitude non déclarée) et ne l'a pas signalé, sa responsabilité délictuelle peut être engagée (art. 1240 Code civil).",
+      "La clé est de prouver que l'agent connaissait le problème : vérifier les documents remis lors du mandat, les échanges écrits, les rapports d'expertise antérieurs. Si le problème figurait dans un rapport que l'agent avait consulté, la preuve est facilitée.",
+      "L'action contre l'agent est distincte de l'action contre le vendeur (garantie des vices cachés, art. 1641 Code civil). Les deux actions peuvent être menées simultanément. La responsabilité peut être partagée entre l'agent et le vendeur.",
+      "Préjudice indemnisable : le montant des travaux de remise en état, la perte de valeur du bien, ou les frais engagés en raison du problème non signalé. Faire établir un devis ou une expertise contradictoire pour chiffrer le préjudice.",
+      "Délai : agir dans les 5 ans à compter de la découverte du problème (art. 2224 Code civil — prescription de droit commun). Consulter un avocat spécialisé en droit immobilier pour évaluer la solidité du dossier avant toute mise en demeure.",
+    ],
+    confidenceStyle: 'guarded',
   },
 ]
 
