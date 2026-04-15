@@ -121,9 +121,9 @@ const GOLD_Q3: GoldBenchmarkCase = {
     'contrôle SPANC',
   ],
   practicalExpectation: [
-    'contacter le SPANC',
+    'contact SPANC',              // "contact" est substring de "Contactez", "Prenez contact" — conjugaison-safe
     'rapport écrit',
-    'contexte de vente',
+    'diagnostic assainissement',  // V2 : "le diagnostic assainissement est obligatoire en cas de vente"
   ],
   comments: [
     "Q3 : le voisin n'a aucun pouvoir direct — dénonciation ≠ sanction automatique",
