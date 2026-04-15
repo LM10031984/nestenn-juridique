@@ -99,7 +99,7 @@ const KNOWN_ARTICLE_RULES: Record<string, Record<string, string>> = {
   },
   'code de la santé publique': {
     'L1331-1-1': "Les immeubles non raccordés au réseau d'assainissement collectif doivent être équipés d'une installation d'assainissement non collectif entretenue et contrôlée par la commune.",
-    'L1331-11-1': "Le SPANC contrôle les installations d'assainissement non collectif. En cas de non-conformité présentant un risque sanitaire ou environnemental, le propriétaire est mis en demeure de réaliser les travaux.",
+    'L1331-11-1': "Selon le Code de la Santé Publique, le SPANC (Service Public d'Assainissement Non Collectif) contrôle les installations d'assainissement non collectif. En cas de non-conformité présentant un risque sanitaire ou environnemental, le propriétaire est mis en demeure de réaliser les travaux.",
   },
 }
 

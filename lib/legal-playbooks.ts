@@ -162,7 +162,7 @@ const PLAYBOOKS: LegalPlaybook[] = [
       'délai précis certain sans base textuelle fermée',
     ],
     practicalOutcome: [
-      "Prendre contact directement avec le SPANC de la commune — c'est l'autorité compétente pour le contrôle de l'assainissement non collectif (art. L1331-11-1 CSP). La dénonciation du voisin ne constitue pas en elle-même un contrôle officiel ni une sanction.",
+      "Prendre contact directement avec le SPANC de la commune — c'est l'autorité compétente selon le Code de la Santé Publique (art. L1331-11-1 CSP) pour le contrôle de l'assainissement non collectif. La dénonciation du voisin ne constitue pas en elle-même un contrôle officiel ni une sanction.",
       "Demander au SPANC un rapport écrit précisant la nature des non-conformités constatées, le niveau de risque sanitaire ou environnemental (qui détermine l'urgence des travaux), et les délais de mise en conformité applicables localement.",
       "Distinguer deux situations selon l'art. L1331-1-1 CSP : (a) si le bien est en cours de vente, le diagnostic assainissement est obligatoire et les non-conformités doivent être portées à la connaissance de l'acquéreur ; (b) en exploitation normale, les délais de mise en conformité sont fixés par arrêté local.",
       "Ne mentionner ni montant de sanction ni délai précis sans base textuelle couverte — les sanctions théoriques existent (art. L1331-11-1 CSP) mais leur mise en œuvre effective relève de la décision administrative locale.",
