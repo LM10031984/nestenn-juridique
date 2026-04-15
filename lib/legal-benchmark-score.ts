@@ -100,6 +100,9 @@ export function scoreAnswer(
     } else if (issue.code === 'UNCOVERED_PRECISE_SANCTION' && issue.severity === 'high') {
       legalAccuracy -= 1
       comments.push('Précision juridique : sanction précise sans source taggée')
+    } else if (issue.code === 'AUTHORITY_SCOPE_MISMATCH') {
+      legalAccuracy -= 1.5
+      comments.push('Précision juridique : autorité citée hors de sa portée connue (scope mismatch)')
     } else if (issue.severity === 'medium') {
       legalAccuracy -= 0.5
     }
@@ -177,6 +180,9 @@ export function scoreAnswer(
         break
       case 'FORBIDDEN_AUTOMATICITY':
         safety -= 1
+        break
+      case 'AUTHORITY_SCOPE_MISMATCH':
+        safety -= 1.5
         break
       case 'UNCOVERED_PRECISE_DELAY':
         safety -= 0.5
