@@ -14,6 +14,7 @@ export type AuthorityCard = {
   scope: string
   caveat?: string
   practicalImpact?: string
+  articleNum?: string   // sourceArticle du TaggedArticle — ex: 'L271-1', '1731', 'L1331-11-1'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ export function articlesToAuthorityCards(articles: TaggedArticle[]): AuthorityCa
       scope,
       caveat,
       practicalImpact: undefined,
+      articleNum: article.sourceArticle,
     }
   })
 }
@@ -136,6 +138,41 @@ const KNOWN_ARTICLE_CAVEATS: Record<string, Record<string, string>> = {
   },
   'loi 89-462': {
     '22': "Des retenues sur le dépôt sont possibles mais doivent être justifiées par des pièces probantes (état des lieux, devis, factures). Un état des lieux incomplet fragilise ces retenues.",
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTHORITY_SCOPE_CONSTRAINTS
+// Contraintes de portée par numéro d'article (sourceArticle exact).
+// Utilisé par answer-validator.ts pour détecter les citations hors portée.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AuthorityScopeConstraint = {
+  forbiddenContextKeywords: string[]
+  reason: string
+}
+
+export const AUTHORITY_SCOPE_CONSTRAINTS: Record<string, AuthorityScopeConstraint> = {
+  'L271-1': {
+    forbiddenContextKeywords: [
+      'spanc',
+      'assainissement',
+      'fosse septique',
+      'contrôle administratif',
+      'non collectif',
+    ],
+    reason:
+      "L271-1 CCH est le droit de rétractation de l'acquéreur non professionnel lors d'une vente immobilière — inapplicable comme fondement du contrôle SPANC ou de l'assainissement non collectif.",
+  },
+  'L1331-1-1': {
+    forbiddenContextKeywords: [
+      'droit de rétractation',
+      'délai de rétractation',
+      'avant-contrat',
+      'compromis de vente',
+    ],
+    reason:
+      "L1331-1-1 CSP concerne l'obligation d'équipement en assainissement non collectif — pas le droit de rétractation de l'acquéreur lors d'une vente.",
   },
 }
 
