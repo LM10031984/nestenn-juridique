@@ -37,6 +37,25 @@ const PRACTICAL_TERMS = [
   'demarche',
 ]
 
+// Termes d'action concrète — verbes actifs indiquant une démarche réelle
+// Plus discriminants que les modaux (doit, peut)
+const CONCRETE_ACTION_TERMS = [
+  'contacter',
+  'contacter le',
+  'restituer',
+  'alerter',
+  'mettre en demeure',
+  'notifier',
+  'saisir',
+  'demander',
+  'refuser',
+  'signaler',
+  'consulter un',
+  'faire etablir',
+  'prendre contact',
+  'obtenir un',
+]
+
 function normalizeText(text: string): string {
   return text
     .toLowerCase()
@@ -106,26 +125,40 @@ export function scoreAnswer(
   }
 
   // ── practicalUsefulness /5 ──────────────────────────────────────────────────
-  // Vérifie qu'il y a une conduite pratique exploitable
+  // Vérifie qu'il y a une conduite pratique exploitable.
+  // Exige à la fois des termes généraux (PRACTICAL_TERMS) ET des verbes d'action concrets.
   const practicalMatches = PRACTICAL_TERMS.filter((term) =>
     norm.includes(normalizeText(term))
   ).length
 
+  const concreteMatches = CONCRETE_ACTION_TERMS.filter((term) =>
+    norm.includes(normalizeText(term))
+  ).length
+
   let practicalUsefulness: number
-  if (practicalMatches >= 4 && validationReport.ok) {
+  if (practicalMatches >= 4 && concreteMatches >= 2 && validationReport.ok) {
+    // Réponse avec de vrais verbes d'action ET validation OK → score max
     practicalUsefulness = 5
-  } else if (practicalMatches >= 3) {
+  } else if (practicalMatches >= 4 && concreteMatches >= 1) {
+    // Bonne couverture mais 1 seul terme concret ou validation KO
     practicalUsefulness = 4
-  } else if (practicalMatches >= 2) {
+  } else if (practicalMatches >= 3) {
     practicalUsefulness = 3
-  } else if (practicalMatches >= 1) {
+  } else if (practicalMatches >= 2) {
     practicalUsefulness = 2
+  } else if (practicalMatches >= 1) {
+    practicalUsefulness = 1.5
+    comments.push("Utilité pratique : peu de termes de conduite détectés")
   } else if (answer.length > 200) {
     practicalUsefulness = 1
-    comments.push("Utilité pratique : réponse longue mais peu d'éléments de conduite détectés")
+    comments.push("Utilité pratique : réponse longue mais sans conduite pratique détectable")
   } else {
     practicalUsefulness = 0
     comments.push('Utilité pratique : réponse trop courte ou sans conduite pratique')
+  }
+
+  if (concreteMatches === 0 && practicalMatches >= 3) {
+    comments.push("Utilité pratique : termes généraux présents mais aucun verbe d'action concret (contacter, restituer, alerter…)")
   }
 
   // ── safety /5 ───────────────────────────────────────────────────────────────
