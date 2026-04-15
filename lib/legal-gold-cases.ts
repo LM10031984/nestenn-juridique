@@ -12,6 +12,12 @@ export type GoldBenchmarkCase = {
   keyAuthorities: string[]       // références légales pivot (concept-level, pas numéros bruts)
   practicalExpectation: string[] // éléments de conduite pratique attendus
   comments: string[]
+  /** Autorités qui pénalisent l'authorityScore si citées dans un mauvais contexte */
+  wrongAuthorityContexts?: Array<{
+    authority: string    // numéro ou concept à détecter dans la réponse
+    contexts: string[]   // mots-clés qui signalent le mauvais usage
+    penalty: number      // pénalité sur authorityScore (0-5)
+  }>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,9 +84,9 @@ const GOLD_Q2: GoldBenchmarkCase = {
     'mandataire du bailleur',
   ],
   practicalExpectation: [
-    'restituer dans les délais',
-    'preuves complémentaires',
-    'conseiller le propriétaire',
+    'alerter le bailleur par écrit',
+    'risque contentieux',
+    'restituer dans les délais légaux',
   ],
   comments: [
     "Q2 : agence = mandataire, pas décideure finale",
@@ -116,13 +122,20 @@ const GOLD_Q3: GoldBenchmarkCase = {
   ],
   practicalExpectation: [
     'contacter le SPANC',
-    'travaux de mise en conformité',
+    'rapport écrit',
     'contexte de vente',
   ],
   comments: [
     "Q3 : le voisin n'a aucun pouvoir direct — dénonciation ≠ sanction automatique",
     "Distinction dénonciation vs contrôle SPANC = enjeu principal",
     "Risque sanitaire avéré peut accélérer les délais de mise en conformité",
+  ],
+  wrongAuthorityContexts: [
+    {
+      authority: 'L271-1',
+      contexts: ['spanc', 'assainissement', 'fosse septique', 'contrôle'],
+      penalty: 2.5,
+    },
   ],
 }
 
