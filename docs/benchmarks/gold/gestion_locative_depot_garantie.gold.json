@@ -1,0 +1,31 @@
+{
+  "id": "Q2",
+  "playbookId": "gestion_locative_depot_garantie",
+  "question": "Le propriétaire me demande de retenir une partie du dépôt de garantie pour des dégradations, mais l'état des lieux de sortie est incomplet. Que peut faire l'agence de gestion ?",
+  "mustInclude": [
+    "charge de la preuve",
+    "état des lieux incomplet",
+    "délai de restitution",
+    "rôle de l'agence",
+    "justification des retenues"
+  ],
+  "mustAvoid": [
+    "toute retenue est illégale",
+    "agence doit toujours restituer immédiatement"
+  ],
+  "keyAuthorities": [
+    "loi de 1989",
+    "présomption de dégradation",
+    "mandataire du bailleur"
+  ],
+  "practicalExpectation": [
+    "restituer dans les délais",
+    "preuves complémentaires",
+    "conseiller le propriétaire"
+  ],
+  "comments": [
+    "Q2 : agence = mandataire, pas décideure finale",
+    "État des lieux incomplet affaiblit mais n'invalide pas automatiquement toute retenue",
+    "Délai légal de restitution (1 mois sans EDL; 2 mois avec EDL) est pivot"
+  ]
+}

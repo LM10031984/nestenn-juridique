@@ -1,0 +1,32 @@
+{
+  "id": "Q1",
+  "playbookId": "vente_offre_contre_signee",
+  "question": "Une offre d'achat contresignée par le vendeur oblige-t-elle l'acquéreur à acheter ?",
+  "mustInclude": [
+    "compromis de vente",
+    "délai de rétractation",
+    "exécution forcée",
+    "conditions suspensives",
+    "action en justice"
+  ],
+  "mustAvoid": [
+    "l'acquéreur est forcément tenu",
+    "vente est définitivement parfaite",
+    "exécution forcée automatique"
+  ],
+  "keyAuthorities": [
+    "code civil",
+    "droit de rétractation",
+    "contrat synallagmatique"
+  ],
+  "practicalExpectation": [
+    "consulter un notaire",
+    "vérifier la rédaction",
+    "prêt immobilier"
+  ],
+  "comments": [
+    "Q1 : enjeu = distinction offre simple vs compromis",
+    "Délai de rétractation SRU (L271-1) pivot pratique clé",
+    "Erreur principale : affirmer que l'acquéreur est forcément lié"
+  ]
+}

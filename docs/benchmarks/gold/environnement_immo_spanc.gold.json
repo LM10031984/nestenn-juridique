@@ -1,0 +1,31 @@
+{
+  "id": "Q3",
+  "playbookId": "environnement_immo_spanc",
+  "question": "Que faire si ma fosse septique n'est pas aux normes et que mon voisin m'a dénoncé ?",
+  "mustInclude": [
+    "SPANC",
+    "dénonciation",
+    "mise en conformité",
+    "risque sanitaire",
+    "délai de mise en conformité"
+  ],
+  "mustAvoid": [
+    "dénonciation entraîne automatiquement sanction",
+    "commune imposera forcément travaux"
+  ],
+  "keyAuthorities": [
+    "code de la santé publique",
+    "assainissement non collectif",
+    "contrôle SPANC"
+  ],
+  "practicalExpectation": [
+    "contacter le SPANC",
+    "travaux de mise en conformité",
+    "contexte de vente"
+  ],
+  "comments": [
+    "Q3 : le voisin n'a aucun pouvoir direct — dénonciation ≠ sanction automatique",
+    "Distinction dénonciation vs contrôle SPANC = enjeu principal",
+    "Risque sanitaire avéré peut accélérer les délais de mise en conformité"
+  ]
+}
