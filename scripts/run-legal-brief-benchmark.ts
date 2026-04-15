@@ -1,10 +1,11 @@
 // scripts/run-legal-brief-benchmark.ts
 // Benchmark V2 — teste les 3 questions pilotes du moteur legal-brief
 // Usage :
-//   npx tsx scripts/run-legal-brief-benchmark.ts
-//   npx tsx scripts/run-legal-brief-benchmark.ts --json   → sortie JSON brute
+//   npx tsx scripts/run-legal-brief-benchmark.ts              → affichage lisible
+//   npx tsx scripts/run-legal-brief-benchmark.ts --json       → JSON sur stdout
+//   npx tsx scripts/run-legal-brief-benchmark.ts --save-json  → JSON sauvegardé dans un fichier
 
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -22,6 +23,8 @@ try {
 
 import { runLegalBriefOrchestrator } from '../lib/pipeline/legal-brief-orchestrator'
 import type { OrchestratorResult } from '../lib/pipeline/legal-brief-orchestrator'
+import { scoreAnswer } from '../lib/legal-benchmark-score'
+import type { BenchmarkScore } from '../lib/legal-benchmark-score'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Questions benchmark exactes
@@ -47,6 +50,22 @@ const BENCHMARK_QUESTIONS = [
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Type de sortie JSON stable
+// ─────────────────────────────────────────────────────────────────────────────
+
+type BenchmarkEntry = {
+  questionId: string
+  playbookId: string | null
+  precisionBudget: string | null
+  legalBrief: unknown | null
+  initialAnswer: string | null
+  finalAnswer: string | null
+  validationReportInitial: unknown | null
+  validationReportFinal: unknown | null
+  benchmarkScore: BenchmarkScore | null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers d'affichage
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -66,11 +85,28 @@ function printSection(title: string) {
   console.log(hr('─'))
 }
 
+function printScore(score: BenchmarkScore) {
+  printSection('Score Benchmark /20')
+  console.log(`  Précision juridique   : ${score.legalAccuracy.toFixed(1)}/5`)
+  console.log(`  Nuances obligatoires  : ${score.mandatoryNuances.toFixed(1)}/5`)
+  console.log(`  Utilité pratique      : ${score.practicalUsefulness.toFixed(1)}/5`)
+  console.log(`  Sécurité              : ${score.safety.toFixed(1)}/5`)
+  console.log(`  ${hr('─', 35)}`)
+  const icon = score.total >= 16 ? '✅' : score.total >= 12 ? '🟡' : '🔴'
+  console.log(`  ${icon} TOTAL                 : ${score.total.toFixed(1)}/20`)
+  if (score.comments.length > 0) {
+    console.log('\n  Commentaires :')
+    for (const c of score.comments) {
+      console.log(`    - ${c}`)
+    }
+  }
+}
+
 function printResult(result: OrchestratorResult, questionId: string, question: string) {
   printHeader(`${questionId} — ${question.slice(0, 70)}...`)
 
   if (result.status === 'no_playbook_match') {
-    console.log(`\n  ❌ Aucun playbook matché`)
+    console.log('\n  ❌ Aucun playbook matché')
     console.log(`  Domaine détecté : ${result.domain ?? 'inconnu'}`)
     return
   }
@@ -83,7 +119,7 @@ function printResult(result: OrchestratorResult, questionId: string, question: s
   console.log(`  Durée : ${result.debugMetadata.durationMs}ms`)
 
   if (result.debugMetadata.errors.length > 0) {
-    console.log(`\n  ⚠️  Erreurs pipeline :`)
+    console.log('\n  ⚠️  Erreurs pipeline :')
     for (const err of result.debugMetadata.errors) {
       console.log(`     - ${err}`)
     }
@@ -92,7 +128,7 @@ function printResult(result: OrchestratorResult, questionId: string, question: s
   // Authority cards
   printSection('Authority Cards')
   if (result.legalBrief.authorityCards.length === 0) {
-    console.log('  (aucune carte d\'autorité résolue)')
+    console.log("  (aucune carte d'autorité résolue)")
   } else {
     for (const card of result.legalBrief.authorityCards) {
       const kind = card.kind === 'article' ? '📄' : '⚖️'
@@ -114,16 +150,38 @@ function printResult(result: OrchestratorResult, questionId: string, question: s
     }
   }
 
-  // Réponse générée
-  printSection('Réponse générée')
-  const answerLines = result.answer.split('\n')
+  // Réponse initiale (si retry)
+  if (result.retried) {
+    printSection('Réponse initiale (avant retry)')
+    const initialLines = result.initialAnswer.split('\n')
+    for (const line of initialLines) {
+      if (line.trim()) console.log(`  ${line}`)
+    }
+
+    printSection('Validation initiale')
+    const { ok: initOk, issues: initIssues } = result.validationReportInitial
+    console.log(`  Status : ${initOk ? '✅ OK' : '❌ Issues détectées'}`)
+    for (const issue of initIssues) {
+      const icon = issue.severity === 'high' ? '🔴' : issue.severity === 'medium' ? '🟡' : '🟢'
+      console.log(`  ${icon} [${issue.severity.toUpperCase()}] ${issue.code}`)
+      console.log(`     ${issue.message.slice(0, 150)}${issue.message.length > 150 ? '…' : ''}`)
+    }
+  }
+
+  // Réponse finale générée
+  printSection(result.retried ? 'Réponse finale (après retry)' : 'Réponse générée')
+  const answerLines = result.finalAnswer.split('\n')
   for (const line of answerLines) {
     if (line.trim()) console.log(`  ${line}`)
   }
 
-  // Rapport de validation
-  printSection('Validation Report')
-  const { ok, issues } = result.validationReport
+  // Retry info
+  printSection('Retry')
+  console.log(`  Retry déclenché : ${result.retried ? 'oui' : 'non'}`)
+
+  // Rapport de validation finale
+  printSection('Validation Report (finale)')
+  const { ok, issues } = result.validationReportFinal
   console.log(`  Status : ${ok ? '✅ OK' : '❌ Issues détectées'}`)
 
   if (issues.length === 0) {
@@ -143,7 +201,10 @@ function printResult(result: OrchestratorResult, questionId: string, question: s
 
 async function main() {
   const jsonOutput = process.argv.includes('--json')
+  const saveJson = process.argv.includes('--save-json')
+
   const results: Array<{ questionId: string; question: string; result: OrchestratorResult }> = []
+  const benchmarkEntries: BenchmarkEntry[] = []
 
   if (!jsonOutput) {
     console.log('\n🏛️  BENCHMARK LEGAL-BRIEF V2 — Nestenn Juridique')
@@ -156,8 +217,9 @@ async function main() {
       process.stdout.write(`\n⏳ ${benchmark.id} — traitement en cours…`)
     }
 
+    let result: OrchestratorResult
     try {
-      const result = await runLegalBriefOrchestrator(benchmark.question)
+      result = await runLegalBriefOrchestrator(benchmark.question)
       results.push({ questionId: benchmark.id, question: benchmark.question, result })
 
       if (!jsonOutput) {
@@ -169,17 +231,65 @@ async function main() {
       if (!jsonOutput) {
         process.stdout.write(` ❌ Erreur : ${errorMsg}\n`)
       }
+      result = { status: 'no_playbook_match', domain: null }
       results.push({
         questionId: benchmark.id,
         question: benchmark.question,
-        result: { status: 'no_playbook_match', domain: null },
+        result,
+      })
+    }
+
+    // Calcul du score si la question a été traitée
+    if (result.status === 'ok') {
+      const score = scoreAnswer(
+        benchmark.id,
+        result.finalAnswer,
+        result.validationReportFinal,
+        result.legalBrief
+      )
+
+      if (!jsonOutput) {
+        printScore(score)
+      }
+
+      benchmarkEntries.push({
+        questionId: benchmark.id,
+        playbookId: result.playbookId,
+        precisionBudget: result.precisionBudget,
+        legalBrief: result.legalBrief,
+        initialAnswer: result.initialAnswer,
+        finalAnswer: result.finalAnswer,
+        validationReportInitial: result.validationReportInitial,
+        validationReportFinal: result.validationReportFinal,
+        benchmarkScore: score,
+      })
+    } else {
+      benchmarkEntries.push({
+        questionId: benchmark.id,
+        playbookId: null,
+        precisionBudget: null,
+        legalBrief: null,
+        initialAnswer: null,
+        finalAnswer: null,
+        validationReportInitial: null,
+        validationReportFinal: null,
+        benchmarkScore: null,
       })
     }
   }
 
   if (jsonOutput) {
-    console.log(JSON.stringify(results, null, 2))
+    console.log(JSON.stringify(benchmarkEntries, null, 2))
     return
+  }
+
+  if (saveJson) {
+    const outPath = resolve(
+      __dirname,
+      `../benchmark-results-${new Date().toISOString().slice(0, 10)}.json`
+    )
+    writeFileSync(outPath, JSON.stringify(benchmarkEntries, null, 2), 'utf-8')
+    console.log(`\n  💾 JSON sauvegardé : ${outPath}`)
   }
 
   // Résumé final
@@ -187,18 +297,35 @@ async function main() {
   let matched = 0
   let validated = 0
   let totalDuration = 0
+  let totalScore = 0
+  let scoredCount = 0
+  let retriedCount = 0
 
   for (const { result } of results) {
     if (result.status === 'ok') {
       matched++
       if (result.validationReport.ok) validated++
       totalDuration += result.debugMetadata.durationMs
+      if (result.retried) retriedCount++
+    }
+  }
+
+  for (const entry of benchmarkEntries) {
+    if (entry.benchmarkScore) {
+      totalScore += entry.benchmarkScore.total
+      scoredCount++
     }
   }
 
   console.log(`\n  Playbooks matchés : ${matched}/${results.length}`)
-  console.log(`  Réponses validées : ${validated}/${matched}`)
-  console.log(`  Durée totale : ${totalDuration}ms (moyenne : ${Math.round(totalDuration / Math.max(matched, 1))}ms/question)`)
+  console.log(`  Réponses validées : ${validated}/${matched} (validation finale)`)
+  console.log(`  Retries déclenchés : ${retriedCount}/${matched}`)
+  if (scoredCount > 0) {
+    console.log(`  Score moyen : ${(totalScore / scoredCount).toFixed(1)}/20`)
+  }
+  console.log(
+    `  Durée totale : ${totalDuration}ms (moyenne : ${Math.round(totalDuration / Math.max(matched, 1))}ms/question)`
+  )
   console.log('')
 }
 
