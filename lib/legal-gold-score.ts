@@ -61,10 +61,30 @@ export function scoreAgainstGold(answer: string, gold: GoldBenchmarkCase): GoldS
   // authorityScore /5 — concept-level, équitable V1 (citations) et V2 (tags)
   const authTotal = gold.keyAuthorities.length
   const authFound = countMatches(norm, gold.keyAuthorities)
-  const authorityScore = authTotal > 0 ? clampHalf((authFound / authTotal) * 5) : 5
+  let authorityScore = authTotal > 0 ? clampHalf((authFound / authTotal) * 5) : 5
   if (authFound < authTotal) {
     const missing = gold.keyAuthorities.filter((a) => !containsKeywords(norm, a))
     comments.push(`Autorités conceptuelles manquantes : ${missing.join(', ')}`)
+  }
+
+  // wrongAuthorityContexts — pénalité si autorité mal employée
+  if (gold.wrongAuthorityContexts) {
+    for (const wac of gold.wrongAuthorityContexts) {
+      const authNorm = normalizeText(wac.authority)
+      const idx = norm.indexOf(authNorm)
+      if (idx === -1) continue
+
+      // Contexte ±250 chars autour de la citation
+      const ctx = norm.slice(Math.max(0, idx - 250), idx + authNorm.length + 250)
+      const contextFound = wac.contexts.some((c) => ctx.includes(normalizeText(c)))
+
+      if (contextFound) {
+        authorityScore = clampHalf(authorityScore - wac.penalty)
+        comments.push(
+          `Autorité mal employée : "${wac.authority}" cité en contexte incompatible (${wac.contexts.slice(0, 2).join('/')}) — portée incorrecte`
+        )
+      }
+    }
   }
 
   // practicalScore /5
