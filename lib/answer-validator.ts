@@ -8,6 +8,7 @@
 //   - pas de références à des tags inexistants
 
 import type { LegalBrief } from './legal-brief'
+import { AUTHORITY_SCOPE_CONSTRAINTS } from './authority-cards'
 
 export type ValidationIssue = {
   severity: 'low' | 'medium' | 'high'
@@ -48,6 +49,9 @@ export function validateAnswerAgainstBrief(
 
   // 5. Tags inexistants dans le brief
   issues.push(...checkNonExistentTags(answer, brief))
+
+  // 6. Autorités citées hors de leur portée connue
+  issues.push(...checkAuthorityScopeMismatch(answer, brief))
 
   const ok = !issues.some((i) => i.severity === 'high' || i.severity === 'medium')
 
@@ -315,6 +319,54 @@ function checkForbiddenAutomaticity(
 // ─────────────────────────────────────────────────────────────────────────────
 // Check 6 : Tags inexistants dans le brief
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 6 : Autorité citée hors de sa portée connue
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkAuthorityScopeMismatch(
+  answer: string,
+  brief: LegalBrief
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const answerLower = answer.toLowerCase()
+
+  // Articles légitimement dans le brief (exclure du check)
+  const legitimateArticleNums = new Set(
+    brief.authorityCards
+      .filter((c) => c.articleNum !== undefined)
+      .map((c) => c.articleNum!.toLowerCase())
+  )
+
+  for (const [artNum, constraint] of Object.entries(AUTHORITY_SCOPE_CONSTRAINTS)) {
+    const artNumLower = artNum.toLowerCase()
+
+    // Si l'article est légitimement dans le brief → pas de check scope
+    if (legitimateArticleNums.has(artNumLower)) continue
+
+    // Chercher la première occurrence du numéro d'article dans la réponse
+    const idx = answerLower.indexOf(artNumLower)
+    if (idx === -1) continue
+
+    // Contexte de ±300 caractères autour de la citation
+    const ctx = answerLower.slice(Math.max(0, idx - 300), idx + artNumLower.length + 300)
+
+    // Vérifier si un mot-clé de contexte interdit est présent dans ce périmètre
+    const forbiddenFound = constraint.forbiddenContextKeywords.find((kw) =>
+      ctx.includes(kw.toLowerCase())
+    )
+
+    if (forbiddenFound) {
+      issues.push({
+        severity: 'high',
+        code: 'AUTHORITY_SCOPE_MISMATCH',
+        message: `Article ${artNum} cité dans un contexte incompatible ("${forbiddenFound}") : ${constraint.reason}`,
+      })
+    }
+  }
+
+  return issues
+}
 
 function checkNonExistentTags(answer: string, brief: LegalBrief): ValidationIssue[] {
   const issues: ValidationIssue[] = []
