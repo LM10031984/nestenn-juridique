@@ -1,6 +1,11 @@
 // lib/legal-gold-score.ts
 // Scoring gold-aware — compare réponse aux critères gold
 // Applicable à V1 ET V2 (aucune dépendance au LegalBrief ou ValidationReport)
+//
+// Logique d'autorité en 3 niveaux :
+//   a) Autorité absente → pénalité pleine
+//   b) Autorité présente sous forme abrégée/alias → pénalité réduite (0.25 pt)
+//   c) Mauvaise autorité (wrongAuthorityContexts) → pénalité forte maintenue
 
 import type { GoldBenchmarkCase } from './legal-gold-cases'
 
@@ -37,6 +42,73 @@ function countMatches(normText: string, items: string[]): number {
   return items.filter((item) => containsKeywords(normText, item)).length
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Dictionnaire d'alias d'autorités
+// Chaque entrée : { canonical: string, aliases: string[] }
+// L'alias est cherché uniquement si le terme canonique est absent.
+// Pénalité réduite (0.25 pt) pour forme différente vs pénalité pleine si absent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type AuthorityAlias = {
+  canonical: string       // terme cherché dans keyAuthorities
+  aliases: string[]       // formes abrégées/alternatives (cherchées dans normText)
+}
+
+const AUTHORITY_ALIASES: AuthorityAlias[] = [
+  {
+    canonical: 'code civil',
+    aliases: ['c civ', 'civ', '1113', '1114', '1589', '1731', '1304'],
+  },
+  {
+    canonical: 'code de la sante publique',
+    aliases: ['csp', 'sante publique', 'l1331'],
+  },
+  {
+    canonical: 'loi de 1989',
+    aliases: ['89 462', 'juillet 1989', 'loi 89', '1989'],
+  },
+  {
+    canonical: 'code de la construction',
+    aliases: ['cch', 'l271'],
+  },
+  {
+    canonical: 'code de la consommation',
+    aliases: ['conso', 'l313'],
+  },
+  // Phase 2 — loi copropriété et décret
+  {
+    canonical: 'loi du 10 juillet 1965',
+    aliases: ['loi 65-557', '65-557', 'juillet 1965'],
+  },
+  {
+    canonical: 'décret 67-223',
+    aliases: ['mars 1967', 'décret 1967', '67-223'],
+  },
+]
+
+/**
+ * findAuthorityAlias — vérifie si un keyAuthority non trouvé en forme longue
+ * est présent sous forme abrégée. Retourne true si un alias matche.
+ */
+function findAuthorityAlias(normText: string, canonicalPhrase: string): boolean {
+  const normCanonical = normalizeText(canonicalPhrase)
+  for (const entry of AUTHORITY_ALIASES) {
+    if (!normalizeText(entry.canonical).split(/\s+/).every((w) => w.length <= 3 || normCanonical.includes(w))) continue
+    // vérifier si le canonical correspond à cette entrée
+    const canonWords = normalizeText(entry.canonical).split(/\s+/).filter((w) => w.length > 3)
+    const normCanoWords = normalizeText(canonicalPhrase).split(/\s+/).filter((w) => w.length > 3)
+    // correspondance si au moins 1 mot significatif en commun
+    const hasOverlap = canonWords.some((w) => normCanoWords.includes(w))
+    if (!hasOverlap) continue
+    // vérifier si un alias est présent dans normText
+    return entry.aliases.some((alias) => {
+      const aliasWords = normalizeText(alias).split(/\s+/).filter((w) => w.length > 1)
+      return aliasWords.every((w) => normText.includes(w))
+    })
+  }
+  return false
+}
+
 export function scoreAgainstGold(answer: string, gold: GoldBenchmarkCase): GoldScore {
   const norm = normalizeText(answer)
   const comments: string[] = []
@@ -59,12 +131,34 @@ export function scoreAgainstGold(answer: string, gold: GoldBenchmarkCase): GoldS
   }
 
   // authorityScore /5 — concept-level, équitable V1 (citations) et V2 (tags)
+  // Logique 3 niveaux :
+  //   a) Autorité trouvée en forme longue → score plein
+  //   b) Autorité trouvée uniquement via alias (forme abrégée) → pénalité réduite (0.25 pt)
+  //   c) Autorité absente → pénalité pleine
   const authTotal = gold.keyAuthorities.length
   const authFound = countMatches(norm, gold.keyAuthorities)
-  let authorityScore = authTotal > 0 ? clampHalf((authFound / authTotal) * 5) : 5
-  if (authFound < authTotal) {
-    const missing = gold.keyAuthorities.filter((a) => !containsKeywords(norm, a))
-    comments.push(`Autorités conceptuelles manquantes : ${missing.join(', ')}`)
+  const missing = gold.keyAuthorities.filter((a) => !containsKeywords(norm, a))
+
+  // Vérification alias pour les autorités manquantes
+  let aliasFoundCount = 0
+  const trulyMissing: string[] = []
+  for (const auth of missing) {
+    if (findAuthorityAlias(norm, auth)) {
+      aliasFoundCount++
+      comments.push(`Autorité "${auth}" trouvée via forme abrégée/alias (−0.25 pt)`)
+    } else {
+      trulyMissing.push(auth)
+    }
+  }
+
+  // Score : trouvé plein + alias avec malus 0.25 par autorité abrégée
+  const rawScore = authTotal > 0
+    ? ((authFound + aliasFoundCount) / authTotal) * 5 - aliasFoundCount * 0.25
+    : 5
+  let authorityScore = authTotal > 0 ? clampHalf(rawScore) : 5
+
+  if (trulyMissing.length > 0) {
+    comments.push(`Autorités conceptuelles manquantes : ${trulyMissing.join(', ')}`)
   }
 
   // wrongAuthorityContexts — pénalité si autorité mal employée

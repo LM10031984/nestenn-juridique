@@ -524,7 +524,39 @@ const DOMAIN_KEYWORDS: DomainEntry[] = [
   },
 
 
-  // ── 20. RGPD & données personnelles en agence ────────────────────────────────
+  // ── 20. Droit social immobilier ──────────────────────────────────────────────
+  //    Relations salariales dans les agences : négociateurs salariés, IDCC 1527,
+  //    rupture conventionnelle, licenciement. Distinct de agent_immobilier (mandat).
+  //    Termes très discriminants — jamais partagés avec d'autres domaines immo.
+  {
+    keywords: [
+      { term: 'IDCC 1527',                          weight: 2.0 },
+      { term: 'idcc 1527',                          weight: 2.0 },
+      { term: 'convention collective immobilier',   weight: 2.0 },
+      { term: 'convention collective national immobilier', weight: 2.0 },
+      { term: 'licenciement négociateur',           weight: 2.0 },
+      { term: 'licenciement negociateur',           weight: 2.0 },
+      { term: 'rupture conventionnelle agence',     weight: 2.0 },
+      { term: 'salarié agence immobilière',         weight: 2.0 },
+      { term: 'salarie agence immobiliere',         weight: 2.0 },
+      { term: 'négociateur salarié',                weight: 2.0 },
+      { term: 'negociateur salarie',                weight: 2.0 },
+      { term: 'négociateur salarié immobilier',     weight: 2.0 },
+      { term: 'commission salarié immobilier',      weight: 2.0 },
+      { term: 'préavis négociateur',                weight: 2.0 },
+      { term: 'preavis negociateur',                weight: 2.0 },
+      { term: 'contrat de travail agence',          weight: 1.5 },
+      { term: 'droit du travail agence immobilière', weight: 1.5 },
+      { term: 'droit du travail agence',            weight: 1.5 },
+      { term: 'indemnité licenciement négociateur', weight: 1.5 },
+      { term: 'clause de non-concurrence négociateur', weight: 1.5 },
+      { term: 'portage salarial immobilier',        weight: 1.5 },
+      { term: 'agent commercial immobilier',        weight: 1.0 },
+    ],
+    domain: { name: 'droit_social_immo' },
+  },
+
+  // ── 21. RGPD & données personnelles en agence ────────────────────────────────
   //    PRIORITÉ : surclasse agent_immobilier quand des signaux RGPD sont présents.
   //    "agence immobilière" (2.0) dans agent_immobilier est battu dès qu'un terme
   //    RGPD à 2.0 + un terme à 1.0 sont présents simultanément.

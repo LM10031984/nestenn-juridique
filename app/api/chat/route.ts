@@ -41,6 +41,11 @@ import { getDomainPolicy } from '@/lib/domain-policies'
 import { detectHighRiskClaims, softenHighRiskClaims } from '@/lib/high-risk-claims'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { FEATURES } from '@/lib/config'
+import { detectLegalPlaybook } from '@/lib/legal-playbooks'
+import { runLegalBriefOrchestrator } from '@/lib/pipeline/legal-brief-orchestrator'
+import { scoreAnswer } from '@/lib/legal-benchmark-score'
+import { shouldUseLegalV2, isV2EnabledPlaybook } from '@/lib/legal-v2-rollout'
 
 // ── Whitelist dynamique (cache 5 min) ──
 
@@ -175,6 +180,20 @@ export async function POST(req: NextRequest) {
   const isRelevant = await checkRelevance(correctedMessage)
   if (!isRelevant) {
     return streamTextResponse(REFUSAL_MESSAGE)
+  }
+
+  // ── Étape 1b : Routing V2 (legal-brief-orchestrator) ────────────────────────
+  // V2 actif  → tryV2Route retourne une Response SSE ou null (fallback V1).
+  // Shadow    → V2 tourne en arrière-plan via waitUntil(), V1 répond toujours.
+  // Sinon     → pipeline V1 complet ci-dessous.
+  if (FEATURES.V2_LEGAL_BRIEF_ENABLED) {
+    const v2Response = await tryV2Route(trimmedMessage)
+    if (v2Response) return v2Response
+  } else if (FEATURES.V2_SHADOW_ENABLED) {
+    const playbook = detectLegalPlaybook(trimmedMessage)
+    if (playbook && isV2EnabledPlaybook(playbook.id)) {
+      waitUntil(runV2Shadow(trimmedMessage))
+    }
   }
 
   // ── Étape 2 : Sources en parallèle (~200ms pgvector + ~1-2s Judilibre) ──
@@ -663,6 +682,134 @@ export async function POST(req: NextRequest) {
       { error: 'Erreur lors du traitement. Réessayez.' },
       { status: 500 },
     )
+  }
+}
+
+// ── V2 routing — tryV2Route ──────────────────────────────────────────────────
+// Tente de répondre via le moteur V2 (legal-brief-orchestrator).
+// Retourne une Response SSE si toutes les conditions de rollout sont remplies,
+// null sinon (fallback V1 automatique).
+//
+// Conditions de rollout (shouldUseLegalV2) :
+//   1. Feature flag global activé
+//   2. Playbook détecté ET dans la whitelist V2
+//   3. Orchestrateur status=ok
+//   4. Validation finale ok (aucune issue medium/high)
+//   5. Aucune erreur AUTHORITY_SCOPE_MISMATCH
+//   6. Pas de retry ayant échoué la validation
+
+async function tryV2Route(message: string): Promise<Response | null> {
+  // Détection playbook — déterministe, 0ms, pas de réseau
+  const playbook = detectLegalPlaybook(message)
+
+  // Pré-vérification whitelist avant d'appeler l'orchestrateur (évite un LLM call inutile)
+  if (!playbook || !isV2EnabledPlaybook(playbook.id)) {
+    console.info(`[v2-router] no_match reason=${playbook ? 'playbook_not_whitelisted' : 'no_playbook_match'} playbook=${playbook?.id ?? 'none'} — fallback V1`)
+    return null
+  }
+
+  console.info(`[v2-router] playbook_match=${playbook.id} — running orchestrator`)
+  const t0 = Date.now()
+
+  try {
+    const result = await runLegalBriefOrchestrator(message)
+    const durationMs = Date.now() - t0
+
+    const orchestratorOk = result.status === 'ok'
+    const vr = orchestratorOk ? result.validationReportFinal : { ok: false, issues: [] }
+    const hasAuthorityScopeMismatch = vr.issues.some((i) => i.code === 'AUTHORITY_SCOPE_MISMATCH')
+    const retried = orchestratorOk ? result.retried : false
+
+    const decision = shouldUseLegalV2({
+      featureEnabled: FEATURES.V2_LEGAL_BRIEF_ENABLED,
+      playbookId: orchestratorOk ? result.playbookId : playbook.id,
+      orchestratorOk,
+      validationOk: vr.ok,
+      hasAuthorityScopeMismatch,
+      retried,
+    })
+
+    // Log structuré systématique
+    console.info(
+      `[v2-router] playbook=${playbook.id} `
+      + `engine=${decision.useV2 ? 'v2' : 'v1'} `
+      + `reason=${decision.reason} `
+      + `validation=${vr.ok ? 'ok' : 'fail'} `
+      + `issues=${vr.issues.length} `
+      + `scope_mismatch=${hasAuthorityScopeMismatch} `
+      + `retried=${retried} `
+      + `duration=${durationMs}ms`
+    )
+
+    if (!decision.useV2) {
+      console.warn(`[v2-router] fallback_v1 reason=${decision.reason} playbook=${playbook.id}`)
+      return null
+    }
+
+    // À ce stade result.status === 'ok' est garanti par orchestratorOk
+    if (result.status !== 'ok') return null
+
+    // Score interne (déterministe, 0 LLM)
+    const score = scoreAnswer(result.playbookId, result.finalAnswer, vr, result.legalBrief)
+    console.info(
+      `[v2] score_interne=${score.total}/20 `
+      + `accuracy=${score.legalAccuracy} nuances=${score.mandatoryNuances} `
+      + `practical=${score.practicalUsefulness} safety=${score.safety}`
+    )
+
+    // Retour SSE — format identique à V1 pour compatibilité client
+    const sse = `data: ${JSON.stringify({
+      choices: [{ delta: { content: result.finalAnswer }, finish_reason: 'stop' }],
+    })}\n\ndata: [DONE]\n\n`
+
+    return new Response(sse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        // Headers de routage (lisibles côté client / proxy / logs)
+        'X-Legal-Engine': 'v2',
+        'X-Legal-Playbook': result.playbookId,
+        'X-Legal-Fallback-Reason': '',
+        'X-Legal-Retried': String(result.retried),
+        // Headers V2 détaillés (backward compat + debug staging)
+        'X-V2-Budget': result.precisionBudget,
+        'X-V2-Validation': vr.ok ? 'ok' : 'fail',
+        'X-V2-Score': String(score.total),
+      },
+    })
+  } catch (err) {
+    console.error('[v2-router] erreur orchestrateur — fallback V1:', err)
+    return null
+  }
+}
+
+// ── Shadow mode — runV2Shadow ─────────────────────────────────────────────────
+// Exécute V2 en arrière-plan via waitUntil() quand ENABLE_V2_SHADOW=true.
+// La réponse V1 est déjà renvoyée ; ce bloc logge le score V2 pour comparaison.
+// Ne jamais awaiter directement — doit être passé à waitUntil().
+
+async function runV2Shadow(message: string): Promise<void> {
+  try {
+    const result = await runLegalBriefOrchestrator(message)
+    if (result.status !== 'ok') {
+      console.info(`[v2-shadow] no_match`)
+      return
+    }
+    const vr = result.validationReportFinal
+    const hasAuthorityScopeMismatch = vr.issues.some((i) => i.code === 'AUTHORITY_SCOPE_MISMATCH')
+    const score = scoreAnswer(result.playbookId, result.finalAnswer, vr, result.legalBrief)
+    console.info(
+      `[v2-shadow] playbook=${result.playbookId} `
+      + `validation=${vr.ok ? 'ok' : 'fail'} `
+      + `issues=${vr.issues.length} `
+      + `scope_mismatch=${hasAuthorityScopeMismatch} `
+      + `retried=${result.retried} `
+      + `score=${score.total}/20`
+    )
+  } catch (err) {
+    console.error('[v2-shadow] erreur:', err)
   }
 }
 

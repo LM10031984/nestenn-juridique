@@ -93,12 +93,16 @@ const KNOWN_ARTICLE_RULES: Record<string, Record<string, string>> = {
   'code de la construction et de l\'habitation': {
     'L271-1': "L'acquéreur non professionnel d'un immeuble à usage d'habitation bénéficie d'un délai de rétractation de 10 jours à compter de la notification ou remise de l'avant-contrat.",
     'L271-4': "L'avant-contrat de vente d'un immeuble à usage d'habitation doit être accompagné d'un dossier de diagnostic technique (DDT) comprenant notamment le DPE, l'état des risques et pollutions, et le constat amiante selon la date de construction.",
+    'L173-2': "À compter du 1er janvier 2025, tout logement dont le niveau de performance énergétique dépasse le seuil maximal de consommation (classe G, soit > 450 kWh/m²/an) ne peut plus faire l'objet d'un nouveau contrat de location à usage de résidence principale, ni d'un renouvellement ou d'une reconduction tacite de bail.",
   },
   'code de la consommation': {
     'L313-41': "L'obtention du ou des prêts est une condition suspensive de l'avant-contrat immobilier. Le non-obtention entraîne la caducité de la vente sans pénalité pour l'acquéreur.",
   },
   'loi 89-462': {
     '22': "Le dépôt de garantie doit être restitué dans un délai maximal de 1 ou 2 mois selon l'état des lieux de sortie, déduction faite des sommes justifiées retenues pour dégradations.",
+    '24': "En cas d'impayé de loyer, le bailleur doit faire délivrer par un commissaire de justice un commandement de payer. Si le locataire ne régularise pas dans un délai de 2 mois, le bailleur peut saisir le tribunal judiciaire pour faire constater la résiliation du bail par la clause résolutoire. Toute expulsion nécessite une décision de justice.",
+    '17': "Le logement loué doit répondre aux critères de décence, incluant depuis la loi Climat-Résilience un seuil de performance énergétique. Les logements classés G (> 450 kWh/m²/an) ne peuvent plus être loués à compter du 1er janvier 2025.",
+    '17-1': "Les logements dont le niveau de performance énergétique est classé F ou G ne peuvent pas faire l'objet d'une augmentation de loyer, ni en cours de bail, ni lors d'un renouvellement ou d'une nouvelle mise en location.",
   },
   'loi hoguet': {
     '6': "Le mandataire immobilier ne peut percevoir une rémunération qu'après avoir justifié avoir exécuté sa mission et obtenu une signature des parties.",
@@ -116,6 +120,13 @@ const KNOWN_ARTICLE_RULES: Record<string, Record<string, string>> = {
   },
   'décret 67-223': {
     '37': "Après exécution de travaux urgents, le syndic a l'obligation d'en informer l'assemblée générale des copropriétaires dans les meilleurs délais et de lui en rendre compte. À défaut, il engage sa responsabilité envers les copropriétaires.",
+  },
+  'code des procédures civiles d\'exécution': {
+    'L411-1': "Sauf disposition légale contraire, nul ne peut expulser une personne occupant un logement sans une décision de justice. L'expulsion forcée est réservée aux commissaires de justice mandatés à cet effet.",
+    'L412-6': "La trêve hivernale interdit l'exécution des mesures d'expulsion du 1er novembre au 31 mars de chaque année. Cette suspension s'applique même en cas de décision de justice définitive.",
+  },
+  'décret 72-678': {
+    '78': "Le mandat exclusif de vente ne peut être conclu pour une durée inférieure à 3 mois. Pendant cette période initiale incompressible, le mandant ne peut résilier unilatéralement le mandat. Passée cette période, le mandat peut être dénoncé par lettre recommandée avec avis de réception, moyennant un préavis de 15 jours avant chaque date d'échéance.",
   },
 }
 
@@ -135,12 +146,16 @@ const KNOWN_ARTICLE_SCOPES: Record<string, Record<string, string>> = {
   'code de la construction et de l\'habitation': {
     'L271-1': "Applicable uniquement aux biens immobiliers à usage d'habitation acquis par un non-professionnel. Ne s'applique pas aux ventes en état futur d'achèvement ni aux locaux professionnels.",
     'L271-4': "Applicable à toutes les ventes d'immeubles bâtis à usage d'habitation et à usage mixte. Le DDT doit être annexé à la promesse de vente ou à l'acte authentique si pas de promesse.",
+    'L173-2': "S'applique à tous les logements à usage de résidence principale, y compris les meublés. Vise les nouveaux baux, les renouvellements et les reconductions tacites — pas les baux en cours conclus avant 2025.",
   },
   'code de la consommation': {
     'L313-41': "S'applique aux avant-contrats de vente immobilière lorsqu'un crédit est nécessaire à l'acquéreur personne physique.",
   },
   'loi 89-462': {
     '22': 'Applicable aux baux d\'habitation régis par la loi du 6 juillet 1989. Le délai est de 1 mois si état des lieux de sortie conforme, 2 mois sinon.',
+    '24': "Applicable à tous les baux d'habitation soumis à la loi du 6 juillet 1989. La clause résolutoire doit être stipulée dans le bail. En l'absence de clause résolutoire, seule la résiliation judiciaire est possible.",
+    '17': "Applicable à tous les logements loués à usage de résidence principale. Le seuil de décence énergétique est progressif : classe G depuis 2025, classe F dès 2028, classe E dès 2034.",
+    '17-1': "Applicable depuis le 24 août 2022. Le gel vise toutes les augmentations de loyer (IRL, travaux d'amélioration, relocation) pour les logements F et G sur l'ensemble du territoire.",
   },
   'loi hoguet': {
     '6': 'Applicable aux professionnels de l\'immobilier (agents immobiliers, gestionnaires) titulaires d\'une carte professionnelle.',
@@ -159,6 +174,13 @@ const KNOWN_ARTICLE_SCOPES: Record<string, Record<string, string>> = {
   'décret 67-223': {
     '37': "Applicable dans toutes les copropriétés relevant de la loi du 10 juillet 1965. L'obligation d'information ne dispense pas le syndic de convoquer une assemblée générale extraordinaire si les travaux dépassent un certain montant ou ont un impact durable sur les parties communes.",
   },
+  'code des procédures civiles d\'exécution': {
+    'L411-1': "Applicable à toutes les expulsions : locataires, occupants sans titre, squatteurs — avec des procédures distinctes selon la qualité de l'occupant.",
+    'L412-6': "La trêve hivernale court du 1er novembre au 31 mars. Elle ne s'applique pas aux locaux commerciaux ni aux résidences secondaires. Certaines exceptions sont prévues pour les squatteurs et les relogements.",
+  },
+  'décret 72-678': {
+    '78': "Applicable à tous les mandats exclusifs conclus par des agents immobiliers titulaires d'une carte professionnelle T (transaction). Le mandat simple n'est pas soumis à la durée minimale de 3 mois.",
+  },
 }
 
 const KNOWN_ARTICLE_CAVEATS: Record<string, Record<string, string>> = {
@@ -171,6 +193,8 @@ const KNOWN_ARTICLE_CAVEATS: Record<string, Record<string, string>> = {
   },
   'loi 89-462': {
     '22': "Des retenues sur le dépôt sont possibles mais doivent être justifiées par des pièces probantes (état des lieux, devis, factures). Un état des lieux incomplet fragilise ces retenues.",
+    '24': "Le délai de 2 mois court à compter de la délivrance du commandement de payer. La CCAPEX est automatiquement alertée pour les locataires bénéficiaires d'aides au logement ou en situation de surendettement. Ce délai peut être suspendu par le juge.",
+    '17-1': "Le gel ne s'applique pas aux travaux de mise aux normes imposés par l'administration. Certaines exceptions existent pour les logements ayant fait l'objet d'une rénovation significative entre deux baux.",
   },
   'code civil': {
     '1641': "Le vendeur professionnel est présumé connaître les vices — la clause d'exclusion de garantie est sans effet contre lui. Pour le vendeur non professionnel, la clause est valable sauf mauvaise foi prouvée.",
@@ -184,6 +208,13 @@ const KNOWN_ARTICLE_CAVEATS: Record<string, Record<string, string>> = {
   },
   'loi 70-9': {
     '6': "Le devoir d'information de l'agent porte sur les éléments qu'il connaissait ou aurait dû connaître dans l'exercice de sa mission. Il ne s'étend pas aux vices que l'agent ne pouvait pas détecter sans expertise spécifique.",
+  },
+  'code des procédures civiles d\'exécution': {
+    'L411-1': "La voie de fait (expulsion par ses propres moyens : changement de serrures, coupure des fluides) est constitutive d'une infraction pénale. La sanction est lourde pour le bailleur.",
+    'L412-6': "La trêve hivernale ne s'applique pas à certaines situations : squatteurs (non-titulaires d'un bail), personnes relogées dans un logement décent, occupants condamnés pour violences.",
+  },
+  'décret 72-678': {
+    '78': "Le délai de 15 jours se calcule avant la date d'échéance, pas avant la date de fin de reconduction. La lettre recommandée doit être reçue (avis de réception signé) avant l'expiration du délai — anticiper les délais postaux.",
   },
 }
 

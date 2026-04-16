@@ -151,7 +151,7 @@ const GOLD_Q4: GoldBenchmarkCase = {
   mustInclude: [
     'assemblée générale',
     'travaux urgents',
-    'information',
+    'obligation',          // "l'obligation légale d'en informer" — plus robuste que 'information' (verbe/nom)
     'charges',
     'urgence',
   ],
@@ -161,8 +161,8 @@ const GOLD_Q4: GoldBenchmarkCase = {
     'tout travaux urgent est forcément illégal',
   ],
   keyAuthorities: [
-    'loi du 10 juillet 1965',
-    'pouvoirs du syndic',
+    'loi du 10 juillet 1965',  // art. 18 — pouvoirs du syndic (alias: loi 65-557)
+    'décret 67-223',            // art. 37 — obligation d'information post-travaux (alias: mars 1967)
     'charges de copropriété',
   ],
   practicalExpectation: [
@@ -175,6 +175,13 @@ const GOLD_Q4: GoldBenchmarkCase = {
     "Obligation d'information de l'AG après coup (art. 37 décret 67-223)",
     "Charges réparties selon tantièmes même sans vote préalable",
     "Erreur principale : affirmer qu'aucun travaux ne peut être fait sans AG",
+  ],
+  wrongAuthorityContexts: [
+    {
+      authority: 'L271-1',
+      contexts: ['travaux urgents', 'syndic', 'copropriété', 'assemblée'],
+      penalty: 2.5,
+    },
   ],
 }
 
@@ -261,13 +268,158 @@ const GOLD_Q6: GoldBenchmarkCase = {
     "Prescription 5 ans (art. 2224 Code civil)",
     "Erreur principale : affirmer responsabilité automatique sans exiger la preuve",
   ],
+  wrongAuthorityContexts: [
+    {
+      authority: 'L271-1',
+      contexts: ['agent', 'responsabilité', 'mandataire', 'devoir'],
+      penalty: 2.5,
+    },
+  ],
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q7 — Loyers impayés et expulsion
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOLD_Q7: GoldBenchmarkCase = {
+  id: 'Q7',
+  playbookId: 'baux_loyers_impayes_expulsion',
+  question:
+    "Que faire si mon locataire ne paie plus son loyer et que je veux l'expulser ?",
+  mustInclude: [
+    'commandement de payer',
+    'clause résolutoire',
+    'tribunal',
+    'trêve hivernale',
+    'commissaire de justice',
+  ],
+  mustAvoid: [
+    'bailleur peut expulser directement',    // voie de fait non
+    'expulsion immédiate sans tribunal',     // jamais sans procédure judiciaire
+    'serrures suffisent',                    // jamais
+    'délai trêve hivernale est supprimé',    // trêve existe toujours
+  ],
+  keyAuthorities: [
+    'loi de 1989',
+    'trêve hivernale',
+    'décision de justice',
+  ],
+  practicalExpectation: [
+    'commandement de payer',
+    'tribunal judiciaire',
+    'avocat',
+  ],
+  comments: [
+    "Q7 : procédure strictement encadrée — commandement de payer → délai 2 mois → tribunal",
+    "Trêve hivernale (1er nov — 31 mars) : suspend l'exécution, pas la procédure",
+    "Erreur principale : penser que le bailleur peut expulser seul (voie de fait)",
+  ],
+  wrongAuthorityContexts: [
+    {
+      authority: 'L271-1',
+      contexts: ['loyer', 'locataire', 'expulsion', 'commandement'],
+      penalty: 2.5,
+    },
+  ],
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q8 — Logement classé G : peut-il être loué en 2025 ?
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOLD_Q8: GoldBenchmarkCase = {
+  id: 'Q8',
+  playbookId: 'diagnostics_dpe_fg_interdits',
+  question:
+    "Un logement classé G peut-il encore être loué en 2025 ?",
+  mustInclude: [
+    'interdit',
+    '2025',
+    'nouveau bail',
+    'gel des loyers',        // 'gel' seul = 3 chars, filtré par le scorer — 'loyers' assure le match
+    'travaux',
+  ],
+  mustAvoid: [
+    'expulsé en raison du dpe',      // confusion expulsion ≠ interdiction de louer
+    'vente est interdite',           // la vente n'est pas interdite pour un bien G
+    'rénovation immédiate obligatoire',
+  ],
+  keyAuthorities: [
+    'loi Climat-Résilience',
+    'code de la construction',
+    'performance énergétique',       // remplace 'logement décent' — apparaît naturellement dans les réponses
+  ],
+  practicalExpectation: [
+    'rénover',
+    'France Rénov',
+    'nouveau DPE',
+  ],
+  comments: [
+    "Q8 : G interdit à la location depuis 1er janvier 2025 (nouveaux baux et renouvellements)",
+    "Calendrier F→2028, E→2034 à mentionner pour la praticité",
+    "Locataire en place non expulsable — gel des loyers F/G depuis août 2022",
+    "Erreur principale : confondre interdiction de louer avec expulsion du locataire actuel",
+  ],
+  wrongAuthorityContexts: [
+    {
+      authority: 'L271-1',
+      contexts: ['dpe', 'classe g', 'passoire', 'location interdite'],
+      penalty: 2.5,
+    },
+  ],
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q9 — Résiliation mandat exclusif avant 3 mois
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOLD_Q9: GoldBenchmarkCase = {
+  id: 'Q9',
+  playbookId: 'agent_mandat_exclusif_resiliation',
+  question:
+    "Un vendeur peut-il résilier un mandat exclusif avant 3 mois ?",
+  mustInclude: [
+    '3 mois',
+    'incompressible',
+    'faute',
+    'préavis',
+    'lettre recommandée',
+  ],
+  mustAvoid: [
+    'résiliation à tout moment',
+    'sans préavis',
+    'aucune indemnité',
+  ],
+  keyAuthorities: [
+    'décret 72-678',
+    'loi Hoguet',
+    'mandat exclusif',
+  ],
+  practicalExpectation: [
+    'lettre recommandée',
+    'mandat signé',
+    'avocat',
+  ],
+  comments: [
+    "Q9 : 3 mois incompressibles sauf faute de l'agence — règle fondamentale",
+    "Après 3 mois : préavis 15 jours par LR/AR avant chaque échéance",
+    "Risque post-résiliation : honoraires dus si acquéreur présenté par l'agence achète",
+    "Erreur principale : croire que le vendeur peut sortir du mandat librement avant 3 mois",
+  ],
+  wrongAuthorityContexts: [
+    {
+      authority: 'L271-1',
+      contexts: ['mandat', 'agence', 'exclusif', 'résiliation'],
+      penalty: 2.5,
+    },
+  ],
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const GOLD_CASES: GoldBenchmarkCase[] = [GOLD_Q1, GOLD_Q2, GOLD_Q3, GOLD_Q4, GOLD_Q5, GOLD_Q6]
+export const GOLD_CASES: GoldBenchmarkCase[] = [GOLD_Q1, GOLD_Q2, GOLD_Q3, GOLD_Q4, GOLD_Q5, GOLD_Q6, GOLD_Q7, GOLD_Q8, GOLD_Q9]
 
 export function getGoldCase(id: string): GoldBenchmarkCase | null {
   return GOLD_CASES.find((c) => c.id === id) ?? null

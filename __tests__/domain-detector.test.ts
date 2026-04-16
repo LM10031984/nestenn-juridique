@@ -261,6 +261,57 @@ describe('matchesKeyword — word boundary sur termes courts', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// droit_social_immo — détection IDCC 1527 + licenciement négociateur
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectDomains — droit_social_immo (Phase 3)', () => {
+
+  it('IDCC 1527 → droit_social_immo', () => {
+    const res = detectDomains('Quelle est la convention collective applicable ? Mon agence relève de l\'IDCC 1527.')
+    expect(res[0]).toBe('droit_social_immo')
+  })
+
+  it('licenciement négociateur salarié → droit_social_immo', () => {
+    // "licenciement négociateur" (2.0) + "négociateur salarié" (2.0) → score 4.0 droit_social_immo
+    // vs "agent_immobilier" qui ne matche rien de spécifique ici
+    const res = detectDomains('Le licenciement négociateur salarié dans mon cabinet : quelles sont les règles de préavis selon la convention collective immobilier ?')
+    expect(res[0]).toBe('droit_social_immo')
+  })
+
+  it('rupture conventionnelle agence → droit_social_immo', () => {
+    const res = detectDomains('Je souhaite faire une rupture conventionnelle agence. Quels sont mes droits ?')
+    expect(res[0]).toBe('droit_social_immo')
+  })
+
+  it('négociateur salarié immobilier → droit_social_immo', () => {
+    const res = detectDomains('Le négociateur salarié immobilier a-t-il droit à des commissions en cas de licenciement ?')
+    expect(res[0]).toBe('droit_social_immo')
+  })
+
+  it('convention collective immobilier → droit_social_immo', () => {
+    const res = detectDomains('La convention collective immobilier prévoit-elle un préavis spécifique pour les négociateurs ?')
+    expect(res[0]).toBe('droit_social_immo')
+  })
+
+  it('agent immobilier seul → agent_immobilier (non droit_social_immo)', () => {
+    // La présence de "agent immobilier" sans signaux droit social → domaine métier, pas social
+    const res = detectDomains('L\'agent immobilier a réclamé ses honoraires après la vente.')
+    expect(res[0]).toBe('agent_immobilier')
+    expect(res).not.toContain('droit_social_immo')
+  })
+
+  it('négociateur immobilier + mandat (sans signal salarié) → agent_immobilier', () => {
+    // "négociateur immobilier" existe dans agent_immobilier (weight 1.5)
+    // Sans signal salarié explicite → ne doit PAS déclencher droit_social_immo seul
+    const res = detectDomains('Le négociateur immobilier de l\'agence est-il soumis à la loi Hoguet ?')
+    // Accepter agent_immobilier OU droit_social_immo — dépend du score
+    // Mais droit_social_immo NE DOIT PAS surclasser agent_immobilier ici
+    expect(res[0]).toBe('agent_immobilier')
+  })
+
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Sprint 1 — nouveaux domaines ajoutés au détecteur
 // ─────────────────────────────────────────────────────────────────────────────
 

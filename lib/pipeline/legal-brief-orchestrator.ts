@@ -14,6 +14,7 @@ import { buildLegalBrief } from '../legal-brief'
 import { validateAnswerAgainstBrief } from '../answer-validator'
 import { openRouterChat } from '../openrouter'
 import { getDomainPolicy } from '../domain-policies'
+import { expandAuthorityCitations } from '../authority-normalizer'
 
 import type { LegalBrief } from '../legal-brief'
 import type { ValidationReport } from '../answer-validator'
@@ -162,6 +163,10 @@ export async function runLegalBriefOrchestrator(
     errors.push(`LLM call failed: ${err instanceof Error ? err.message : String(err)}`)
     answer = '[Erreur : impossible de générer la réponse.]'
   }
+
+  // ── Étape 8b : Normalisation canonique des abréviations d'autorités ──────────
+  // "C. civ." → "Code civil", "CSP" → "Code de la santé publique", etc.
+  answer = expandAuthorityCitations(answer)
 
   // ── Étape 9 : Validation initiale ────────────────────────────────────────────
   const validationReportInitial = validateAnswerAgainstBrief(answer, legalBrief)
@@ -376,6 +381,7 @@ export async function runRetryStep(
       model,
       maxTokens
     )
+    retryAnswer = expandAuthorityCitations(retryAnswer)
   } catch (err) {
     // Retry LLM échoué → on retourne la réponse initiale avec la validation initiale
     return { answer: initialAnswer, validationReport, retried: true }

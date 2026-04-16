@@ -35,7 +35,7 @@ Il est conseillé de vérifier la rédaction du document.
 // ─── chargement des cas gold ───────────────────────────────────────────────
 
 describe('GOLD_CASES — chargement', () => {
-  it('retourne 6 cas (3 Phase 1 + 3 Phase 2)', () => { expect(GOLD_CASES).toHaveLength(6) })
+  it('retourne 9 cas (3 Phase 1 + 3 Phase 2 + 3 Phase 3)', () => { expect(GOLD_CASES).toHaveLength(9) })
 
   it('Q1 → vente_offre_contre_signee', () => {
     expect(getGoldCase('Q1')?.playbookId).toBe('vente_offre_contre_signee')

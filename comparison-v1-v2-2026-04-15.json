@@ -1,0 +1,99 @@
+[
+  {
+    "questionId": "Q1",
+    "question": "Une offre d'achat contresignée par le vendeur oblige-t-elle l'acquéreur à acheter ?",
+    "v1Answer": null,
+    "v2Answer": "**Une offre d’achat contresignée par le vendeur engage-t-elle l’acquéreur à acheter ?**\nLa réponse dépend de la qualification juridique du document et des conditions qui y sont attachées. Voici une analyse prudente, fondée uniquement sur les éléments du brief fourni.\n\n---\n\n### **1. Qualification du document : offre contresignée ou compromis ?**\nUne offre d’achat *contresignée par le vendeur* peut, selon sa rédaction, relever de deux régimes distincts :\n- **Offre de contracter (art. 1114 [A2])** : Si le document se limite à une proposition d’achat acceptée par le vendeur *sans formaliser un accord complet* (prix, désignation du bien, conditions suspensives, etc.), il s’agit d’une simple rencontre des volontés au sens de l’**art. 1113 [A1]**. L’engagement n’est alors pas encore définitif, car le contrat n’est formé que lorsque toutes les conditions sont réunies.\n- **Promesse synallagmatique de vente (compromis) ou promesse unilatérale** : Si le document contient tous les éléments essentiels de la vente (prix, bien, conditions suspensives) et est signé par les deux parties, il peut être qualifié de **promesse synallagmatique**, assimilable à une vente parfaite sous conditions (art. 1589 [A3] : *\"La promesse de vente vaut vente\"*).\n\n**Problème** : Le brief ne précise pas la nature exacte du document (offre simple ou compromis). Cette qualification est *indispensable* pour déterminer l’étendue de l’engagement. Par exemple, une offre contresignée sans mention des conditions suspensives (prêt, urbanisme) ne lie pas automatiquement l’acquéreur.\n\n---\n\n### **2. Impact des conditions suspensives**\nMême si le document est qualifié de promesse synallagmatique, l’engagement de l’acquéreur reste *conditionnel* si des clauses suspensives sont prévues. Par exemple :\n- **Condition suspensive d’obtention de prêt** (art. L313-41 Code de la consommation, non cité dans le brief mais courante en pratique) : Si l’acquéreur ne obtient pas son financement, la vente est caduque *sans pénalité*. La jurisprudence confirme que cette condition peut être invoquée même si elle n’est pas reprise dans l’ordonnance du juge-commissaire ([J3]).\n- **Autres conditions** (urbanisme, diagnostic, etc.) : Leur non-réalisation libère l’acquéreur.\n\n**Limite du brief** : L’existence ou non de conditions suspensives dans le document n’est pas précisée. Sans cette information, il est impossible d’affirmer que l’acquéreur est *obligé* d’acheter.\n\n---\n\n### **3. Droit de rétractation de l’acquéreur (art. L271-1 Code de la construction et de l'habitation)**\nSi le bien est à usage d’habitation et que l’acquéreur est un *non-professionnel*, il bénéficie d’un **délai de rétractation de 10 jours** à compter de la réception du document (art. L271-1 Code de la construction et de l’habitation, non cité dans le brief mais applicable en pratique). Ce droit s’applique *même si le document est un compromis signé*. Pendant ce délai, l’acquéreur peut se rétracter *sans motif ni pénalité*.\n\n**Limite du brief** : La nature du bien (habitation ou professionnel) n’est pas confirmée. Si le bien est à usage d’habitation, ce droit de rétractation est un rempart majeur contre l’engagement automatique.\n\n---\n\n### **4. Exécution forcée : une possibilité théorique, rarement automatique**\nEn théorie, si le document est une promesse synallagmatique *sans condition suspensive* et que le délai de rétractation est expiré, l’**art. 1589 [A3]** (\"la promesse de vente vaut vente\") permet d’envisager une exécution forcée. Cependant :\n- **En pratique**, les juges privilégient les dommages-intérêts plutôt que l’exécution forcée (voir [J2], où la Cour de cassation rappelle que la réparation du préjudice doit être *intégrale*, mais n’impose pas la vente forcée).\n- **Action en justice obligatoire** : L’exécution forcée nécessite une procédure judiciaire, coûteuse et longue. Elle n’est pas automatique.\n\n**Assertion interdite** : *\"L’exécution forcée est automatique\"* (cf. contraintes du brief). La réalité est plus nuancée.\n\n---\n\n### **5. Recommandations pratiques**\n1. **Qualifier le document** : Consulter un notaire ou un avocat pour déterminer s’il s’agit d’une offre simple, d’une promesse synallagmatique, ou d’un compromis. Cette étape est *cruciale*.\n2. **Vérifier les conditions suspensives** : Si le document en prévoit (prêt, urbanisme), leur non-réalisation libère l’acquéreur.\n3. **Délai de rétractation** : Si le bien est à usage d’habitation, vérifier que le délai de 10 jours (art. L271-1 Code de la construction et de l'habitation) est expiré.\n4. **Prudence sur les sanctions** : Aucune sanction automatique n’est prévue par les textes cités. Les dommages-intérêts sont possibles, mais leur montant dépend des circonstances (voir [J2]).\n\n---\n\n### **Conclusion prudente**\nUne offre d’achat contresignée par le vendeur *peut* engager l’acquéreur, **mais uniquement si** :\n- Le document est qualifié de *promesse synallagmatique* (compromis) et non d’une simple offre.\n- Aucune condition suspensive ne s’applique (ou elles sont toutes réalisées).\n- Le délai de rétractation de 10 jours (pour les biens à usage d’habitation) est expiré.\n\n**En l’absence de ces précisions**, il est impossible d’affirmer que l’acquéreur est *obligé* d’acheter. L’engagement n’est jamais automatique : il dépend de la rédaction du document, des conditions suspensives, et du contexte juridique (droit de rétractation, exécution forcée non garantie).\n\n**Prochaine étape** : Faire analyser le document par un professionnel pour en déterminer la qualification exacte.",
+    "v1ScoreInternal": null,
+    "v2ScoreInternal": {
+      "legalAccuracy": 5,
+      "mandatoryNuances": 5,
+      "practicalUsefulness": 4,
+      "safety": 5,
+      "total": 19,
+      "comments": [
+        "Score Q1 : 19/20"
+      ]
+    },
+    "v1ScoreGold": null,
+    "v2ScoreGold": {
+      "mustIncludeScore": 5,
+      "mustAvoidScore": 5,
+      "authorityScore": 5,
+      "practicalScore": 3.5,
+      "total": 18.5,
+      "comments": [
+        "Autorité \"code civil\" trouvée via forme abrégée/alias (−0.25 pt)",
+        "Conduites pratiques manquantes : prêt immobilier"
+      ]
+    },
+    "winner": null,
+    "notes": [
+      "V1 inaccessible — lancer npm run dev"
+    ]
+  },
+  {
+    "questionId": "Q2",
+    "question": "Le propriétaire me demande de retenir une partie du dépôt de garantie pour des dégradations, mais l'état des lieux de sortie est incomplet. Que peut faire l'agence de gestion ?",
+    "v1Answer": null,
+    "v2Answer": "**Réponse structurée pour l’agence de gestion locative**\n\n### 1. **Alerte immédiate du bailleur sur les risques juridiques**\nDès réception de la demande de retenue sur le dépôt de garantie, l’agence doit **informer par écrit le bailleur** des conséquences d’un état des lieux incomplet. Selon **[A2] (Art. 1731 Code civil)**, le locataire bénéficie d’une **présomption de bon état** du logement à son départ : en l’absence de preuve contraire (état des lieux contradictoire et détaillé), le bailleur supporte la charge de prouver les dégradations. Un état des lieux incomplet affaiblit considérablement cette preuve, exposant le bailleur à un **risque contentieux élevé** (condamnation à restituer le dépôt majoré, voire à des dommages-intérêts).\n\n*Limite du brief* : L’étendue de l’incomplétude (ex. : absence de descriptions précises, signatures manquantes) n’est pas précisée. Si l’état des lieux est **totalement inexistant**, la présomption de l’Art. 1731 Code civil s’applique pleinement. S’il est **partiellement incomplet**, des éléments complémentaires (photos datées, témoignages, devis) pourraient atténuer la fragilité probatoire, mais sans garantie.\n\n---\n\n### 2. **Rôle de l’agence : conseil et exécution du mandat, pas décision**\nL’agence agit en tant que **mandataire** du bailleur. Ses obligations sont encadrées par **[A3] (Art. 6 loi Hoguet)** : elle doit **conseiller** le bailleur sur les risques et **exécuter ses instructions**, mais **ne peut pas décider seule** de retenir le dépôt. Deux scénarios se présentent :\n\n- **Si le bailleur maintient sa demande malgré l’alerte** :\n  L’agence doit **refuser d’agir en dehors du mandat** et lui remettre un écrit récapitulant :\n  - L’état du dossier (incomplétude de l’état des lieux, absence de justificatifs exploitables).\n  - Les risques encourus (condamnation à restituer le dépôt + majoration de 10 % par mois de retard, cf. **[A1] (Art. 22 loi du 6 juillet 1989)**).\n  - L’impossibilité pour l’agence de retenir le dépôt sans preuve solide.\n\n- **Si le bailleur renonce à la retenue** :\n  L’agence doit **restituer le dépôt dans les délais légaux** (1 mois si l’état des lieux de sortie est conforme à l’entrée, 2 mois en cas de désaccord, cf. **[A1]**). Tout retard expose le bailleur à la majoration précitée.\n\n---\n\n### 3. **Preuves complémentaires : utilité limitée, mais à explorer**\nUn état des lieux incomplet n’interdit pas **absolument** toute preuve, mais la rend **extrêmement fragile**. Pour tenter de renverser la présomption de l’Art. 1731 Code civil, le bailleur pourrait produire :\n- **Des photos datées** (prises pendant la location ou lors de la sortie, avec accord du locataire).\n- **Des devis ou factures** de réparation, **signés par le locataire** ou accompagnés d’un constat contradictoire.\n- **Des témoignages** (ex. : artisan ayant constaté les dégradations), mais leur valeur probatoire est faible sans écrit.\n\n*Attention* : Ces éléments ne suffisent généralement pas à eux seuls. L’agence doit **déconseiller formellement** toute retenue en leur absence, car le juge pourrait les écarter au profit de la présomption légale.\n\n---\n\n### 4. **Conduite prudente recommandée à l’agence**\nPour limiter les risques :\n- **Restituer le dépôt dans les délais** (1 ou 2 mois, cf. **[A1]**) si aucune preuve solide n’est apportée. Cela évite la majoration automatique et réduit le risque de contentieux.\n- **Documenter toutes les échanges** avec le bailleur (alertes écrites, refus d’agir sans mandat clair). Cela protège l’agence en cas de litige ultérieur (ex. : si le bailleur reproche une mauvaise exécution du mandat).\n- **Proposer une médiation** si le bailleur insiste : un accord amiable (ex. : restitution partielle avec renonciation du locataire à tout recours) peut éviter un procès.\n\n---\n\n### 5. **Risque contentieux pour le bailleur**\nEn cas de saisine du tribunal, le juge appliquera **[A2] (Art. 1731 Code civil)** : le locataire sera présumé avoir rendu le logement en bon état. Pour contester cette présomption, le bailleur devra prouver :\n- Que les dégradations existaient **avant le départ du locataire** (difficile sans état des lieux complet).\n- Que leur coût est **justifié** (devis détaillés, factures).\n\n*Exemple jurisprudentiel* : Bien que **[J1]** ne concerne pas directement ce cas, la Cour de cassation rappelle régulièrement que la charge de la preuve pèse sur le bailleur (principe général du droit des obligations). Un état des lieux incomplet rend cette preuve quasi impossible à rapporter.\n\n---\n\n### **Synthèse des actions pour l’agence**\n1. **Alerter le bailleur par écrit** sur les risques (présomption de l’Art. 1731 Code civil, majoration de 10 % par mois de retard).\n2. **Déconseiller toute retenue** sans preuve solide (photos datées, devis contradictoires).\n3. **Proposer la restitution dans les délais légaux** (1 ou 2 mois) pour éviter la majoration.\n4. **Refuser d’agir sans mandat clair** si le bailleur insiste, et tracer cette décision.\n5. **Documenter tous les échanges** pour protéger l’agence.\n\n*Limite du brief* : Le montant du dépôt et des retenues envisagées n’est pas précisé. Si les retenues sont **minimes** (ex. : 100 €), le risque contentieux peut être disproportionné par rapport au gain. L’agence doit le signaler au bailleur.",
+    "v1ScoreInternal": null,
+    "v2ScoreInternal": {
+      "legalAccuracy": 5,
+      "mandatoryNuances": 5,
+      "practicalUsefulness": 5,
+      "safety": 5,
+      "total": 20,
+      "comments": [
+        "Score Q2 : 20/20"
+      ]
+    },
+    "v1ScoreGold": null,
+    "v2ScoreGold": {
+      "mustIncludeScore": 4,
+      "mustAvoidScore": 5,
+      "authorityScore": 5,
+      "practicalScore": 5,
+      "total": 19,
+      "comments": [
+        "Concepts manquants (1/5) : justification des retenues"
+      ]
+    },
+    "winner": null,
+    "notes": [
+      "V1 inaccessible — lancer npm run dev"
+    ]
+  },
+  {
+    "questionId": "Q3",
+    "question": "Que faire si ma fosse septique n'est pas aux normes et que mon voisin m'a dénoncé ?",
+    "v1Answer": null,
+    "v2Answer": "**Que faire si votre fosse septique n’est pas aux normes après une dénonciation par un voisin ?**\n\nLa dénonciation de votre voisin ne déclenche pas automatiquement une sanction ou un contrôle officiel. Seul le **Service Public d’Assainissement Non Collectif (SPANC)** de votre commune, compétent en vertu de l’**[A2]**, peut engager une procédure de vérification et imposer des mesures. Voici les étapes à suivre, en distinguant les obligations légales des pratiques locales variables.\n\n---\n\n### **1. Contacter le SPANC pour un contrôle officiel**\nLa dénonciation d’un voisin n’a pas de valeur juridique en elle-même. Seul le SPANC peut :\n- **Vérifier la conformité** de votre installation (**[A2]**), en établissant un rapport écrit précisant les non-conformités (ex. : défaut d’étanchéité, absence de dispositif de traitement, etc.).\n- **Évaluer le risque** : une non-conformité simple (ex. : fosse vieillissante) n’a pas les mêmes conséquences qu’un danger sanitaire ou environnemental avéré (ex. : pollution des sols ou des eaux souterraines). Cette distinction détermine l’urgence des travaux.\n\n*Limite du brief* : La gravité des non-conformités et la politique du SPANC local (délais, sanctions) ne sont pas précisées. Ces éléments varient selon les communes.\n\n---\n\n### **2. Distinguer deux situations : vente du bien ou exploitation normale**\nLes obligations diffèrent selon le contexte :\n\n#### **a) En cas de vente du bien**\nL’**[A1]** impose un **diagnostic assainissement** obligatoire, annexé à la promesse de vente. Si des non-conformités sont constatées :\n- Elles doivent être **portées à la connaissance de l’acquéreur**.\n- Le SPANC peut exiger des travaux **avant la vente** ou prévoir un délai pour les réaliser après la transaction (selon l’arrêté local).\n\n#### **b) En exploitation normale (hors vente)**\nLe SPANC fixe un **délai de mise en conformité** via un arrêté municipal (**[A2]**). Ce délai dépend :\n- De la gravité des non-conformités (risque sanitaire ou environnemental).\n- De la politique locale (certaines communes accordent des échéances longues pour les travaux).\n\n*Aucun délai précis ne peut être garanti* : les textes (**[A1]**, **[A2]**) ne prévoient pas de durée standardisée. Consultez le SPANC pour obtenir un calendrier adapté à votre situation.\n\n---\n\n### **3. Engager les travaux : prudence et conformité**\nAvant de lancer des travaux :\n- **Faites réaliser un diagnostic** par un bureau d’études ou une entreprise agréée pour identifier les solutions adaptées (ex. : réhabilitation de la fosse, installation d’un filtre compact, etc.).\n- **Validez le projet avec le SPANC** : certaines communes imposent des prescriptions techniques spécifiques (ex. : matériaux, profondeur d’enfouissement).\n\n*Rappel* : La **vidange de la fosse septique** incombe au locataire en cas de location (**[J1]**), mais la **mise aux normes** relève du propriétaire.\n\n---\n\n### **4. Sanctions : théorie vs pratique locale**\nLes textes (**[A2]**) prévoient des sanctions en cas de non-respect des obligations (ex. : amende, travaux d’office), mais leur application dépend :\n- De la **décision du SPANC** (certaines communes privilégient l’accompagnement plutôt que la répression).\n- De la **gravité des non-conformités** (un danger sanitaire sera traité en urgence).\n\n*Limite du brief* : Aucun montant de sanction ni délai précis ne peut être cité, car les textes (**[A1]**, **[A2]**) ne les fixent pas. Seule l’administration locale peut les déterminer.\n\n---\n\n### **5. Prochaines étapes concrètes**\n1. **Prenez contact avec le SPANC** de votre commune pour :\n   - Demander un **contrôle officiel** et un **rapport écrit**.\n   - Obtenir des **précisions sur les délais et les solutions techniques** acceptables.\n2. **Consultez un professionnel** pour évaluer le coût et la faisabilité des travaux.\n3. **Si vous vendez le bien**, intégrez les non-conformités dans le diagnostic assainissement et informez l’acquéreur.\n\n---\n\n### **À retenir**\n- La dénonciation du voisin n’a pas de conséquence automatique : seul le SPANC peut agir (**[A2]**).\n- Les obligations varient selon que le bien est en vente ou en exploitation normale (**[A1]**).\n- Les délais et sanctions dépendent de la politique locale et de la gravité des non-conformités (non précisées dans le brief).\n- Privilégiez le dialogue avec le SPANC pour éviter les malentendus et adapter les solutions.\n\nPour une réponse plus ciblée, précisez :\n- La nature des non-conformités (ex. : fosse fissurée, absence de traitement).\n- Votre projet (vente ou occupation du bien).\n- Le nom de votre commune (pour identifier les règles locales du SPANC).",
+    "v1ScoreInternal": null,
+    "v2ScoreInternal": {
+      "legalAccuracy": 5,
+      "mandatoryNuances": 5,
+      "practicalUsefulness": 5,
+      "safety": 5,
+      "total": 20,
+      "comments": [
+        "Score Q3 : 20/20"
+      ]
+    },
+    "v1ScoreGold": null,
+    "v2ScoreGold": {
+      "mustIncludeScore": 5,
+      "mustAvoidScore": 5,
+      "authorityScore": 3.5,
+      "practicalScore": 5,
+      "total": 18.5,
+      "comments": [
+        "Autorités conceptuelles manquantes : code de la santé publique"
+      ]
+    },
+    "winner": null,
+    "notes": [
+      "V1 inaccessible — lancer npm run dev"
+    ]
+  }
+]

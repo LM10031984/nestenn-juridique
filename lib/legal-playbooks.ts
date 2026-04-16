@@ -3,6 +3,7 @@
 // Matching déterministe, sans LLM — normalisation + triggers pondérés
 // Phase 1 : 3 playbooks benchmark (Q1 vente, Q2 gestion locative, Q3 SPANC)
 // Phase 2 : 3 nouveaux cas (Q4 copropriété travaux, Q5 DPE erroné, Q6 responsabilité agent)
+// Phase 3 : 3 nouveaux cas (Q7 expulsion, Q8 DPE F/G interdits, Q9 mandat exclusif)
 
 export type PlaybookAuthorityHint = {
   law: string
@@ -332,6 +333,177 @@ const PLAYBOOKS: LegalPlaybook[] = [
       "L'action contre l'agent est distincte de l'action contre le vendeur (garantie des vices cachés, art. 1641 Code civil). Les deux actions peuvent être menées simultanément. La responsabilité peut être partagée entre l'agent et le vendeur.",
       "Préjudice indemnisable : le montant des travaux de remise en état, la perte de valeur du bien, ou les frais engagés en raison du problème non signalé. Faire établir un devis ou une expertise contradictoire pour chiffrer le préjudice.",
       "Délai : agir dans les 5 ans à compter de la découverte du problème (art. 2224 Code civil — prescription de droit commun). Consulter un avocat spécialisé en droit immobilier pour évaluer la solidité du dossier avant toute mise en demeure.",
+    ],
+    confidenceStyle: 'guarded',
+  },
+
+  // ── PHASE 3 ───────────────────────────────────────────────────────────────
+
+  {
+    id: 'baux_loyers_impayes_expulsion',
+    canonicalQuestion:
+      "Que faire si mon locataire ne paie plus son loyer et que je veux l'expulser ?",
+    domain: 'baux_habitation',
+    triggers: [
+      // Triggers couvrant la question canonique Phase 3
+      'locataire ne paie plus son loyer expulser',
+      'locataire ne paie plus loyer expulsion',
+      'locataire ne paye pas loyer expulser',
+      'loyer impaye expulsion locataire',
+      'locataire impaye expulsion',
+      'expulser locataire loyer impaye',
+      // Triggers larges
+      'loyer impaye que faire',
+      'locataire ne paie plus',
+      'locataire ne paye plus loyer',
+      'commandement de payer locataire',
+      'clause resolutoire bail',
+      'expulsion locataire impaye',
+      'procedure expulsion loyer',
+      'expulsion bail impaye',
+      'commandement payer loyer',
+      'resiliation bail loyer impaye',
+      'treve hivernale expulsion',
+      'bailleur expulsion locataire',
+    ],
+    forcedArticles: [
+      { law: 'loi 89-462', artNum: '24', label: 'Art. 24 loi 89-462 — commandement de payer, clause résolutoire et procédure d\'expulsion', required: true },
+      { law: 'code des procédures civiles d\'exécution', artNum: 'L412-6', label: 'Art. L412-6 CPCE — trêve hivernale (1er nov. — 31 mars)', required: true },
+      { law: 'code des procédures civiles d\'exécution', artNum: 'L411-1', label: 'Art. L411-1 CPCE — interdiction d\'expulser sans décision de justice', required: true },
+      { law: 'code civil', artNum: '1728', label: 'Art. 1728 Code civil — obligation du locataire de payer le loyer', required: false },
+    ],
+    requiredDistinctions: [
+      "commandement de payer (acte d'huissier) ≠ simple mise en demeure amiable",
+      "délai de 2 mois après commandement avant saisine du tribunal judiciaire (art. 24 loi 89-462)",
+      "rôle de la Commission de coordination des actions de prévention des expulsions locatives (CCAPEX) — alertée automatiquement",
+      "trêve hivernale du 1er novembre au 31 mars : l'expulsion est interdite pendant cette période même avec décision de justice",
+      "expulsion physique : nécessite un commandement de quitter les lieux + intervention du commissaire de justice",
+    ],
+    forbiddenAssertions: [
+      'le bailleur peut changer les serrures ou couper les fluides lui-même',
+      'l\'expulsion est possible immédiatement après un impayé',
+      'la trêve hivernale n\'existe plus',
+      'le locataire peut être expulsé sans décision de justice',
+    ],
+    practicalOutcome: [
+      "Première démarche : envoyer une lettre recommandée de relance amiable puis faire délivrer par un commissaire de justice un commandement de payer (acte officiel). Ce commandement déclenche le délai légal de 2 mois et active la clause résolutoire du bail si elle est stipulée (art. 24 loi 89-462).",
+      "Si le locataire ne règle pas dans les 2 mois suivant le commandement, saisir le tribunal judiciaire (juge des contentieux de la protection) en référé ou au fond pour obtenir la résiliation du bail et l'expulsion. Sans décision de justice, aucune expulsion n'est légale (art. L411-1 CPCE).",
+      "Vérifier la période : si la décision de justice est rendue, l'expulsion physique est suspendue du 1er novembre au 31 mars (trêve hivernale, art. L412-6 CPCE). La trêve ne suspend pas la procédure judiciaire — seulement l'exécution de l'expulsion.",
+      "Alerter la CAF si le locataire perçoit des aides au logement : l'APL peut être maintenue et versée directement au bailleur (tiers-payant). Cette démarche est souvent plus rapide que la procédure judiciaire pour obtenir un paiement partiel.",
+      "Consulter un avocat spécialisé en baux d'habitation ou contacter directement un commissaire de justice : la procédure d'expulsion est strictement encadrée, les erreurs de forme invalident les actes et retardent la procédure de plusieurs mois.",
+    ],
+    confidenceStyle: 'strict',
+  },
+
+  {
+    id: 'diagnostics_dpe_fg_interdits',
+    canonicalQuestion:
+      "Un logement classé G peut-il encore être loué en 2025 ?",
+    domain: 'diagnostics',
+    triggers: [
+      // Triggers couvrant la question canonique Phase 3
+      'logement classe g peut encore etre loue 2025',
+      'logement classe g loue 2025',
+      'logement classe g location 2025',
+      'bien classe g location interdit',
+      'dpe g location 2025',
+      // Triggers larges
+      'dpe g interdit location',
+      'passoire thermique interdit location',
+      'classe g location loi',
+      'logement g louer interdit',
+      'logement f interdit location',
+      'dpe f location interdit',
+      'passoire energetique location interdit',
+      'classe f interdit louer',
+      'logement indecent energie interdire',
+      'location logement g 2025',
+      'location passoire thermique 2025',
+      'classe energetique interdite location',
+      'gel loyer classe f g',
+      'loyer classe g interdiction',
+    ],
+    forcedArticles: [
+      { law: 'code de la construction et de l\'habitation', artNum: 'L173-2', label: 'Art. L173-2 CCH — interdiction de louer les logements à forte consommation (classe G à partir de 2025)', required: true },
+      { law: 'loi 89-462', artNum: '17', label: 'Art. 17 loi 89-462 modifié — logement décent, seuil de performance énergétique', required: true },
+      { law: 'loi climat-résilience', artNum: '160', label: 'Art. 160 loi Climat-Résilience n° 2021-1104 — calendrier d\'interdiction de location', required: false },
+      { law: 'loi 89-462', artNum: '17-1', label: 'Art. 17-1 loi 89-462 — gel des loyers pour logements F et G', required: false },
+    ],
+    requiredDistinctions: [
+      "interdiction de louer un logement G depuis le 1er janvier 2025 (nouveaux baux et renouvellements) vs baux en cours conclus avant 2025 (dispositions transitoires)",
+      "gel des loyers : les logements classés F ou G ne peuvent pas faire l'objet d'une augmentation de loyer (art. 17-1 loi 89-462) depuis le 24 août 2022",
+      "calendrier des interdictions : G dès 2025, F dès 2028, E dès 2034 (loi Climat-Résilience)",
+      "seuil de consommation : classe G = consommation finale > 450 kWh/m²/an (décret n° 2021-19)",
+      "sanctions : bailleur ne peut pas conclure de nouveau bail ni renouveler un bail pour un logement G — le locataire peut demander des travaux ou une réduction de loyer",
+    ],
+    forbiddenAssertions: [
+      'tous les logements G sont immédiatement expulsables',
+      'le locataire actuel peut être expulsé pour cause de DPE G',
+      'le bailleur doit obligatoirement rénover avant toute autre démarche',
+      'la vente du logement est interdite pour un bien classé G',
+    ],
+    practicalOutcome: [
+      "Depuis le 1er janvier 2025, un logement classé G (consommation finale > 450 kWh/m²/an selon le décret n° 2021-19) ne peut plus faire l'objet d'un nouveau contrat de location résidentielle ni d'un renouvellement ou reconduction tacite (art. L173-2 CCH issu de la loi Climat-Résilience n° 2021-1104).",
+      "Pour les baux en cours conclus avant le 1er janvier 2025 : le locataire en place ne peut pas être expulsé du seul fait de la classe G. Le bail se poursuit mais le bailleur ne peut pas augmenter le loyer (gel des loyers F et G depuis le 24 août 2022, art. 17-1 loi 89-462).",
+      "Le propriétaire a trois options principales : (a) rénover le logement pour sortir de la classe G avant tout nouveau bail, (b) vendre le bien, (c) garder le locataire actuel en place sans possibilité de louer à un nouveau locataire. La rénovation n'est pas obligatoire mais conditionne la possibilité de louer.",
+      "Calendrier complet à connaître : G interdit dès 2025, F interdit dès 2028, E interdit dès 2034 (loi Climat-Résilience, art. 160). Le bailleur qui anticipe sur les classes F évite une nouvelle mise en conformité dans 3 ans.",
+      "Consulter un diagnostiqueur certifié pour un nouveau DPE — certains logements peuvent être reclassés après travaux légers (isolation, changement de système de chauffage). Contacter l'ADEME ou un conseiller France Rénov' pour les aides disponibles (MaPrimeRénov', CEE, éco-PTZ).",
+    ],
+    confidenceStyle: 'strict',
+  },
+
+  {
+    id: 'agent_mandat_exclusif_resiliation',
+    canonicalQuestion:
+      "Un vendeur peut-il résilier un mandat exclusif avant 3 mois ?",
+    domain: 'agent_immobilier',
+    triggers: [
+      // Triggers couvrant la question canonique Phase 3
+      'vendeur resilier mandat exclusif avant 3 mois',
+      'resiliation mandat exclusif avant 3 mois',
+      'mandat exclusif resilier avant 3 mois',
+      'vendeur peut resilier mandat exclusif',
+      'mandat exclusif peut on rompre avant 3 mois',
+      // Triggers larges
+      'mandat exclusif resiliation',
+      'resilier mandat exclusif',
+      'rompre mandat exclusif agence',
+      'mandat exclusif delai minimum',
+      'mandat exclusif duree minimale',
+      'sortir mandat exclusif',
+      'quitter agence mandat exclusif',
+      'mettre fin mandat exclusif',
+      'mandat exclusif 3 mois incompressible',
+      'mandat exclusif avant terme',
+      'mandat exclusif rupture agence',
+      'mandat exclusif preavis',
+      'mandat exclusif lettre recommandee',
+    ],
+    forcedArticles: [
+      { law: 'décret 72-678', artNum: '78', label: 'Art. 78 décret 72-678 — mandat exclusif : durée minimale 3 mois incompressibles et résiliation par LR/AR', required: true },
+      { law: 'loi 70-9', artNum: '7', label: 'Art. 7 loi Hoguet — forme écrite obligatoire et contenu du mandat', required: true },
+      { law: 'code civil', artNum: '1103', label: 'Art. 1103 Code civil — force obligatoire des contrats', required: false },
+      { law: 'loi 70-9', artNum: '6', label: 'Art. 6 loi Hoguet — conditions de rémunération de l\'agent', required: false },
+    ],
+    requiredDistinctions: [
+      "mandat exclusif vs mandat simple : seul le mandat exclusif est incompressible sur la durée initiale de 3 mois",
+      "pendant les 3 premiers mois : résiliation impossible sauf faute de l'agence ou accord mutuel écrit des parties",
+      "après 3 mois : résiliation possible par lettre recommandée avec AR avec un préavis de 15 jours avant chaque échéance (art. 78 décret 72-678)",
+      "faute de l'agence justifiant résiliation anticipée : absence de compte-rendu d'activité, manquement aux obligations du mandat — à documenter",
+      "honoraires dus si l'agence avait trouvé un acquéreur avant résiliation : la vente postérieure peut déclencher le droit à commission selon les clauses du mandat",
+    ],
+    forbiddenAssertions: [
+      'le vendeur peut résilier à tout moment sans préavis',
+      'le mandat exclusif peut être rompu sans lettre recommandée',
+      'l\'agence n\'a droit à aucune indemnité en cas de rupture anticipée',
+      'après 3 mois, aucun préavis n\'est nécessaire',
+    ],
+    practicalOutcome: [
+      "Pendant les 3 premiers mois d'un mandat exclusif, le vendeur ne peut pas résilier unilatéralement le contrat (art. 78 décret n° 72-678 du 20 juillet 1972). Cette période est incompressible : ni la volonté du vendeur ni le désaccord sur le prix ne suffisent à rompre le mandat.",
+      "Exception : si l'agence a manqué à ses obligations (absence de compte-rendus d'activité, défaut de publicité, comportement fautif documenté), le vendeur peut invoquer l'inexécution contractuelle pour demander la résiliation anticipée (art. 1103 et 1224 Code civil). Cette faute doit être documentée par écrit.",
+      "Après 3 mois : le mandat peut être résilié par lettre recommandée avec avis de réception, en respectant un préavis de 15 jours avant chaque date d'échéance ou de reconduction (art. 78 décret 72-678). Sans ce préavis, le mandat est reconduit tacitement pour une nouvelle période.",
+      "Risque d'honoraires post-résiliation : si l'agence avait présenté un acquéreur identifié avant la résiliation et que la vente se conclut finalement avec cet acquéreur après résiliation, l'agence peut réclamer ses honoraires. Vérifier les clauses du mandat sur ce point avant tout contact direct avec un acquéreur présenté par l'agence.",
+      "Action pratique : lire le mandat signé (durée, clause de reconduction, préavis) et consulter un avocat ou la DGCCRF en cas de litige sur la résiliation. La DGCCRF traite les plaintes contre les pratiques commerciales illicites des agences immobilières.",
     ],
     confidenceStyle: 'guarded',
   },

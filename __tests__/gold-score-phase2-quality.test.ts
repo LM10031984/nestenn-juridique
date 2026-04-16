@@ -1,6 +1,6 @@
 // __tests__/gold-score-phase2-quality.test.ts
-// Tests de score Q4/Q5/Q6 sur réponses de référence — cible ≥ 15/20
-// (Phase 2 : nouveaux cas sans historique de calibration, seuil initial 15/20)
+// Tests de score Q4/Q5/Q6 sur réponses de référence — cible ≥ 17/20
+// (Sprint qualité Phase 2 : alignment sur le niveau Phase 1, seuil relevé 15→17)
 // Lancer : npx vitest run __tests__/gold-score-phase2-quality.test.ts
 
 import { describe, it, expect } from 'vitest'
@@ -45,9 +45,9 @@ describe('scoreAgainstGold Q4 — copropriété travaux urgents', () => {
     expect(goldQ4.id).toBe('Q4')
   })
 
-  it('réponse Q4 correcte → score ≥ 15/20', () => {
+  it('réponse Q4 correcte → score ≥ 17/20', () => {
     const score = scoreAgainstGold(GOOD_Q4_ANSWER, goldQ4)
-    expect(score.total).toBeGreaterThanOrEqual(15)
+    expect(score.total).toBeGreaterThanOrEqual(17)
   })
 
   it('réponse Q4 correcte → mustInclude : assemblée générale + travaux urgents + charges + urgence + information', () => {
@@ -99,9 +99,9 @@ describe('scoreAgainstGold Q5 — DPE erroné', () => {
     expect(goldQ5.id).toBe('Q5')
   })
 
-  it('réponse Q5 correcte → score ≥ 15/20', () => {
+  it('réponse Q5 correcte → score ≥ 17/20', () => {
     const score = scoreAgainstGold(GOOD_Q5_ANSWER, goldQ5)
-    expect(score.total).toBeGreaterThanOrEqual(15)
+    expect(score.total).toBeGreaterThanOrEqual(17)
   })
 
   it('réponse Q5 correcte → mustInclude : diagnostiqueur + opposable + vice caché + preuve + délai', () => {
@@ -152,9 +152,9 @@ describe('scoreAgainstGold Q6 — responsabilité agent', () => {
     expect(goldQ6.id).toBe('Q6')
   })
 
-  it('réponse Q6 correcte → score ≥ 15/20', () => {
+  it('réponse Q6 correcte → score ≥ 17/20', () => {
     const score = scoreAgainstGold(GOOD_Q6_ANSWER, goldQ6)
-    expect(score.total).toBeGreaterThanOrEqual(15)
+    expect(score.total).toBeGreaterThanOrEqual(17)
   })
 
   it('réponse Q6 correcte → mustInclude : devoir + preuve + connaissance + dommages-intérêts + responsabilité', () => {
@@ -173,9 +173,9 @@ describe('scoreAgainstGold Q6 — responsabilité agent', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('GOLD_CASES — intégrité catalogue', () => {
-  it('GOLD_CASES contient 6 cas (Q1 à Q6)', async () => {
+  it('GOLD_CASES contient 9 cas (Q1 à Q9)', async () => {
     const { GOLD_CASES } = await import('@/lib/legal-gold-cases')
-    expect(GOLD_CASES).toHaveLength(6)
+    expect(GOLD_CASES).toHaveLength(9)
     const ids = GOLD_CASES.map((c) => c.id)
     expect(ids).toContain('Q1')
     expect(ids).toContain('Q2')
@@ -183,5 +183,8 @@ describe('GOLD_CASES — intégrité catalogue', () => {
     expect(ids).toContain('Q4')
     expect(ids).toContain('Q5')
     expect(ids).toContain('Q6')
+    expect(ids).toContain('Q7')
+    expect(ids).toContain('Q8')
+    expect(ids).toContain('Q9')
   })
 })

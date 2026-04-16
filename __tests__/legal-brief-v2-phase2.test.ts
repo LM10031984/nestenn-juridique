@@ -101,8 +101,8 @@ describe('detectLegalPlaybook — pas de confusion Phase 1 vs Phase 2', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('PLAYBOOKS — catalogue Phase 2', () => {
-  it('PLAYBOOKS contient 6 entrées (3 Phase 1 + 3 Phase 2)', () => {
-    expect(PLAYBOOKS).toHaveLength(6)
+  it('PLAYBOOKS contient 9 entrées (3 Phase 1 + 3 Phase 2 + 3 Phase 3)', () => {
+    expect(PLAYBOOKS).toHaveLength(9)
   })
 
   it('syndic_travaux_urgents est présent', () => {
