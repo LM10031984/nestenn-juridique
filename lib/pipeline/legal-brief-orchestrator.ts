@@ -223,7 +223,7 @@ export async function runLegalBriefOrchestrator(
 // Prompt système construit à partir du LegalBrief — pas d'invention autorisée
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildV2SystemPrompt(brief: LegalBrief): string {
+export function buildV2SystemPrompt(brief: LegalBrief): string {
   const sections: string[] = []
 
   sections.push(`Tu es un assistant juridique immobilier spécialisé. Tu réponds uniquement à partir des éléments du brief juridique fourni. Tu n'inventes aucun texte, aucune sanction, aucun délai, aucune jurisprudence hors brief.`)
@@ -303,7 +303,7 @@ function buildV2SystemPrompt(brief: LegalBrief): string {
 // Message utilisateur enrichi avec le contexte du brief
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildV2UserMessage(userQuestion: string, brief: LegalBrief): string {
+export function buildV2UserMessage(userQuestion: string, brief: LegalBrief): string {
   return [
     `Question : ${userQuestion}`,
     '',

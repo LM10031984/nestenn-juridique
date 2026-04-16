@@ -46,6 +46,10 @@ import { detectLegalPlaybook } from '@/lib/legal-playbooks'
 import { runLegalBriefOrchestrator } from '@/lib/pipeline/legal-brief-orchestrator'
 import { scoreAnswer } from '@/lib/legal-benchmark-score'
 import { shouldUseLegalV2, isV2EnabledPlaybook } from '@/lib/legal-v2-rollout'
+import { getDomainPackPolicy, logDomainPackEvent } from '@/lib/domain-pack-rollout'
+import { getDomainPack } from '@/lib/domain-packs'
+import type { DomainPack } from '@/lib/domain-packs'
+import { runDomainPackOrchestrator } from '@/lib/pipeline/domain-pack-orchestrator'
 
 // ── Whitelist dynamique (cache 5 min) ──
 
@@ -704,7 +708,23 @@ async function tryV2Route(message: string): Promise<Response | null> {
 
   // Pré-vérification whitelist avant d'appeler l'orchestrateur (évite un LLM call inutile)
   if (!playbook || !isV2EnabledPlaybook(playbook.id)) {
-    console.info(`[v2-router] no_match reason=${playbook ? 'playbook_not_whitelisted' : 'no_playbook_match'} playbook=${playbook?.id ?? 'none'} — fallback V1`)
+    // ── Domain pack path — baux_habitation sans playbook whitelisté ──────────
+    // Détecter le domaine et la politique domain pack pour cette question.
+    const domainMatch = detectDomain(message)
+    const domain = domainMatch?.name ?? null
+    // On passe playbookId=null car la condition d'entrée ici est "pas de playbook whitelisté"
+    const packPolicy = getDomainPackPolicy(domain, null)
+
+    if (packPolicy === 'active') {
+      return tryDomainPackRoute(message, domain!)
+    }
+
+    if (packPolicy === 'shadow') {
+      const pack = getDomainPack(domain!)
+      if (pack) waitUntil(runDomainPackShadow(message, pack))
+    }
+
+    console.info(`[v2-router] no_match reason=${playbook ? 'playbook_not_whitelisted' : 'no_playbook_match'} playbook=${playbook?.id ?? 'none'} domain=${domain ?? 'none'} packPolicy=${packPolicy} — fallback V1`)
     return null
   }
 
@@ -810,6 +830,109 @@ async function runV2Shadow(message: string): Promise<void> {
     )
   } catch (err) {
     console.error('[v2-shadow] erreur:', err)
+  }
+}
+
+// ── Domain Pack — tryDomainPackRoute ────────────────────────────────────────
+// Tente de répondre via le domain pack (mode actif).
+// Retourne une Response SSE si validation ok, null sinon (fallback V1).
+
+async function tryDomainPackRoute(message: string, domain: string): Promise<Response | null> {
+  const pack = getDomainPack(domain)
+  if (!pack) return null
+
+  const t0 = Date.now()
+  try {
+    const result = await runDomainPackOrchestrator(message, pack)
+
+    if (result.status === 'error') {
+      logDomainPackEvent({ domain, playbookMatched: false, fallbackRuleId: null, mode: 'active', validationOk: false, usedV2Pack: false, fallbackReason: result.reason })
+      console.warn(`[domain-pack] active mode error — fallback V1: ${result.reason}`)
+      return null
+    }
+
+    const vr = result.validationReportFinal
+    const hasAuthorityScopeMismatch = vr.issues.some((i) => i.code === 'AUTHORITY_SCOPE_MISMATCH')
+
+    logDomainPackEvent({
+      domain,
+      playbookMatched: false,
+      fallbackRuleId: result.fallbackRuleId,
+      mode: 'active',
+      validationOk: vr.ok,
+      usedV2Pack: vr.ok && !hasAuthorityScopeMismatch,
+      fallbackReason: !vr.ok ? 'validation_failed' : hasAuthorityScopeMismatch ? 'authority_scope_mismatch' : null,
+    })
+
+    if (!vr.ok || hasAuthorityScopeMismatch) {
+      console.warn(`[domain-pack] validation fail — fallback V1 validationOk=${vr.ok} scopeMismatch=${hasAuthorityScopeMismatch}`)
+      return null
+    }
+
+    const sse = `data: ${JSON.stringify({
+      choices: [{ delta: { content: result.finalAnswer }, finish_reason: 'stop' }],
+    })}\n\ndata: [DONE]\n\n`
+
+    console.info(`[domain-pack] active response sent duration=${Date.now() - t0}ms budget=${result.precisionBudget} retried=${result.retried}`)
+
+    return new Response(sse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Legal-Engine': 'v2-domain-pack',
+        'X-Legal-Domain-Pack': domain,
+        'X-Legal-Fallback-Rule': result.fallbackRuleId ?? '',
+        'X-V2-Budget': result.precisionBudget,
+        'X-V2-Validation': vr.ok ? 'ok' : 'fail',
+        'X-Legal-Retried': String(result.retried),
+      },
+    })
+  } catch (err) {
+    console.error('[domain-pack] tryDomainPackRoute error — fallback V1:', err)
+    return null
+  }
+}
+
+// ── Domain Pack — runDomainPackShadow ────────────────────────────────────────
+// Exécute le domain pack en arrière-plan (shadow mode).
+// La réponse V1 est déjà renvoyée. Logge les métriques sans exposer à l'utilisateur.
+// Ne jamais awaiter directement — passer à waitUntil().
+
+async function runDomainPackShadow(message: string, pack: DomainPack): Promise<void> {
+  try {
+    const result = await runDomainPackOrchestrator(message, pack)
+
+    if (result.status === 'error') {
+      console.info(`[domain-pack-shadow] error: ${result.reason}`)
+      return
+    }
+
+    const vr = result.validationReportFinal
+    const hasAuthorityScopeMismatch = vr.issues.some((i) => i.code === 'AUTHORITY_SCOPE_MISMATCH')
+
+    logDomainPackEvent({
+      domain: pack.domain,
+      playbookMatched: false,
+      fallbackRuleId: result.fallbackRuleId,
+      mode: 'shadow',
+      validationOk: vr.ok,
+      usedV2Pack: false, // shadow : jamais exposé à l'utilisateur
+      fallbackReason: !vr.ok ? 'validation_failed' : hasAuthorityScopeMismatch ? 'authority_scope_mismatch' : null,
+    })
+
+    console.info(
+      `[domain-pack-shadow] pack=${pack.id} `
+      + `fallbackRule=${result.fallbackRuleId ?? 'none'} `
+      + `validation=${vr.ok ? 'ok' : 'fail'} `
+      + `issues=${vr.issues.length} `
+      + `scopeMismatch=${hasAuthorityScopeMismatch} `
+      + `retried=${result.retried} `
+      + `duration=${result.durationMs}ms budget=${result.precisionBudget}`
+    )
+  } catch (err) {
+    console.error('[domain-pack-shadow] error:', err)
   }
 }
 

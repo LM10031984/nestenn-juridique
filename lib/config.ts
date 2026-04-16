@@ -18,4 +18,17 @@ export const FEATURES = {
   // Ne pas activer en même temps que V2_LEGAL_BRIEF_ENABLED (inutile et coûteux).
   // Activation : ENABLE_V2_SHADOW=true dans .env.local ou variables Vercel.
   V2_SHADOW_ENABLED: process.env.ENABLE_V2_SHADOW === 'true',
+
+  // ── Domain Pack flags (baux_habitation uniquement pour l'instant) ─────────────
+  // DOMAIN_PACKS_ENABLED : master flag — aucun domain pack n'est actif si false.
+  // BAUX_PACK_SHADOW : shadow mode — domain pack tourne en arrière-plan, V1 répond.
+  //   Usage : mesurer la qualité du domain pack sur trafic réel avant activation.
+  //   Conditions : DOMAIN_PACKS_ENABLED=true + BAUX_PACK_SHADOW=true.
+  // BAUX_PACK_ACTIVE : active mode — domain pack répond si baux_habitation + pas de playbook.
+  //   Conditions : DOMAIN_PACKS_ENABLED=true + BAUX_PACK_ACTIVE=true.
+  // Règle : BAUX_PACK_ACTIVE prend le dessus sur BAUX_PACK_SHADOW si les deux sont true.
+  // Ne pas activer BAUX_PACK_ACTIVE sans avoir validé en shadow d'abord.
+  DOMAIN_PACKS_ENABLED: process.env.ENABLE_DOMAIN_PACKS === 'true',
+  BAUX_PACK_SHADOW: process.env.ENABLE_BAUX_PACK_SHADOW === 'true',
+  BAUX_PACK_ACTIVE: process.env.ENABLE_BAUX_PACK_ACTIVE === 'true',
 } as const
