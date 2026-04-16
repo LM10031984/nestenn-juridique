@@ -407,6 +407,17 @@ const PLAYBOOKS: LegalPlaybook[] = [
       'logement classe g location 2025',
       'bien classe g location interdit',
       'dpe g location 2025',
+      // Triggers avec infinitif "louer" — couvrent les questions directes
+      'logement classe g louer 2025',
+      'logement classe g dpe louer',
+      'logement classe g au dpe louer',
+      'logement g dpe louer 2025',
+      'bien classe g dpe louer',
+      'classe g dpe louer',
+      'classe g louer 2025',
+      'puis je louer logement classe g',
+      'puis je louer bien classe g',
+      'logement dpe g louer',
       // Triggers larges
       'dpe g interdit location',
       'passoire thermique interdit location',

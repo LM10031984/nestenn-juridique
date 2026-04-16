@@ -32,8 +32,8 @@ function allConditionsOk(overrides: Partial<V2RoutingParams> = {}): V2RoutingPar
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('isV2EnabledPlaybook — whitelist', () => {
-  it('6 playbooks sont dans la whitelist', () => {
-    expect(V2_ROLLOUT_PLAYBOOKS).toHaveLength(6)
+  it('9 playbooks sont dans la whitelist (Phase 1 + 2 + 3)', () => {
+    expect(V2_ROLLOUT_PLAYBOOKS).toHaveLength(9)
   })
 
   it.each(V2_ROLLOUT_PLAYBOOKS)('playbook whitelisté : %s', (id) => {

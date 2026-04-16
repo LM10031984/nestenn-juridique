@@ -21,6 +21,10 @@ export const V2_ROLLOUT_PLAYBOOKS = [
   'syndic_travaux_urgents',
   'vente_dpe_errone',
   'agent_defaut_information',
+  // Phase 3 — validés benchmark live 2026-04-16
+  'baux_loyers_impayes_expulsion',       // Q7 gold=20.0/20 interne=20/20
+  'diagnostics_dpe_fg_interdits',        // Q8 gold=18.5/20 interne=20/20
+  'agent_mandat_exclusif_resiliation',   // Q9 gold=18.0/20 interne=19/20
 ] as const
 
 export type V2RolloutPlaybook = (typeof V2_ROLLOUT_PLAYBOOKS)[number]

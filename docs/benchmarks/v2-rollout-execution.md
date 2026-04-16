@@ -29,6 +29,9 @@
 | `syndic_travaux_urgents` | Copropriété | 2 | 20/20 | 2026-04-16 |
 | `vente_dpe_errone` | Vente immobilière | 2 | 20/20 | 2026-04-16 |
 | `agent_defaut_information` | Vente immobilière | 2 | 20/20 | 2026-04-16 |
+| `baux_loyers_impayes_expulsion` | Baux d'habitation | 3 | 20/20 | 2026-04-16 |
+| `diagnostics_dpe_fg_interdits` | Diagnostics | 3 | 18.5/20 | 2026-04-16 |
+| `agent_mandat_exclusif_resiliation` | Agent immobilier | 3 | 18/20 | 2026-04-16 |
 
 Tout autre playbook → fallback V1 automatique (`reason: playbook_not_whitelisted`).
 
