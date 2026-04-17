@@ -61,7 +61,7 @@ export function validateResponseQuality(
   // 5. Longueur raisonnable ?
   const wordCount = response.split(/\s+/).length
   if (wordCount < 50) { flags.push('TROP_COURT'); score -= 15 }
-  if (wordCount > 1200) { flags.push('TROP_LONG'); score -= 5 }
+  if (wordCount > 800) { flags.push('TROP_LONG'); score -= 20 }
 
   return {
     score: Math.max(0, score),
