@@ -119,6 +119,16 @@ const DOMAIN_KEYWORDS: Array<{
                'taxe de séjour', 'numéro d\'enregistrement'],
     domain: { name: 'location_saisonniere', judilibreTheme: "bail d'habitation", judilibreChamber: 'civ3' },
   },
+  {
+    keywords: ['sci', 'société civile immobilière', 'gérance', 'cession de parts',
+               'dissolution sci', 'associés sci', 'statuts sci'],
+    domain: { name: 'sci_societes', judilibreTheme: 'vente immobilière', judilibreChamber: 'civ3' },
+  },
+  {
+    keywords: ['réticence dolosive', 'dol', 'défaut d\'information', 'obligation d\'information',
+               'responsabilité de l\'agent', 'manquement professionnel'],
+    domain: { name: 'responsabilite_civile', judilibreTheme: 'vente immobilière', judilibreChamber: 'civ1' },
+  },
 ]
 
 /**
