@@ -3,20 +3,21 @@
 //
 // Prérequis :
 //   - Serveur Next.js en cours (`npm run dev`)
-//   - Cookie de session Supabase dans BENCHMARK_COOKIE
+//   - BENCHMARK_EMAIL + BENCHMARK_PASSWORD dans .env.local (compte Nestenn actif)
 //
 // Usage :
-//   BENCHMARK_COOKIE="sb-xxx-auth-token=..." npx tsx scripts/benchmark-smoke.ts
-//   BENCHMARK_COOKIE="..." BASE_URL=http://localhost:3000 npx tsx scripts/benchmark-smoke.ts
-//   BENCHMARK_COOKIE="..." npx tsx scripts/benchmark-smoke.ts --json   → sortie JSON brute
+//   npx tsx scripts/benchmark-smoke.ts
+//   npx tsx scripts/benchmark-smoke.ts --json > scripts/benchmark-results/smoke.json
+//   BASE_URL=http://localhost:3000 npx tsx scripts/benchmark-smoke.ts
 
-import { readFileSync } from 'fs'
+import { readFileSync, mkdirSync, writeFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-// Charger .env.local
+// ── Charger .env.local ───────────────────────────────────────────────────────
+
 try {
   const envPath = resolve(__dirname, '../.env.local')
   const envContent = readFileSync(envPath, 'utf-8')
@@ -24,19 +25,58 @@ try {
     const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
   }
-} catch { /* .env.local absent, on continue */ }
+} catch { /* .env.local absent */ }
 
-// ── Config ──────────────────────────────────────────────────────────────────
+// ── Config ───────────────────────────────────────────────────────────────────
 
-const BASE_URL    = process.env.BASE_URL ?? 'http://localhost:3000'
-const COOKIE      = process.env.BENCHMARK_COOKIE ?? ''
-const JSON_OUTPUT = process.argv.includes('--json')
+const BASE_URL    = process.env.BASE_URL    ?? 'http://localhost:3000'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+const EMAIL        = process.env.BENCHMARK_EMAIL    ?? ''
+const PASSWORD     = process.env.BENCHMARK_PASSWORD ?? ''
+const JSON_OUTPUT  = process.argv.includes('--json')
 
-if (!COOKIE) {
-  console.error('❌  BENCHMARK_COOKIE manquant.')
-  console.error('    Copiez le cookie sb-xxx-auth-token depuis votre navigateur (DevTools → Application → Cookies).')
-  console.error('    Usage : BENCHMARK_COOKIE="sb-xxx-auth-token=eyJ..." npx tsx scripts/benchmark-smoke.ts')
+if (!SUPABASE_URL || !ANON_KEY) {
+  console.error('❌  NEXT_PUBLIC_SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_ANON_KEY manquant dans .env.local')
   process.exit(1)
+}
+
+if (!EMAIL || !PASSWORD) {
+  console.error('❌  BENCHMARK_EMAIL et BENCHMARK_PASSWORD manquants.')
+  console.error('    Ajoutez dans .env.local :')
+  console.error('    BENCHMARK_EMAIL=votre@email.com')
+  console.error('    BENCHMARK_PASSWORD=votreMotDePasse')
+  process.exit(1)
+}
+
+// ── Connexion Supabase → cookie de session ───────────────────────────────────
+//
+// @supabase/ssr 0.5.x lit le cookie "sb-{ref}-auth-token" dont la valeur
+// est soit du JSON brut, soit "base64-{base64url(JSON)}" pour les longues sessions.
+// On utilise le format base64 pour éviter les problèmes de taille et de caractères.
+
+async function getAuthCookie(): Promise<string> {
+  const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0]
+  const cookieName = `sb-${projectRef}-auth-token`
+
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+    },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Connexion Supabase échouée (${res.status}) : ${body.slice(0, 200)}`)
+  }
+
+  const session = await res.json()
+  // Encode la session en base64url — format attendu par @supabase/ssr 0.5.x
+  const encoded = 'base64-' + Buffer.from(JSON.stringify(session)).toString('base64url')
+  return `${cookieName}=${encoded}`
 }
 
 // ── Questions ────────────────────────────────────────────────────────────────
@@ -57,17 +97,18 @@ const QUESTIONS = [
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface SmokeResult {
-  index:       number
-  question:    string
-  response:    string
-  wordCount:   number
-  durationMs:  number
-  sources:     number
-  juriCount:   number
-  domain:      string
-  model:       string
+  index:        number
+  question:     string
+  response:     string
+  wordCount:    number
+  durationMs:   number
+  sources:      number
+  juriCount:    number
+  domain:       string
+  model:        string
   responseMode: string
-  error:       string | null
+  tooLong:      boolean
+  error:        string | null
 }
 
 // ── SSE parser ───────────────────────────────────────────────────────────────
@@ -96,20 +137,22 @@ async function consumeSSE(stream: ReadableStream<Uint8Array>): Promise<string> {
 
 // ── Runner ───────────────────────────────────────────────────────────────────
 
-async function runQuestion(index: number, question: string): Promise<SmokeResult> {
+async function runQuestion(
+  index: number,
+  question: string,
+  cookie: string,
+): Promise<SmokeResult> {
   const start = Date.now()
   const result: SmokeResult = {
     index, question, response: '', wordCount: 0, durationMs: 0,
-    sources: 0, juriCount: 0, domain: '', model: '', responseMode: '', error: null,
+    sources: 0, juriCount: 0, domain: '', model: '', responseMode: '',
+    tooLong: false, error: null,
   }
 
   try {
     const res = await fetch(`${BASE_URL}/api/chat`, {
-      method:  'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie':        COOKIE,
-      },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': cookie },
       body: JSON.stringify({ message: question }),
     })
 
@@ -122,12 +165,13 @@ async function runQuestion(index: number, question: string): Promise<SmokeResult
 
     result.sources      = parseInt(res.headers.get('X-Sources-Count') ?? '0', 10)
     result.juriCount    = parseInt(res.headers.get('X-Juri-Count')    ?? '0', 10)
-    result.domain       = res.headers.get('X-Domain')       ?? ''
-    result.model        = res.headers.get('X-Model-Used')   ?? ''
+    result.domain       = res.headers.get('X-Domain')        ?? ''
+    result.model        = res.headers.get('X-Model-Used')    ?? ''
     result.responseMode = res.headers.get('X-Response-Mode') ?? ''
 
     result.response  = await consumeSSE(res.body!)
     result.wordCount = result.response.split(/\s+/).filter(Boolean).length
+    result.tooLong   = result.wordCount > 800
     result.durationMs = Date.now() - start
   } catch (err) {
     result.error      = String(err)
@@ -140,18 +184,20 @@ async function runQuestion(index: number, question: string): Promise<SmokeResult
 // ── Affichage console ────────────────────────────────────────────────────────
 
 function printResult(r: SmokeResult): void {
-  const status = r.error ? '❌' : '✅'
-  const dur    = (r.durationMs / 1000).toFixed(1)
+  const status  = r.error ? '❌' : '✅'
+  const longTag = r.tooLong ? ' ⚠️ TROP_LONG' : ''
+  const dur     = (r.durationMs / 1000).toFixed(1)
+
   console.log(`\n${'─'.repeat(72)}`)
   console.log(`${status}  [${r.index + 1}/10] ${r.question}`)
-  console.log(`    Durée : ${dur}s  |  Mots : ${r.wordCount}  |  Sources : ${r.sources}  |  Juri : ${r.juriCount}`)
+  console.log(`    Durée : ${dur}s  |  Mots : ${r.wordCount}${longTag}  |  Sources : ${r.sources}  |  Juri : ${r.juriCount}`)
   console.log(`    Domaine : ${r.domain || '—'}  |  Modèle : ${r.model || '—'}  |  Mode : ${r.responseMode || '—'}`)
 
   if (r.error) {
     console.log(`    ERREUR : ${r.error}`)
   } else {
-    const preview = r.response.replace(/\n+/g, ' ').slice(0, 220)
-    console.log(`    Aperçu : ${preview}${r.response.length > 220 ? '…' : ''}`)
+    const preview = r.response.replace(/\n+/g, ' ').slice(0, 240)
+    console.log(`    Aperçu : ${preview}${r.response.length > 240 ? '…' : ''}`)
   }
 }
 
@@ -159,15 +205,27 @@ function printResult(r: SmokeResult): void {
 
 async function main(): Promise<void> {
   if (!JSON_OUTPUT) {
-    console.log(`\n🔥  Benchmark smoke — ${QUESTIONS.length} questions → ${BASE_URL}/api/chat`)
-    console.log(`    Modèle par défaut, réponses en streaming.\n`)
+    console.log(`\n🔐  Connexion Supabase (${EMAIL})…`)
+  }
+
+  let cookie: string
+  try {
+    cookie = await getAuthCookie()
+    if (!JSON_OUTPUT) console.log('    ✅ Session obtenue\n')
+  } catch (err) {
+    console.error(`❌  ${err}`)
+    process.exit(1)
+  }
+
+  if (!JSON_OUTPUT) {
+    console.log(`🔥  Benchmark smoke — ${QUESTIONS.length} questions → ${BASE_URL}/api/chat\n`)
   }
 
   const results: SmokeResult[] = []
 
   for (let i = 0; i < QUESTIONS.length; i++) {
     if (!JSON_OUTPUT) process.stdout.write(`⏳  [${i + 1}/10] en cours…\r`)
-    const r = await runQuestion(i, QUESTIONS[i])
+    const r = await runQuestion(i, QUESTIONS[i], cookie)
     results.push(r)
     if (!JSON_OUTPUT) printResult(r)
   }
@@ -178,19 +236,33 @@ async function main(): Promise<void> {
   }
 
   // Récap
-  const ok      = results.filter(r => !r.error)
-  const errors  = results.filter(r => r.error)
-  const avgMs   = ok.reduce((s, r) => s + r.durationMs, 0) / (ok.length || 1)
-  const avgWords = ok.reduce((s, r) => s + r.wordCount, 0) / (ok.length || 1)
-  const tooLong = ok.filter(r => r.wordCount > 800).length
+  const ok       = results.filter(r => !r.error)
+  const errors   = results.filter(r => r.error)
+  const avgMs    = ok.reduce((s, r) => s + r.durationMs, 0) / (ok.length || 1)
+  const avgWords = ok.reduce((s, r) => s + r.wordCount,  0) / (ok.length || 1)
+  const tooLong  = ok.filter(r => r.tooLong).length
 
   console.log(`\n${'═'.repeat(72)}`)
   console.log(`📊  RÉCAP`)
   console.log(`    Succès : ${ok.length}/10  |  Erreurs : ${errors.length}/10`)
-  console.log(`    Durée moyenne : ${(avgMs / 1000).toFixed(1)}s`)
-  console.log(`    Mots moyens   : ${Math.round(avgWords)}`)
+  console.log(`    Durée moyenne  : ${(avgMs / 1000).toFixed(1)}s`)
+  console.log(`    Mots moyens    : ${Math.round(avgWords)}`)
   console.log(`    TROP_LONG (>800 mots) : ${tooLong}/10`)
+  if (errors.length > 0) {
+    console.log(`\n    Erreurs détaillées :`)
+    errors.forEach(r => console.log(`    [${r.index + 1}] ${r.error}`))
+  }
   console.log(`${'═'.repeat(72)}\n`)
+
+  // Sauvegarde JSON automatique
+  try {
+    const outDir = resolve(__dirname, 'benchmark-results')
+    mkdirSync(outDir, { recursive: true })
+    const ts      = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', 'h')
+    const outPath = resolve(outDir, `smoke-${ts}.json`)
+    writeFileSync(outPath, JSON.stringify(results, null, 2), 'utf-8')
+    console.log(`💾  Résultats sauvegardés : ${outPath}\n`)
+  } catch { /* pas bloquant */ }
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
