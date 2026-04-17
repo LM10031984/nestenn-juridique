@@ -29,11 +29,12 @@ try {
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
-const BASE_URL    = process.env.BASE_URL    ?? 'http://localhost:3000'
+const BASE_URL     = process.env.BASE_URL    ?? 'http://localhost:3000'
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 const EMAIL        = process.env.BENCHMARK_EMAIL    ?? ''
 const PASSWORD     = process.env.BENCHMARK_PASSWORD ?? ''
+const FORCE_MODEL  = process.env.BENCHMARK_MODEL    ?? ''
 const JSON_OUTPUT  = process.argv.includes('--json')
 
 if (!SUPABASE_URL || !ANON_KEY) {
@@ -153,7 +154,7 @@ async function runQuestion(
     const res = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Cookie': cookie },
-      body: JSON.stringify({ message: question }),
+      body: JSON.stringify({ message: question, ...(FORCE_MODEL ? { model: FORCE_MODEL } : {}) }),
     })
 
     if (!res.ok) {
