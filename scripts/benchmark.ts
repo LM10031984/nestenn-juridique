@@ -53,9 +53,11 @@ const COST_PER_1K_OUTPUT = 0.0006  // GPT-4o-mini output en EUR (approx)
 
 // Modèles supportés via OpenRouter
 const SUPPORTED_MODELS: Record<string, { openrouterId: string; label: string }> = {
-  'gpt-4o':            { openrouterId: 'openai/gpt-4o',                    label: 'GPT-4o' },
-  'claude-sonnet-4-6': { openrouterId: 'anthropic/claude-sonnet-4-6',       label: 'Claude Sonnet 4.6' },
-  'mistral-large':     { openrouterId: 'mistralai/mistral-large',           label: 'Mistral Large' },
+  'gpt-4o':             { openrouterId: 'openai/gpt-4o',                     label: 'GPT-4o' },
+  'claude-sonnet-4-6':  { openrouterId: 'anthropic/claude-sonnet-4-6',       label: 'Claude Sonnet 4.6' }, // conservé pour comparaison historique
+  'mistral-large':      { openrouterId: 'mistralai/mistral-large-2512',      label: 'Mistral Large 3' },
+  'mistral-medium-3-1': { openrouterId: 'mistralai/mistral-medium-3.1',      label: 'Mistral Medium 3.1' },
+  'mistral-small-4':    { openrouterId: 'mistralai/mistral-small-2603',      label: 'Mistral Small 4' },
 }
 
 async function callChatApi(question: string, openrouterId?: string): Promise<{ text: string; tokens: number; durationMs: number }> {

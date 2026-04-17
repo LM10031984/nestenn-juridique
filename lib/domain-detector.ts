@@ -22,7 +22,8 @@ const DOMAIN_KEYWORDS: Array<{
                'gli', 'assurance loyers impayés', 'quittance',
                'régularisation charges', 'trouble de jouissance', 'nuisance',
                'insalubrité', 'logement indigne', 'habitat indigne', 'passoire thermique',
-               'meublé tourisme', 'airbnb', 'location saisonnière'],
+               'meublé tourisme', 'airbnb', 'location saisonnière',
+               'loger', 'occuper', 'habiter', 'fils majeur', 'enfant majeur', 'descendant'],
     domain: { name: 'baux_habitation', judilibreTheme: "bail d'habitation", judilibreChamber: 'civ3' },
   },
   {
@@ -39,7 +40,8 @@ const DOMAIN_KEYWORDS: Array<{
                'commission', 'devoir de conseil', 'agence immobilière', 'négociateur',
                'responsabilité agent', 'faute agent', 'devoir information',
                'anti-blanchiment', 'tracfin', 'formation continue',
-               'attestation collaborateur', 'cci', 'chambre commerce'],
+               'attestation collaborateur', 'cci', 'chambre commerce',
+               'sans mandat', 'mandat signé', 'pas de mandat', 'commission sans mandat', 'mandat écrit'],
     domain: { name: 'agent_immobilier', judilibreTheme: 'agent immobilier', judilibreChamber: 'civ1' },
   },
   {

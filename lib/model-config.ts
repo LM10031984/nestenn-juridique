@@ -1,5 +1,4 @@
 import type { SourceChunk, JuriCase } from '@/lib/system-prompt'
-import { buildClaudeSystemPrompt } from '@/lib/prompts/claude-system-prompt'
 import { buildMistralLargeSystemPrompt, buildMistralSmallSystemPrompt } from '@/lib/prompts/mistral-system-prompt'
 
 type SystemPromptBuilder = (
@@ -20,30 +19,31 @@ export interface ModelConfig {
   buildSystemPrompt: SystemPromptBuilder
 }
 
-export const DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4-6'
+export const DEFAULT_MODEL_ID = 'mistralai/mistral-large-2512'
 
+// Ordonné du plus cher (haut) au moins cher (bas) : Large → Medium → Small
 export const AVAILABLE_MODELS: ModelConfig[] = [
-  {
-    id: 'anthropic/claude-sonnet-4-6',
-    name: 'Claude Sonnet 4',
-    provider: 'Anthropic',
-    description: 'Qualité maximale (référence actuelle)',
-    badge: 'Référence',
-    color: '#CC785C',
-    maxTokens: 8192,
-    temperature: 0.3,
-    buildSystemPrompt: buildClaudeSystemPrompt,   // STRICTEMENT INCHANGÉ
-  },
   {
     id: 'mistralai/mistral-large-2512',
     name: 'Mistral Large 3',
     provider: 'Mistral AI',
-    description: 'Flagship français, RGPD natif, 256K context',
-    badge: 'Recommandé',
+    description: 'Qualité maximale, flagship français, 256K context, RGPD natif',
+    badge: 'Premium',
     color: '#FA520F',
     maxTokens: 8192,
     temperature: 0.1,
     buildSystemPrompt: buildMistralLargeSystemPrompt,  // tier='large'
+  },
+  {
+    id: 'mistralai/mistral-medium-3.1',
+    name: 'Mistral Medium 3.1',
+    provider: 'Mistral AI',
+    description: 'Frontier-class à ~8× moins cher que Large, RGPD natif',
+    badge: 'Recommandé',
+    color: '#FA520F',
+    maxTokens: 8192,
+    temperature: 0.1,
+    buildSystemPrompt: buildMistralLargeSystemPrompt,  // réutilise règles Large (même famille) — à ré-évaluer après bench comparatif
   },
   {
     id: 'mistralai/mistral-small-2603',

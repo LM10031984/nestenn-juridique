@@ -13,7 +13,7 @@ export interface OpenRouterStreamChunk {
 const BASE_URL = 'https://openrouter.ai/api/v1'
 
 export const MODELS = {
-  MAIN: 'anthropic/claude-sonnet-4-6',
+  MAIN: 'mistralai/mistral-large-2512',
   FILTER: 'openai/gpt-4o-mini',
   FALLBACK: 'openai/gpt-4o',
 } as const

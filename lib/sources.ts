@@ -91,7 +91,7 @@ export async function fetchRelevantSources(
   embedding: number[],
   boostDomains: string[] | null,
   maxResults: number = 8,
-  threshold: number = 0.30,
+  threshold: number = 0.25,
 ): Promise<SourcesResult> {
   const empty: SourcesResult = { chunks: [], juriCases: [] }
 
@@ -103,9 +103,11 @@ export async function fetchRelevantSources(
   try {
     const supabase = getSupabase()
 
+    // Candidats mixtes élargis pour garantir qu'articles ET arrêts soient présents
+    // (les arrêts curés boostés sinon raflent toutes les places du top N)
     const { data, error } = await supabase.rpc('search_all_legal_context', {
       query_embedding: embedding,
-      match_count: maxResults + 4,
+      match_count: 50,
       boost_domains: boostDomains?.length ? boostDomains : null,
     })
 
@@ -114,22 +116,25 @@ export async function fetchRelevantSources(
       return empty
     }
 
-    const rows = ((data ?? []) as PgVectorRow[])
+    const filtered = ((data ?? []) as PgVectorRow[])
       .filter(r => r.similarity >= threshold)
-      .slice(0, maxResults)
 
-    const chunks: SourceChunk[] = rows
+    // Articles : top 12 (élargi de 8 → 12 pour rattraper les pivots proches du seuil)
+    // Arrêts : top maxResults (inchangé)
+    const chunks: SourceChunk[] = filtered
       .filter(r => r.source === 'article')
+      .slice(0, 12)
       .map(rowToChunk)
 
-    const juriCases: JuriCase[] = rows
+    const juriCases: JuriCase[] = filtered
       .filter(r => r.source === 'arret')
+      .slice(0, maxResults)
       .map(rowToJuriCase)
       .filter((c): c is JuriCase => c !== null)
 
     console.info(
       `[sources] ${chunks.length} articles + ${juriCases.length} arrêts `
-      + `(sim ≥ ${threshold}, best=${rows[0]?.similarity?.toFixed(3) ?? '—'})`
+      + `(sim ≥ ${threshold}, best=${filtered[0]?.similarity?.toFixed(3) ?? '—'})`
     )
 
     return { chunks, juriCases }

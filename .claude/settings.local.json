@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "mcp__context7__resolve-library-id",
+      "Bash(BENCHMARK_MODEL=\"mistralai/mistral-large-2512\" npx tsx scripts/benchmark-v1.ts)",
+      "Bash(npx tsx *)"
+    ]
+  }
+}

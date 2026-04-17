@@ -1,0 +1,498 @@
+{
+  "name": "Nestenn Juridique Benchmark v1",
+  "description": "60 questions couvrant 7 domaines du droit immobilier français, 3 niveaux de difficulté (facile / moyen / piège). Chaque entrée indique le focus juridique attendu et le type de dérive à surveiller.",
+  "version": "1.0",
+  "created": "2026-04-17",
+  "domains": [
+    "baux_habitation",
+    "agent_immobilier",
+    "vente_immobiliere",
+    "financement_compromis",
+    "copropriete",
+    "diagnostics_dpe",
+    "urbanisme_preemption"
+  ],
+  "levels": ["facile", "moyen", "piege"],
+  "questions": [
+    {
+      "id": "Q01",
+      "domain": "baux_habitation",
+      "level": "moyen",
+      "question": "Un propriétaire peut-il donner congé pour loger son fils majeur ?",
+      "expected_focus": ["art. 15 loi 89-462", "bénéficiaires autorisés (descendants)", "résidence principale effective", "délai de préavis 6 mois (vide) / 3 mois (meublé)"],
+      "risk_type": "confusion bénéficiaires ; invention délai occupation 2 ans ; généralisation 'doit habiter X mois/an'"
+    },
+    {
+      "id": "Q02",
+      "domain": "baux_habitation",
+      "level": "facile",
+      "question": "Le bailleur peut-il refuser de rendre le dépôt de garantie pour de simples traces d'usure ?",
+      "expected_focus": ["art. 22 loi 89-462", "distinction usure normale / dégradations", "art. 1731 Code civil (preuve à la charge du bailleur)", "pénalité 10% par mois de retard"],
+      "risk_type": "confusion usure/dégradation ; invention amende"
+    },
+    {
+      "id": "Q03",
+      "domain": "baux_habitation",
+      "level": "facile",
+      "question": "Un locataire peut-il sous-louer son appartement sans accord écrit du bailleur ?",
+      "expected_focus": ["art. 8 loi 89-462", "accord écrit obligatoire y compris sur le prix", "art. 1717 Code civil (régime supplétif)", "risque résiliation"],
+      "risk_type": "confusion régime meublé / vide ; validation tacite à tort"
+    },
+    {
+      "id": "Q04",
+      "domain": "baux_habitation",
+      "level": "moyen",
+      "question": "Que faire si un locataire ne paie plus son loyer depuis 2 mois ?",
+      "expected_focus": ["art. 24 loi 89-462", "commandement de payer par commissaire de justice", "délai 2 mois pour régulariser", "clause résolutoire"],
+      "risk_type": "citation art. 25-1 à la place de 24 ; invention 'prescription 3 mois' (vraie : 3 ans art. 7-1)"
+    },
+    {
+      "id": "Q05",
+      "domain": "baux_habitation",
+      "level": "facile",
+      "question": "Un bailleur peut-il entrer dans le logement loué sans l'accord du locataire ?",
+      "expected_focus": ["art. 9 loi 89-462 (jouissance paisible)", "interdiction sauf cas exceptionnels", "art. 226-4 Code pénal (violation domicile)"],
+      "risk_type": "confusion visite technique / entrée autorisée ; minimisation interdiction"
+    },
+    {
+      "id": "Q06",
+      "domain": "baux_habitation",
+      "level": "piege",
+      "question": "Le locataire peut-il partir avec un préavis d'un mois hors zone tendue ?",
+      "expected_focus": ["art. 15 I loi 89-462", "cas particuliers hors zone tendue (mutation, perte d'emploi, santé, RSA, etc.)", "3 mois par défaut hors zone tendue"],
+      "risk_type": "généralisation 'oui préavis 1 mois possible' ; confusion meublé / vide"
+    },
+    {
+      "id": "Q07",
+      "domain": "baux_habitation",
+      "level": "moyen",
+      "question": "Le bailleur peut-il imposer une assurance habitation précise au locataire ?",
+      "expected_focus": ["art. 7 g loi 89-462", "libre choix du locataire", "preuve annuelle d'assurance"],
+      "risk_type": "validation du droit d'imposer un assureur à tort"
+    },
+    {
+      "id": "Q08",
+      "domain": "baux_habitation",
+      "level": "moyen",
+      "question": "Un congé pour vente est-il valable si le prix finalement proposé à un tiers est plus bas ?",
+      "expected_focus": ["art. 15 II loi 89-462", "droit de préemption locataire", "obligation de notifier le nouveau prix si plus bas"],
+      "risk_type": "oubli de la seconde notification ; 'congé toujours valable' à tort"
+    },
+    {
+      "id": "Q09",
+      "domain": "baux_habitation",
+      "level": "piege",
+      "question": "Un locataire âgé de plus de 65 ans est-il toujours protégé contre le congé ?",
+      "expected_focus": ["art. 15 III loi 89-462", "conditions cumulatives : âge + ressources < plafond", "exception si bailleur lui-même > 65 ans ou ressources modestes", "obligation relogement"],
+      "risk_type": "généralisation '65+ = protégé toujours' ; oubli conditions cumulatives ; oubli exception bailleur"
+    },
+    {
+      "id": "Q10",
+      "domain": "baux_habitation",
+      "level": "moyen",
+      "question": "Peut-on réviser librement le loyer à la date anniversaire du bail ?",
+      "expected_focus": ["art. 17-1 loi 89-462", "clause de révision obligatoire", "IRL (indice de référence des loyers)", "encadrement loyer en zone tendue"],
+      "risk_type": "validation révision 'libre' à tort ; oubli IRL / encadrement"
+    },
+    {
+      "id": "Q11",
+      "domain": "baux_habitation",
+      "level": "moyen",
+      "question": "Le bailleur peut-il garder le dépôt de garantie en attendant la régularisation annuelle des charges ?",
+      "expected_focus": ["art. 22 loi 89-462", "retenue provisoire maximum 20%", "restitution solde sous 2 mois puis régularisation dans le mois suivant arrêté des comptes"],
+      "risk_type": "validation rétention totale à tort ; invention pourcentage"
+    },
+    {
+      "id": "Q12",
+      "domain": "baux_habitation",
+      "level": "piege",
+      "question": "Un locataire peut-il suspendre seul le paiement du loyer si le logement est dégradé ?",
+      "expected_focus": ["logement décent (décret 2002-120)", "obligation de saisir le juge", "pas de suspension unilatérale", "consignation possible sur autorisation"],
+      "risk_type": "validation suspension unilatérale à tort ; oubli procédure judiciaire"
+    },
+    {
+      "id": "Q13",
+      "domain": "baux_habitation",
+      "level": "moyen",
+      "question": "Que devient le bail en cas de décès du locataire ?",
+      "expected_focus": ["art. 14 loi 89-462", "transfert bail aux proches (conjoint, partenaire, ascendants/descendants à charge)", "conditions cohabitation effective + durée"],
+      "risk_type": "confusion transfert bail / succession ; oubli conditions cohabitation"
+    },
+    {
+      "id": "Q14",
+      "domain": "baux_habitation",
+      "level": "facile",
+      "question": "Le bailleur peut-il résilier le bail parce que le locataire héberge un proche ?",
+      "expected_focus": ["art. 8-1 loi 89-462", "liberté hébergement à titre gratuit", "exception si sous-location déguisée"],
+      "risk_type": "validation résiliation à tort"
+    },
+    {
+      "id": "Q15",
+      "domain": "baux_habitation",
+      "level": "facile",
+      "question": "Un bail verbal d'habitation est-il valable ?",
+      "expected_focus": ["art. 3 loi 89-462", "obligation écrite mais validité non affectée", "preuve du contenu par tous moyens"],
+      "risk_type": "invalidation du bail à tort ; 'valable sans réserve' à tort"
+    },
+    {
+      "id": "Q16",
+      "domain": "agent_immobilier",
+      "level": "facile",
+      "question": "Un agent immobilier peut-il réclamer sa commission sans mandat signé ?",
+      "expected_focus": ["art. 6 loi n° 70-9 (Hoguet)", "mandat écrit préalable obligatoire", "art. 72 décret 72-678", "nullité de la créance"],
+      "risk_type": "hallucination 'travail dissimulé' / art. 313-1 escroquerie / L.121-1 conso ; sanctions hors Hoguet"
+    },
+    {
+      "id": "Q17",
+      "domain": "agent_immobilier",
+      "level": "facile",
+      "question": "Un bon de visite suffit-il pour réclamer des honoraires ?",
+      "expected_focus": ["art. 6 loi Hoguet", "bon de visite ≠ mandat", "absence de droit à rémunération", "Cass. 1re civ. 24 avril 2013"],
+      "risk_type": "validation à tort du bon de visite comme base de commission"
+    },
+    {
+      "id": "Q18",
+      "domain": "agent_immobilier",
+      "level": "piege",
+      "question": "Un mandat signé après la visite régularise-t-il la commission ?",
+      "expected_focus": ["art. 6 loi Hoguet", "mandat doit être PRÉALABLE", "pas de régularisation a posteriori", "nullité irrémédiable"],
+      "risk_type": "validation régularisation a posteriori à tort"
+    },
+    {
+      "id": "Q19",
+      "domain": "agent_immobilier",
+      "level": "moyen",
+      "question": "Un agent commercial non salarié peut-il faire visiter sans habilitation ?",
+      "expected_focus": ["art. 4 loi Hoguet", "attestation d'habilitation obligatoire délivrée par le titulaire", "CCI", "interdiction de pratiquer sans"],
+      "risk_type": "validation activité sans habilitation ; confusion salarié / agent commercial"
+    },
+    {
+      "id": "Q20",
+      "domain": "agent_immobilier",
+      "level": "moyen",
+      "question": "Peut-on cumuler mandat vendeur et mandat acquéreur sur la même opération ?",
+      "expected_focus": ["art. 1161 Code civil", "double mandat possible avec accord écrit exprès des deux parties", "devoir de loyauté renforcé"],
+      "risk_type": "interdiction absolue affirmée à tort ; oubli accord exprès"
+    },
+    {
+      "id": "Q21",
+      "domain": "agent_immobilier",
+      "level": "moyen",
+      "question": "Un mandat exclusif peut-il interdire au vendeur de vendre seul ?",
+      "expected_focus": ["clause d'exclusivité opposable", "période irrévocable 3 mois usuelle", "clause pénale possible", "résiliation LRAR après 3 mois"],
+      "risk_type": "confusion exclusivité absolue / résiliable ; oubli préavis"
+    },
+    {
+      "id": "Q22",
+      "domain": "agent_immobilier",
+      "level": "moyen",
+      "question": "Un mandat peut-il être reconduit tacitement sans limite ?",
+      "expected_focus": ["art. 78 décret 72-678", "durée limitée obligatoire", "clause de reconduction tacite encadrée", "dénonciation possible"],
+      "risk_type": "validation reconduction infinie à tort"
+    },
+    {
+      "id": "Q23",
+      "domain": "agent_immobilier",
+      "level": "facile",
+      "question": "Que risque une agence qui exerce sans carte professionnelle valide ?",
+      "expected_focus": ["art. 14 loi Hoguet", "6 mois emprisonnement + 7 500 € amende", "interdiction d'exercer"],
+      "risk_type": "invention sanctions ; confusion avec art. 313-1 ou L.8221-5 travail dissimulé"
+    },
+    {
+      "id": "Q24",
+      "domain": "agent_immobilier",
+      "level": "moyen",
+      "question": "La commission est-elle due dès la signature du compromis ?",
+      "expected_focus": ["art. 6 loi Hoguet", "commission due à la réalisation effective de l'opération (acte authentique)", "conditions du mandat"],
+      "risk_type": "validation 'dès compromis' à tort ; oubli des conditions suspensives"
+    },
+    {
+      "id": "Q25",
+      "domain": "agent_immobilier",
+      "level": "facile",
+      "question": "Un négociateur peut-il percevoir directement une rémunération du client ?",
+      "expected_focus": ["loi Hoguet", "fonds transitent par l'agence titulaire de la carte", "interdiction perception directe"],
+      "risk_type": "validation perception directe à tort"
+    },
+    {
+      "id": "Q26",
+      "domain": "vente_immobiliere",
+      "level": "facile",
+      "question": "Le vendeur est-il responsable d'un vice caché découvert après la vente ?",
+      "expected_focus": ["art. 1641 Code civil", "art. 1643 (responsable même s'il ignorait)", "art. 1645 (dommages-intérêts si connaissance)", "art. 1648 (2 ans à compter de la découverte)"],
+      "risk_type": "confusion garantie légale / clause ; oubli prescription 2 ans"
+    },
+    {
+      "id": "Q27",
+      "domain": "vente_immobiliere",
+      "level": "moyen",
+      "question": "Une promesse synallagmatique vaut-elle vente ?",
+      "expected_focus": ["art. 1589 Code civil", "promesse synallagmatique = vente parfaite dès accord sur chose et prix", "distinction avec promesse unilatérale"],
+      "risk_type": "confusion promesse unilatérale / synallagmatique"
+    },
+    {
+      "id": "Q28",
+      "domain": "vente_immobiliere",
+      "level": "facile",
+      "question": "Le vendeur peut-il se rétracter après signature d'un compromis ?",
+      "expected_focus": ["compromis = engagement ferme pour le vendeur", "délai de rétractation 10 jours réservé à l'acquéreur (art. L.271-1 CCH)", "exécution forcée ou dommages-intérêts"],
+      "risk_type": "confusion droit de rétractation acheteur / vendeur"
+    },
+    {
+      "id": "Q29",
+      "domain": "vente_immobiliere",
+      "level": "moyen",
+      "question": "Une clause de non-garantie des vices cachés protège-t-elle toujours le vendeur ?",
+      "expected_focus": ["art. 1643 Code civil", "inopposable en cas de dol", "inopposable si vendeur professionnel (présomption de connaissance)"],
+      "risk_type": "validation 'clause protège toujours' à tort"
+    },
+    {
+      "id": "Q30",
+      "domain": "vente_immobiliere",
+      "level": "moyen",
+      "question": "Un acquéreur peut-il demander une baisse du prix après découverte d'un désordre avant l'acte authentique ?",
+      "expected_focus": ["action estimatoire (art. 1644 CC) si vice caché", "renégociation amiable", "possibilité de renoncer au compromis sous conditions"],
+      "risk_type": "confusion avec vice caché post-vente ; validation baisse automatique"
+    },
+    {
+      "id": "Q31",
+      "domain": "vente_immobiliere",
+      "level": "moyen",
+      "question": "Le notaire est-il responsable s'il n'a pas vérifié une servitude importante ?",
+      "expected_focus": ["devoir de conseil et d'investigation du notaire", "responsabilité professionnelle", "Cass. 1re civ. constante"],
+      "risk_type": "minimisation responsabilité notaire ; confusion avec obligations du vendeur"
+    },
+    {
+      "id": "Q32",
+      "domain": "vente_immobiliere",
+      "level": "moyen",
+      "question": "Peut-on vendre un bien occupé sans l'indiquer clairement à l'acquéreur ?",
+      "expected_focus": ["obligation d'information précontractuelle (art. 1112-1 CC)", "DDT", "risque annulation pour dol"],
+      "risk_type": "validation vente sans mention occupation à tort"
+    },
+    {
+      "id": "Q33",
+      "domain": "vente_immobiliere",
+      "level": "moyen",
+      "question": "Le vendeur doit-il informer l'acquéreur d'un litige de voisinage en cours ?",
+      "expected_focus": ["obligation générale d'information (art. 1112-1 CC)", "DDT", "risque dol / vice caché si litige grave"],
+      "risk_type": "validation silence à tort ; confusion litige mineur / majeur"
+    },
+    {
+      "id": "Q34",
+      "domain": "vente_immobiliere",
+      "level": "moyen",
+      "question": "Une vente peut-elle être annulée pour dol si la surface a été volontairement minimisée ?",
+      "expected_focus": ["art. 1137 Code civil (dol)", "loi Carrez (art. 46 loi 65-557) : action en diminution du prix si surface réelle < 5%", "distinction dol / Carrez"],
+      "risk_type": "confusion Carrez / dol ; confusion réduction prix / annulation"
+    },
+    {
+      "id": "Q35",
+      "domain": "vente_immobiliere",
+      "level": "facile",
+      "question": "Le vendeur professionnel est-il présumé connaître les vices ?",
+      "expected_focus": ["présomption jurisprudentielle irréfragable (Cass. 1re civ. 1985)", "clause non-garantie inopposable", "responsabilité renforcée"],
+      "risk_type": "confusion présomption simple / irréfragable ; minimisation responsabilité"
+    },
+    {
+      "id": "Q36",
+      "domain": "financement_compromis",
+      "level": "moyen",
+      "question": "Une condition suspensive de prêt est-elle remplie si l'acheteur n'a fait qu'une seule demande de prêt ?",
+      "expected_focus": ["art. 1304-3 Code civil", "obligation de diligence et bonne foi", "plusieurs demandes usuellement exigées selon le compromis"],
+      "risk_type": "validation '1 demande suffit' à tort ; confusion entre obligations légales et clauses contractuelles"
+    },
+    {
+      "id": "Q37",
+      "domain": "financement_compromis",
+      "level": "facile",
+      "question": "L'acheteur perd-il automatiquement son dépôt s'il n'obtient pas son prêt ?",
+      "expected_focus": ["condition suspensive défaillie = restitution intégrale du dépôt", "art. 1304-3 CC", "sauf faute de l'acheteur"],
+      "risk_type": "confusion avec rétractation ; 'perte automatique' à tort"
+    },
+    {
+      "id": "Q38",
+      "domain": "financement_compromis",
+      "level": "moyen",
+      "question": "Un refus bancaire oral suffit-il à faire jouer la condition suspensive ?",
+      "expected_focus": ["preuve écrite du refus obligatoire", "clause du compromis", "acheteur doit produire la preuve"],
+      "risk_type": "validation refus oral à tort"
+    },
+    {
+      "id": "Q39",
+      "domain": "financement_compromis",
+      "level": "moyen",
+      "question": "Que se passe-t-il si l'acheteur dépose ses demandes de prêt hors délai ?",
+      "expected_focus": ["art. 1304-3 CC (condition réputée accomplie si empêchée par le débiteur)", "déchéance du bénéfice de la condition", "jurisprudence constante"],
+      "risk_type": "validation à tort de la condition comme non remplie"
+    },
+    {
+      "id": "Q40",
+      "domain": "financement_compromis",
+      "level": "moyen",
+      "question": "Le vendeur peut-il exiger plusieurs refus de prêt si le compromis ne le précise pas ?",
+      "expected_focus": ["silence du compromis = diligence appréciée in concreto", "jurisprudence : souvent 2 demandes minimum", "pas d'obligation automatique de multiples refus"],
+      "risk_type": "généralisation 'toujours 3 refus' ou 'toujours 1 suffit'"
+    },
+    {
+      "id": "Q41",
+      "domain": "financement_compromis",
+      "level": "moyen",
+      "question": "Une offre de prêt inférieure au montant prévu fait-elle tomber la condition suspensive ?",
+      "expected_focus": ["Cass. 3e civ. 14 déc. 2022 n° 21-24.539", "acheteur non tenu d'accepter une offre < montant prévu", "condition suspensive non remplie"],
+      "risk_type": "validation obligation d'accepter à tort"
+    },
+    {
+      "id": "Q42",
+      "domain": "financement_compromis",
+      "level": "piege",
+      "question": "La banque qui tarde à répondre prolonge-t-elle automatiquement le compromis ?",
+      "expected_focus": ["pas de prolongation automatique", "avenant écrit obligatoire", "déchéance possible du bénéfice de la condition"],
+      "risk_type": "validation prolongation automatique à tort"
+    },
+    {
+      "id": "Q43",
+      "domain": "financement_compromis",
+      "level": "piege",
+      "question": "Peut-on renoncer à une condition suspensive de prêt après signature ?",
+      "expected_focus": ["renonciation unilatérale possible par l'acquéreur (bénéficiaire)", "acte écrit requis", "engagement définitif après renonciation"],
+      "risk_type": "'impossible' à tort ; confusion bénéficiaire / stipulant"
+    },
+    {
+      "id": "Q44",
+      "domain": "financement_compromis",
+      "level": "moyen",
+      "question": "Le séquestre doit-il être restitué immédiatement si la condition suspensive échoue ?",
+      "expected_focus": ["restitution dans délais du compromis (usuellement 21 jours)", "pas 'immédiatement' sans formalité", "mainlevée par le notaire"],
+      "risk_type": "validation 'immédiat' à tort"
+    },
+    {
+      "id": "Q45",
+      "domain": "financement_compromis",
+      "level": "piege",
+      "question": "Une condition suspensive d'urbanisme peut-elle être invoquée tardivement ?",
+      "expected_focus": ["délais stricts du compromis", "déchéance si dépassement", "art. 1304-3 CC"],
+      "risk_type": "validation invocation tardive à tort"
+    },
+    {
+      "id": "Q46",
+      "domain": "copropriete",
+      "level": "moyen",
+      "question": "En copropriété, quels travaux peuvent être votés à la majorité simple ?",
+      "expected_focus": ["art. 24 loi 65-557 du 10 juillet 1965", "travaux d'entretien, conservation, fonctionnement", "majorité des voix exprimées"],
+      "risk_type": "confusion art. 25 (majorité absolue) / art. 26 (double majorité) ; 'unanimité' inventée"
+    },
+    {
+      "id": "Q47",
+      "domain": "copropriete",
+      "level": "facile",
+      "question": "Un copropriétaire peut-il percer un mur porteur sans autorisation ?",
+      "expected_focus": ["art. 9 loi 65-557 (respect destination et solidité)", "autorisation AG requise", "risque démolition forcée"],
+      "risk_type": "validation perçage à tort ; confusion parties communes / privatives"
+    },
+    {
+      "id": "Q48",
+      "domain": "copropriete",
+      "level": "facile",
+      "question": "Le syndic peut-il engager seul des travaux urgents ?",
+      "expected_focus": ["art. 18 I loi 65-557", "travaux nécessaires à la sauvegarde urgente", "information AG a posteriori"],
+      "risk_type": "minimisation pouvoir syndic ; confusion urgence / travaux courants"
+    },
+    {
+      "id": "Q49",
+      "domain": "copropriete",
+      "level": "moyen",
+      "question": "Un copropriétaire peut-il contester une AG plusieurs mois après le vote ?",
+      "expected_focus": ["art. 42 loi 65-557", "délai 2 mois à compter de la notification du procès-verbal", "forclusion"],
+      "risk_type": "'contestable toujours' à tort ; oubli de la forclusion"
+    },
+    {
+      "id": "Q50",
+      "domain": "copropriete",
+      "level": "moyen",
+      "question": "Les charges peuvent-elles être réparties autrement que selon les tantièmes ?",
+      "expected_focus": ["art. 10 loi 65-557", "charges générales : tantièmes", "charges spéciales : utilité objective", "modification = vote à l'unanimité"],
+      "risk_type": "confusion charges générales / spéciales ; validation modification libre"
+    },
+    {
+      "id": "Q51",
+      "domain": "diagnostics_dpe",
+      "level": "moyen",
+      "question": "Un logement classé G peut-il encore être mis en location ?",
+      "expected_focus": ["art. L.173-1-1 CCH", "G lourds (>450 kWh/m²/an) interdits 1er janv. 2023", "G standards interdits 1er janv. 2025", "F interdits 2028, E interdits 2034", "art. 6 loi 89-462 (décence énergétique)"],
+      "risk_type": "confusion dates 2023/2025 ; invention amende 30 000 € ; fondement faux (art. 17 au lieu d'art. 6)"
+    },
+    {
+      "id": "Q52",
+      "domain": "diagnostics_dpe",
+      "level": "moyen",
+      "question": "Un DPE erroné engage-t-il la responsabilité du vendeur ou du diagnostiqueur ?",
+      "expected_focus": ["responsabilité du diagnostiqueur (obligation de résultat)", "responsabilité du vendeur si connaissance du vice", "DPE opposable depuis 2021"],
+      "risk_type": "confusion responsabilités ; minimisation responsabilité diagnostiqueur"
+    },
+    {
+      "id": "Q53",
+      "domain": "diagnostics_dpe",
+      "level": "piege",
+      "question": "L'absence de diagnostic termites permet-elle d'annuler la vente ?",
+      "expected_focus": ["DDT obligatoire en zone déclarée", "pas d'annulation automatique", "action en diminution du prix ou dommages-intérêts", "responsabilité du vendeur"],
+      "risk_type": "validation annulation automatique à tort"
+    },
+    {
+      "id": "Q54",
+      "domain": "diagnostics_dpe",
+      "level": "piege",
+      "question": "Un bailleur peut-il louer un logement non décent si le locataire est d'accord ?",
+      "expected_focus": ["décence d'ordre public (art. 6 loi 89-462)", "nullité même avec accord", "obligation de travaux ou réduction loyer"],
+      "risk_type": "validation accord des parties à tort ; confusion liberté contractuelle / ordre public"
+    },
+    {
+      "id": "Q55",
+      "domain": "diagnostics_dpe",
+      "level": "facile",
+      "question": "Le DPE est-il opposable en location comme en vente ?",
+      "expected_focus": ["art. L.126-28-1 CCH", "DPE opposable depuis 1er juillet 2021", "locataire peut agir en cas de DPE erroné"],
+      "risk_type": "confusion informatif / opposable ; oubli date d'entrée en vigueur"
+    },
+    {
+      "id": "Q56",
+      "domain": "urbanisme_preemption",
+      "level": "moyen",
+      "question": "Une commune peut-elle préempter à un prix inférieur au prix de vente ?",
+      "expected_focus": ["art. L.213-2 Code urbanisme (offre à prix différent)", "art. L.213-4 (saisine juge de l'expropriation)", "vendeur peut renoncer à vendre"],
+      "risk_type": "'non possible' à tort ; confusion articles L.213-2 / L.213-4 / L.213-7"
+    },
+    {
+      "id": "Q57",
+      "domain": "urbanisme_preemption",
+      "level": "moyen",
+      "question": "Un refus de permis de construire peut-il faire tomber une vente ?",
+      "expected_focus": ["condition suspensive d'urbanisme si insérée dans le compromis", "pas de caducité automatique sans clause", "délais de recours 2 mois"],
+      "risk_type": "validation caducité automatique à tort ; confusion refus / absence de recours"
+    },
+    {
+      "id": "Q58",
+      "domain": "urbanisme_preemption",
+      "level": "moyen",
+      "question": "Un agent immobilier doit-il vérifier le zonage PLU avant commercialisation ?",
+      "expected_focus": ["devoir de conseil (loi Hoguet)", "responsabilité si commercialisation d'un bien non conforme à son usage annoncé", "vérification auprès de la mairie"],
+      "risk_type": "minimisation responsabilité agent ; 'non obligatoire' à tort"
+    },
+    {
+      "id": "Q59",
+      "domain": "urbanisme_preemption",
+      "level": "piege",
+      "question": "Peut-on vendre un terrain présenté comme constructible s'il ne l'est pas réellement ?",
+      "expected_focus": ["dol (art. 1137 CC) ou erreur (art. 1132)", "responsabilité vendeur et agent", "annulation ou dommages-intérêts", "certificat d'urbanisme"],
+      "risk_type": "validation bonne foi à tort ; minimisation responsabilité"
+    },
+    {
+      "id": "Q60",
+      "domain": "urbanisme_preemption",
+      "level": "moyen",
+      "question": "Une DIA irrégulière empêche-t-elle la purge du droit de préemption ?",
+      "expected_focus": ["art. L.213-2 Code urbanisme", "DIA irrégulière = pas de point de départ du délai de 2 mois", "risque préemption tardive"],
+      "risk_type": "validation 'régulière par défaut' ; oubli conséquence sur délai"
+    }
+  ]
+}

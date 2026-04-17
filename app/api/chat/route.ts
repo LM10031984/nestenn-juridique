@@ -19,7 +19,6 @@ import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { validateResponseQuality, buildCorrectionPrompt } from '@/lib/response-validator'
 
 // ── Whitelist dynamique (cache 5 min) ──
 
@@ -298,34 +297,6 @@ export async function POST(req: NextRequest) {
 
   // ── Étape 4 : Génération en streaming direct ──
 
-  // Validation pré-envoi sur les réponses à risque (peu de sources → mode free)
-  if (chunks.length < 3) {
-    try {
-      const draft = await openRouterChat(messages, selectedModel, modelConfig.maxTokens)
-      const dilaTexts = chunks.map(c => ({
-        textId: '', title: c.sourceLaw, content: c.chunkText,
-        dateVersion: '', url: c.sourceUrl ?? '', sourceType: 'loi' as const,
-      }))
-      // Cast sûr : validateResponseQuality n'utilise que juriCases.length pour ce check
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allJuri = [...liveJuriCases, ...filteredPgJuriCases] as unknown as any[]
-      const quality = validateResponseQuality(draft, dilaTexts, allJuri)
-      if (!quality.pass) {
-        const correctionMessages: OpenRouterMessage[] = [
-          ...messages,
-          { role: 'assistant', content: draft },
-          { role: 'user', content: buildCorrectionPrompt(quality, chunks.map(c => c.sourceLaw)) },
-        ]
-        const corrected = await openRouterChat(correctionMessages, selectedModel, modelConfig.maxTokens)
-        return streamTextResponse(corrected)
-      }
-      return streamTextResponse(draft)
-    } catch (err) {
-      console.warn('[validator] Échec pré-envoi, fallback streaming :', err)
-      // fallback : on laisse le streaming normal prendre le relai
-    }
-  }
-
   try {
     const llmStream = await openRouterStreamWithFallback(messages, modelConfig.maxTokens, selectedModel, modelConfig.temperature)
 
@@ -448,6 +419,8 @@ const IMMO_KEYWORDS = [
   // Litiges immobiliers
   'assignation', 'référé', 'mise en demeure', 'commissaire de justice',
   'prescription', 'forclusion', 'expertise judiciaire', 'astreinte', 'saisie immobilière',
+  // Vente d'un bien occupé
+  'bien occupé', 'logement occupé', 'vente avec locataire',
 ]
 
 function matchesKeyword(text: string, keyword: string): boolean {

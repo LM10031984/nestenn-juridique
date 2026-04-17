@@ -134,7 +134,7 @@ function resolveLegitext(hint: string): string | null {
 
 // ── 2. Vérification existence en base ─────────────────────────────────────
 
-async function isIndexed(legitextId: string, articleNum: string): Promise<boolean> {
+export async function isIndexed(legitextId: string, articleNum: string): Promise<boolean> {
   const { count } = await supabase
     .from('legal_articles')
     .select('*', { count: 'exact', head: true })
@@ -147,7 +147,7 @@ async function isIndexed(legitextId: string, articleNum: string): Promise<boolea
 
 let _cachedToken: { token: string; expiresAt: number } | null = null
 
-async function getPisteToken(): Promise<string | null> {
+export async function getPisteToken(): Promise<string | null> {
   if (_cachedToken && Date.now() < _cachedToken.expiresAt) return _cachedToken.token
   try {
     const res = await fetch(PISTE_TOKEN_URL, {
@@ -286,7 +286,7 @@ async function findLegiartiId(token: string, legitextId: string, articleNum: str
   return null
 }
 
-async function fetchArticleFromLegifrance(
+export async function fetchArticleFromLegifrance(
   token: string,
   legitextId: string,
   articleNum: string,
@@ -335,7 +335,7 @@ Domaine :`,
 
 // ── 6. Summarize (GPT-4o-mini, même prompt que index-legifrance) ──────────
 
-async function summarizeArticle(articleNum: string, lawLabel: string, texte: string): Promise<{
+export async function summarizeArticle(articleNum: string, lawLabel: string, texte: string): Promise<{
   situation: string; principe: string; consequence: string
 } | null> {
   try {
@@ -365,7 +365,7 @@ Réponds UNIQUEMENT avec du JSON valide : {"situation":"...","principe":"...","c
 
 // ── 6. Embedding Nomic ────────────────────────────────────────────────────
 
-async function embedText(text: string): Promise<number[] | null> {
+export async function embedText(text: string): Promise<number[] | null> {
   try {
     const res = await fetch(NOMIC_API_URL, {
       method: 'POST',
