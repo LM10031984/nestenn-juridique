@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import type { LegiTextResult } from '@/lib/legifrance'
+import { detectDomains } from '@/lib/domain-detector'
 
 // ---------------------------------------------------------------------------
 // Client Supabase (server-side : service role pour RPC)
@@ -55,47 +56,6 @@ async function embedQuery(text: string): Promise<number[] | null> {
   } catch {
     return null
   }
-}
-
-// ---------------------------------------------------------------------------
-// Détection de domaine(s) par mots-clés
-// Retourne les 1-2 domaines les plus probables pour booster leur score en DB.
-// ---------------------------------------------------------------------------
-
-const DOMAIN_KEYWORDS: Record<string, string[]> = {
-  baux_habitation:      ['bail', 'loyer', 'locataire', 'bailleur', 'irl', 'dépôt de garantie', 'depot de garantie', 'expulsion', 'congé', 'conge', 'trêve hivernale', 'treve hivernale', 'clause résolutoire', 'clause resolutoire', 'bail meublé', 'bail mobilité', 'encadrement des loyers', 'loi 89-462', 'décence', 'decence', 'préavis', 'preavis'],
-  copropriete:          ['copropriété', 'copropriete', 'syndic', 'assemblée générale', 'assemblee generale', 'charges de copropriété', 'tantièmes', 'tantiemes', 'parties communes', 'règlement de copropriété', 'reglement de copropriete', 'lot de copropriété', 'loi 65-557'],
-  agent_immobilier:     ['mandat', 'commission', 'honoraires', 'carte t', 'loi hoguet', 'hoguet', 'agence immobilière', 'agence immobiliere', 'négociateur', 'negociateur', 'devoir de conseil', 'loi 70-9', 'registre des mandats'],
-  vente_immobiliere:    ['compromis', 'promesse de vente', 'acte authentique', 'vice caché', 'vice cache', 'rétractation', 'retractation', 'condition suspensive', 'vente parfaite', 'avant-contrat', 'avant contrat', 'sru', 'indemnité d\'immobilisation', 'preemption', 'frais de notaire', 'droits de mutation'],
-  diagnostics:          ['dpe', 'diagnostic', 'amiante', 'plomb', 'carrez', 'termites', 'erp', 'audit énergétique', 'audit energetique', 'ddt', 'diagnostiqueur', 'passoire thermique'],
-  construction:         ['vefa', 'décennale', 'decennale', 'biennale', 'parfait achèvement', 'parfait achevement', 'réception', 'reception', 'maître d\'ouvrage', 'maitre d\'ouvrage', 'ccmi', 'garantie d\'achèvement', 'garantie d\'achevement', 'promoteur', 'dommage ouvrage'],
-  fiscalite:            ['plus-value', 'plus value', 'cgi', 'ifi', 'lmnp', 'lmp', 'bic', 'revenus fonciers', 'pinel', 'denormandie', 'déficit foncier', 'deficit foncier', 'sci fiscal', 'tva immobilière', 'tva immobiliere', 'abattement', 'droits d\'enregistrement'],
-  urbanisme:            ['plu', 'permis de construire', 'préemption urbaine', 'preemption urbaine', 'dpu', 'dia', 'zan', 'safer', 'certificat d\'urbanisme', 'zone agricole', 'recours tiers'],
-  sci_societes:         ['sci', 'société civile immobilière', 'societe civile immobiliere', 'gérance', 'gerance', 'cession de parts', 'dissolution', 'démembrement', 'demembrement', 'usufruit', 'nue-propriété', 'nue propriete'],
-  bail_commercial:      ['bail commercial', 'loyer commercial', 'renouvellement du bail', 'droit au bail', 'indemnité d\'éviction', 'indemnite d\'eviction', 'déspécialisation', 'despecialisation', '3-6-9', 'l145'],
-  consommation:         ['crédit immobilier', 'credit immobilier', 'taeg', 'prêt immobilier', 'pret immobilier', 'scrivener', 'clauses abusives', 'l313', 'condition suspensive de financement', 'refus de prêt', 'refus de pret'],
-  viager_demembrement:  ['viager', 'rente viagère', 'rente viagere', 'bouquet', 'réversion', 'reversion', 'débirentier', 'debirentier', 'crédirentier', 'creditentier'],
-  location_saisonniere: ['meublé de tourisme', 'meuble de tourisme', 'airbnb', 'location saisonnière', 'location saisonniere', 'changement d\'usage', 'taxe de séjour', 'taxe de sejour', 'numéro d\'enregistrement', 'numero d\'enregistrement'],
-  responsabilite_civile: ['réticence dolosive', 'reticence dolosive', 'dol', 'manquement', 'préjudice', 'prejudice', 'défaut d\'information', 'defaut d\'information', 'obligation d\'information', 'responsabilité de l\'agent', 'responsabilite de l\'agent'],
-}
-
-export function detectDomains(query: string): string[] {
-  const lower = query.toLowerCase()
-  const scores: Record<string, number> = {}
-
-  for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
-    let score = 0
-    for (const kw of keywords) {
-      if (lower.includes(kw)) score++
-    }
-    if (score > 0) scores[domain] = score
-  }
-
-  // Retourne les domaines avec score > 0, triés par score desc, max 2
-  return Object.entries(scores)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([d]) => d)
 }
 
 // ---------------------------------------------------------------------------
