@@ -306,9 +306,9 @@ export async function POST(req: NextRequest) {
         textId: '', title: c.sourceLaw, content: c.chunkText,
         dateVersion: '', url: c.sourceUrl ?? '', sourceType: 'loi' as const,
       }))
-      // JuriCase et NormalizedCase partagent les mêmes champs utiles pour le validateur
-      // (seule juriCases.length est testée dans validateResponseQuality)
-      const allJuri = [...liveJuriCases, ...filteredPgJuriCases] as unknown as import('@/lib/judilibre').NormalizedCase[]
+      // Cast sûr : validateResponseQuality n'utilise que juriCases.length pour ce check
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allJuri = [...liveJuriCases, ...filteredPgJuriCases] as unknown as any[]
       const quality = validateResponseQuality(draft, dilaTexts, allJuri)
       if (!quality.pass) {
         const correctionMessages: OpenRouterMessage[] = [
