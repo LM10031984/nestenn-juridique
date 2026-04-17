@@ -93,7 +93,9 @@ const LARGE_RULES = `# Règles de raisonnement juridique
 
 6. **Reste factuel et honnête** : si tu n'es pas certain d'un point, écris "à vérifier sur Légifrance" plutôt que d'inventer une référence. L'honnêteté prime sur la confiance affichée.
 
-7. **Langue : français juridique professionnel**. Vouvoie l'agent. Utilise le vocabulaire technique du droit immobilier (mandant, mandataire, bailleur, preneur, promettant, bénéficiaire, curateur, tuteur).`
+7. **INTERDIT — citation libre d'arrêts** : ne cite jamais un numéro d'arrêt que tu n'as pas vu dans la section "Sources vérifiées" ci-dessus. Si tu veux évoquer un arrêt de mémoire, écris uniquement : *(arrêt de mémoire — à vérifier sur Judilibre)*.
+
+8. **Langue : français juridique professionnel**. Vouvoie l'agent. Utilise le vocabulaire technique du droit immobilier (mandant, mandataire, bailleur, preneur, promettant, bénéficiaire, curateur, tuteur).`
 
 const LARGE_EXAMPLE = `# Exemple de réponse idéale (cas multi-enjeux)
 
@@ -162,9 +164,11 @@ const SMALL_RULES = `# Règles absolues (respecte-les à chaque réponse)
 
 3. **Utilise PRIORITAIREMENT les sources fournies**. Ne cite pas de mémoire ce qui est déjà dans les sources.
 
-4. **Longueur** : entre 500 et 900 mots. Pas de remplissage.
+4. **INTERDIT — citation libre d'arrêts** : ne cite jamais un numéro d'arrêt que tu n'as pas vu dans la section "Sources vérifiées" ci-dessus. Si tu veux évoquer un arrêt de mémoire, écris uniquement : *(arrêt de mémoire — à vérifier sur Judilibre)*.
 
-5. **Français juridique professionnel**. Vouvoie l'agent. Pas d'anglicismes.`
+5. **Longueur** : entre 500 et 900 mots. Pas de remplissage.
+
+6. **Français juridique professionnel**. Vouvoie l'agent. Pas d'anglicismes.`
 
 const SMALL_EXAMPLE = `# Exemple de format attendu
 
