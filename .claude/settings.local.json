@@ -7,7 +7,12 @@
       "Bash(BENCHMARK_MODEL=\"mistralai/mistral-large-2512\" npx tsx scripts/benchmark-v1.ts)",
       "Bash(npx tsx *)",
       "mcp__claude_ai_Supabase__execute_sql",
-      "Bash(BENCHMARK_MODEL=\"mistralai/mistral-large-2512\" npx tsx scripts/benchmark-v1.ts --ids=Q32)"
+      "Bash(BENCHMARK_MODEL=\"mistralai/mistral-large-2512\" npx tsx scripts/benchmark-v1.ts --ids=Q32)",
+      "Bash(git push *)",
+      "Bash(npx dotenv-cli *)",
+      "Bash(BENCHMARK_MODEL=mistralai/mistral-large-2512 npx tsx scripts/benchmark-v1.ts --ids=Q41)",
+      "Bash(node *)",
+      "Bash(BENCHMARK_MODEL=qwen/qwen3-235b-a22b-2507 npx tsx scripts/benchmark-v1.ts --ids=Q05)"
     ]
   }
 }
