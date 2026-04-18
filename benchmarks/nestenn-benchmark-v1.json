@@ -123,7 +123,7 @@
       "domain": "baux_habitation",
       "level": "facile",
       "question": "Le bailleur peut-il résilier le bail parce que le locataire héberge un proche ?",
-      "expected_focus": ["art. 1719 Code civil (jouissance paisible)", "hébergement à titre gratuit autorisé", "exception si sous-location déguisée"],
+      "expected_focus": ["art. 1719 Code civil (jouissance paisible)", "hébergement à titre gratuit autorisé", "sous-location déguisée ou illicite"],
       "risk_type": "validation résiliation à tort"
     },
     {
