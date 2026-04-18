@@ -71,6 +71,10 @@ const PILLARS: Pillar[] = [
 
   // Loi n° 65-557 du 10 juillet 1965 — art. 46 (loi Carrez)
   { law: 'loi n° 65-557 du 10 juillet 1965', legitextId: 'LEGITEXT000006068256', article: '46', domain: 'vente_immobiliere' },
+
+  // Pivots de second rang
+  { law: 'loi n° 89-462 du 6 juillet 1989', legitextId: 'LEGITEXT000006069108', article: '8-1', domain: 'baux_habitation' },
+  { law: 'Code civil', legitextId: 'LEGITEXT000006070721', article: '1161', domain: 'agent_immobilier' },
 ]
 
 // ── Main ─────────────────────────────────────────────────────────────────────

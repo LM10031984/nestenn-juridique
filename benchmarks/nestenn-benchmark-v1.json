@@ -51,7 +51,7 @@
       "domain": "baux_habitation",
       "level": "facile",
       "question": "Un bailleur peut-il entrer dans le logement loué sans l'accord du locataire ?",
-      "expected_focus": ["art. 9 loi 89-462 (jouissance paisible)", "interdiction sauf cas exceptionnels", "art. 226-4 Code pénal (violation domicile)"],
+      "expected_focus": ["art. 1719 Code civil (jouissance paisible)", "interdiction sauf urgence ou accord", "art. 226-4 Code pénal (violation de domicile)"],
       "risk_type": "confusion visite technique / entrée autorisée ; minimisation interdiction"
     },
     {
@@ -75,7 +75,7 @@
       "domain": "baux_habitation",
       "level": "moyen",
       "question": "Un congé pour vente est-il valable si le prix finalement proposé à un tiers est plus bas ?",
-      "expected_focus": ["art. 15 II loi 89-462", "droit de préemption locataire", "obligation de notifier le nouveau prix si plus bas"],
+      "expected_focus": ["art. 15 loi 89-462", "droit de préemption locataire", "obligation de notifier le nouveau prix si plus bas"],
       "risk_type": "oubli de la seconde notification ; 'congé toujours valable' à tort"
     },
     {
@@ -251,7 +251,7 @@
       "domain": "vente_immobiliere",
       "level": "moyen",
       "question": "Un acquéreur peut-il demander une baisse du prix après découverte d'un désordre avant l'acte authentique ?",
-      "expected_focus": ["action estimatoire (art. 1644 CC) si vice caché", "renégociation amiable", "possibilité de renoncer au compromis sous conditions"],
+      "expected_focus": ["art. 1644 Code civil (action estimatoire)", "vice caché ou obligation de délivrance conforme", "négociation ou avenant au compromis avant signature"],
       "risk_type": "confusion avec vice caché post-vente ; validation baisse automatique"
     },
     {
@@ -371,7 +371,7 @@
       "domain": "financement_compromis",
       "level": "piege",
       "question": "Une condition suspensive d'urbanisme peut-elle être invoquée tardivement ?",
-      "expected_focus": ["délais stricts du compromis", "déchéance si dépassement", "art. 1304-3 CC"],
+      "expected_focus": ["art. 1304-3 Code civil", "délai contractuel expiré", "perte du bénéfice de la condition ou empêchement du vendeur"],
       "risk_type": "validation invocation tardive à tort"
     },
     {

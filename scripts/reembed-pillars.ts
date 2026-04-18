@@ -176,6 +176,31 @@ const PILLARS: PillarUpdate[] = [
     ],
     overrideDomain: 'vente_immobiliere',
   },
+  {
+    law_id: 'LEGITEXT000006069108', article_num: '8-1',
+    label:  'art. 8-1 loi 89-462 (liberté d\'hébergement du locataire)',
+    paraphrases: [
+      "liberté du locataire d'héberger un proche à titre gratuit",
+      "le bailleur ne peut pas résilier le bail parce que le locataire héberge un proche",
+      "hébergement gratuit d'un conjoint, enfant, parent, ami par le locataire",
+      "distinction hébergement gratuit vs sous-location déguisée",
+      "impossibilité de limiter par une clause le droit d'hébergement",
+      "un locataire peut-il héberger quelqu'un chez lui sans autorisation du bailleur",
+    ],
+  },
+  {
+    law_id: 'LEGITEXT000006070721', article_num: '1161',
+    label:  "art. 1161 Code civil (interdiction représentation intérêts opposés)",
+    paraphrases: [
+      "interdiction pour un représentant d'agir simultanément pour des intérêts opposés",
+      "double mandat agent immobilier vendeur et acquéreur sur la même opération",
+      "conflit d'intérêts du représentant — accord exprès des deux parties requis",
+      "cumul mandat de vente et mandat de recherche conditions strictes",
+      "nullité de l'acte accompli en violation de l'art. 1161",
+      "devoir de loyauté renforcé en cas de double mandat",
+    ],
+    overrideDomain: 'agent_immobilier',
+  },
 ]
 
 // ── Prompt summary renforcé (langage terrain + chiffres exacts) ──────────────

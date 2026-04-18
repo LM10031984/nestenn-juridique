@@ -45,6 +45,29 @@ if (!SUPABASE_URL || !ANON_KEY || !EMAIL || !PASSWORD) {
   process.exit(1)
 }
 
+// ── Filtres CLI ──────────────────────────────────────────────────────────────
+// Usage :
+//   --ids=Q32,Q33      → ne lance que les IDs listés (séparateur virgule)
+//   --domain=xxx       → filtre par domaine (ex. vente_immobiliere)
+//   --level=xxx        → filtre par niveau (facile, moyen, piege)
+//   --limit=N          → limite au N premiers résultats après filtrage
+// Sans aucun filtre : benchmark complet 60 questions.
+
+function parseCliArg(name: string): string | null {
+  const arg = process.argv.find(a => a.startsWith(`--${name}=`))
+  return arg ? arg.slice(`--${name}=`.length) : null
+}
+
+const FILTER_IDS     = parseCliArg('ids')?.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) ?? null
+const FILTER_DOMAIN  = parseCliArg('domain')
+const FILTER_LEVEL   = parseCliArg('level')
+const FILTER_LIMIT   = (() => {
+  const raw = parseCliArg('limit')
+  if (!raw) return null
+  const n = parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : null
+})()
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface QuestionEntry {
@@ -385,6 +408,28 @@ async function main(): Promise<void> {
   const bench     = JSON.parse(readFileSync(benchPath, 'utf-8')) as BenchmarkFile
   console.log(`\n📘  Benchmark : ${bench.name} (${bench.questions.length} questions)\n`)
 
+  // Filtres CLI (appliqués après chargement du JSON)
+  let questions = bench.questions
+  if (FILTER_IDS)    questions = questions.filter(q => FILTER_IDS.includes(q.id.toUpperCase()))
+  if (FILTER_DOMAIN) questions = questions.filter(q => q.domain === FILTER_DOMAIN)
+  if (FILTER_LEVEL)  questions = questions.filter(q => q.level  === FILTER_LEVEL)
+  if (FILTER_LIMIT)  questions = questions.slice(0, FILTER_LIMIT)
+
+  const filtersApplied: string[] = []
+  if (FILTER_IDS)    filtersApplied.push(`ids=${FILTER_IDS.join(',')}`)
+  if (FILTER_DOMAIN) filtersApplied.push(`domain=${FILTER_DOMAIN}`)
+  if (FILTER_LEVEL)  filtersApplied.push(`level=${FILTER_LEVEL}`)
+  if (FILTER_LIMIT)  filtersApplied.push(`limit=${FILTER_LIMIT}`)
+  if (filtersApplied.length > 0) {
+    console.log(`🎛️   Filtres : ${filtersApplied.join(' | ')}`)
+    console.log(`    ${questions.length} question(s) retenue(s) sur ${bench.questions.length}\n`)
+  }
+
+  if (questions.length === 0) {
+    console.error('❌  Aucune question après filtrage. Vérifiez vos options --ids / --domain / --level.')
+    process.exit(1)
+  }
+
   console.log(`🔐  Connexion Supabase (${EMAIL})…`)
   const cookie = await getAuthCookie()
   console.log('    ✅ session obtenue\n')
@@ -394,9 +439,9 @@ async function main(): Promise<void> {
   const results: QuestionResult[] = []
   const t0 = Date.now()
 
-  for (let i = 0; i < bench.questions.length; i++) {
-    const q = bench.questions[i]
-    process.stdout.write(`⏳  [${String(i + 1).padStart(2)}/${bench.questions.length}] ${q.id} ${q.domain.padEnd(24)} ${q.level.padEnd(7)} …\r`)
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i]
+    process.stdout.write(`⏳  [${String(i + 1).padStart(2)}/${questions.length}] ${q.id} ${q.domain.padEnd(24)} ${q.level.padEnd(7)} …\r`)
     const r = await runQuestion(q, cookie)
     results.push(r)
 
@@ -404,7 +449,7 @@ async function main(): Promise<void> {
     const longTag = r.tooLong ? ' ⚠️ TROP_LONG' : ''
     const riskTag = r.riskHits.length > 0 ? ` ⚠️ risk×${r.riskHits.length}` : ''
     const covPct  = (r.coverageRatio * 100).toFixed(0).padStart(3)
-    console.log(`${status}  [${String(i + 1).padStart(2)}/${bench.questions.length}] ${q.id} ${q.domain.padEnd(24)} ${q.level.padEnd(7)} cov=${covPct}%  (${r.coverageHits}/${r.coverageTotal})  ${r.wordCount}w${longTag}${riskTag}`)
+    console.log(`${status}  [${String(i + 1).padStart(2)}/${questions.length}] ${q.id} ${q.domain.padEnd(24)} ${q.level.padEnd(7)} cov=${covPct}%  (${r.coverageHits}/${r.coverageTotal})  ${r.wordCount}w${longTag}${riskTag}`)
   }
 
   const totalMs = Date.now() - t0

@@ -63,6 +63,16 @@ const QUESTIONS: Question[] = [
     text: 'Un agent immobilier peut-il réclamer sa commission sans mandat signé ?',
     boostDomains: ['agent_immobilier'],
   },
+  {
+    id:   'Q33',
+    text: "Le vendeur doit-il informer l'acquéreur d'un litige de voisinage en cours ?",
+    boostDomains: ['vente_immobiliere'],
+  },
+  {
+    id:   'Q34',
+    text: 'Une vente peut-elle être annulée pour dol si la surface a été volontairement minimisée ?',
+    boostDomains: ['vente_immobiliere'],
+  },
 ]
 
 // ── Pivots à suivre ──────────────────────────────────────────────────────────
@@ -88,6 +98,10 @@ const PILLARS: Pillar[] = [
   { law_id: 'LEGITEXT000006068387', article_num: '14',  label: 'art. 14 Hoguet (sanctions)' },
   // CCH — passoires thermiques
   { law_id: 'LEGITEXT000006074096', article_num: 'L.173-1-1', label: 'art. L.173-1-1 CCH (DPE)' },
+  // Code civil — obligation précontractuelle d'information (Q33)
+  { law_id: 'LEGITEXT000006070721', article_num: '1112-1', label: "art. 1112-1 CC (information précontractuelle)" },
+  // Loi 65-557 — loi Carrez (Q34)
+  { law_id: 'LEGITEXT000006068256', article_num: '46', label: 'art. 46 loi 65-557 (Carrez)' },
 ]
 
 // ── Row renvoyée par la RPC (même shape que lib/sources.ts) ──────────────────

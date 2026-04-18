@@ -43,3 +43,39 @@ Pour filtrer par domaine ou niveau :
 ```ts
 const impayes = benchmark.questions.filter(q => q.domain === 'baux_habitation' && q.level === 'piege')
 ```
+
+---
+
+## Lancement ciblé via `scripts/benchmark-v1.ts`
+
+Le script accepte des filtres pour éviter de relancer les 60 questions à chaque micro-fix.
+
+### Options supportées
+
+| Option | Effet | Exemple |
+|---|---|---|
+| `--ids=Q01,Q04,Q32` | lance uniquement les IDs listés (virgule) | `--ids=Q32` |
+| `--domain=<name>` | filtre par domaine (valeurs ci-dessus) | `--domain=vente_immobiliere` |
+| `--level=<name>` | filtre par niveau (`facile`, `moyen`, `piege`) | `--level=piege` |
+| `--limit=N` | limite au N premiers résultats après filtrage | `--limit=5` |
+
+Les filtres se combinent (ET logique). **Sans aucun filtre : benchmark complet 60 questions.**
+
+### Exemples de commandes
+
+```powershell
+# 1. Une seule question (Q32)
+$env:BENCHMARK_MODEL="mistralai/mistral-large-2512"; npx tsx scripts/benchmark-v1.ts --ids=Q32
+
+# 2. Un petit lot d'IDs (Q33 et Q34)
+$env:BENCHMARK_MODEL="mistralai/mistral-large-2512"; npx tsx scripts/benchmark-v1.ts --ids=Q33,Q34
+
+# 3. Un domaine complet (vente_immobiliere, 10 questions)
+$env:BENCHMARK_MODEL="mistralai/mistral-large-2512"; npx tsx scripts/benchmark-v1.ts --domain=vente_immobiliere
+
+# 4. Tous les pièges (10 questions tous domaines confondus)
+$env:BENCHMARK_MODEL="mistralai/mistral-large-2512"; npx tsx scripts/benchmark-v1.ts --level=piege
+
+# 5. Les 3 premières questions baux_habitation (smoke rapide)
+$env:BENCHMARK_MODEL="mistralai/mistral-large-2512"; npx tsx scripts/benchmark-v1.ts --domain=baux_habitation --limit=3
+```
