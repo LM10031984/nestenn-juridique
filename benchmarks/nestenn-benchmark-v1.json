@@ -123,7 +123,7 @@
       "domain": "baux_habitation",
       "level": "facile",
       "question": "Le bailleur peut-il résilier le bail parce que le locataire héberge un proche ?",
-      "expected_focus": ["art. 8-1 loi 89-462", "liberté hébergement à titre gratuit", "exception si sous-location déguisée"],
+      "expected_focus": ["art. 1719 Code civil (jouissance paisible)", "hébergement à titre gratuit autorisé", "exception si sous-location déguisée"],
       "risk_type": "validation résiliation à tort"
     },
     {
@@ -267,7 +267,7 @@
       "domain": "vente_immobiliere",
       "level": "moyen",
       "question": "Peut-on vendre un bien occupé sans l'indiquer clairement à l'acquéreur ?",
-      "expected_focus": ["obligation d'information précontractuelle (art. 1112-1 CC)", "DDT", "risque annulation pour dol"],
+      "expected_focus": ["obligation d'information précontractuelle (art. 1112-1 CC)", "diagnostic technique immobilier (DDT)", "risque annulation pour dol"],
       "risk_type": "validation vente sans mention occupation à tort"
     },
     {
