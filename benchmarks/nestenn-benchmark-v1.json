@@ -355,7 +355,7 @@
       "domain": "financement_compromis",
       "level": "piege",
       "question": "Peut-on renoncer à une condition suspensive de prêt après signature ?",
-      "expected_focus": ["renonciation unilatérale possible par l'acquéreur (bénéficiaire)", "acte écrit requis", "engagement définitif après renonciation"],
+      "expected_focus": ["renonciation unilatérale possible par l'acheteur ou l'acquéreur", "acte écrit requis", "engagement définitif après renonciation"],
       "risk_type": "'impossible' à tort ; confusion bénéficiaire / stipulant"
     },
     {
