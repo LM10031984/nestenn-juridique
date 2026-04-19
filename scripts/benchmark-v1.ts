@@ -173,6 +173,33 @@ function extractKeywords(text: string): string[] {
     .filter(w => w.length > 3 && !STOPWORDS.has(w))
 }
 
+// ── Équivalences sémantiques juridiques (vague scoring, correctif A) ────────
+// Chaque groupe regroupe des expressions considérées comme équivalentes lors
+// du fallback keyword matching. Si un keyword du focus est absent de la
+// réponse mais qu'un de ses équivalents y figure, le keyword est compté comme
+// trouvé. Liste fermée validée sur Q19/Q39/Q40 — ne pas élargir sans dry-run.
+const SEMANTIC_EQUIVALENTS: string[][] = [
+  ['interdiction', 'nullité', 'nul', 'exercice illégal'],
+  ['pratiquer', 'exercer', 'agir', 'faire visiter'],
+  ['déchéance', 'perd', 'perte', 'condition réputée accomplie'],
+  ['multiples', 'plusieurs', 'nombreux'],
+  ['automatique', "d'office", 'systématique'],
+  ['in concreto', 'au cas par cas', 'selon les circonstances'],
+  ['diligence', 'démarches sérieuses', 'bonne foi', 'sincérité'],
+  ['silence', 'absence de précision', 'ne le précise pas'],
+]
+
+function hasKeywordOrEquivalent(keyword: string, respLower: string): boolean {
+  if (respLower.includes(keyword)) return true
+  for (const group of SEMANTIC_EQUIVALENTS) {
+    if (!group.includes(keyword)) continue
+    for (const eq of group) {
+      if (eq !== keyword && respLower.includes(eq)) return true
+    }
+  }
+  return false
+}
+
 function focusIsHit(focus: string, response: string): boolean {
   const respLower = response.toLowerCase()
   const respArticles = new Set(extractArticleRefs(response))
@@ -194,9 +221,10 @@ function focusIsHit(focus: string, response: string): boolean {
   if (focusArticles.length > 0 || focusLaws.length > 0) return true
 
   // Pas de ref structurée → fallback keyword matching (≥ 50% des mots > 3 chars)
+  // avec équivalences sémantiques (SEMANTIC_EQUIVALENTS).
   const keywords = extractKeywords(focus)
   if (keywords.length === 0) return respLower.includes(focus.toLowerCase())
-  const hits = keywords.filter(k => respLower.includes(k)).length
+  const hits = keywords.filter(k => hasKeywordOrEquivalent(k, respLower)).length
   return hits / keywords.length >= 0.5
 }
 
