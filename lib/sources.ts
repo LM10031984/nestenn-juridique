@@ -67,10 +67,22 @@ function rowToJuriCase(row: PgVectorRow): JuriCase | null {
     caseNumber = numMatch?.[1] ?? ''
   }
 
+  // Arrêts curés (principe/doctrine consolidée, sans numéro officiel) :
+  // acceptés avec un label stable. Le modèle ne citera pas un "n°" absent
+  // (règle 6 du prompt : interdit citer un arrêt dont le numéro n'est pas
+  // dans les sources), mais il verra le holding qui contient les articles
+  // de loi référencés (ex : art. 1161 C. civ. pour le double mandat).
+  // NB : la RPC expose le source_id via le champ `title` pour les arrêts
+  // (le `doc_id` est l'UUID interne, pas le source_id).
+  const isCurated = typeof row.title === 'string' && row.title.startsWith('curated-')
+  if (!caseNumber && isCurated) caseNumber = 'principe curé'
+
   // Filtrer les identifiants internes (UUID, hex Judilibre)
   if (!caseNumber || INTERNAL_ID_RE.test(caseNumber)) return null
 
-  const court: 'cass' | 'ca' = row.title.startsWith('Cass') ? 'cass' : 'ca'
+  const court: 'cass' | 'ca' = isCurated
+    ? 'cass'
+    : ((row.title ?? '').startsWith('Cass') ? 'cass' : 'ca')
   const dateMatch = row.title.match(/(\d{1,2}\s+\w+\s+\d{4})/)
 
   // Utiliser le holding indexé (migration 019) si disponible, sinon reconstruire

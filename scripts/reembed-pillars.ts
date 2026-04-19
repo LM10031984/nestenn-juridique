@@ -52,6 +52,8 @@ interface PillarUpdate {
   label:          string
   paraphrases:    string[]       // mots-clés terrain injectés dans l'embedding
   overrideDomain?: string        // si le domain actuel est incorrect
+  embedLabel?:    string         // si défini, remplace le title Legifrance dans l'embed_text
+                                 // (utile quand le title officiel est trop long ou hors-domaine)
 }
 
 const PILLARS: PillarUpdate[] = [
@@ -192,14 +194,19 @@ const PILLARS: PillarUpdate[] = [
     law_id: 'LEGITEXT000006070721', article_num: '1161',
     label:  "art. 1161 Code civil (interdiction représentation intérêts opposés)",
     paraphrases: [
-      "interdiction pour un représentant d'agir simultanément pour des intérêts opposés",
+      "peut-on cumuler mandat vendeur et mandat acquéreur sur la même opération",
+      "un agent immobilier peut-il représenter à la fois le vendeur et l'acheteur",
       "double mandat agent immobilier vendeur et acquéreur sur la même opération",
+      "cumul mandat de vente et mandat de recherche sur la même opération immobilière",
+      "interdiction pour un représentant d'agir simultanément pour des intérêts opposés",
       "conflit d'intérêts du représentant — accord exprès des deux parties requis",
-      "cumul mandat de vente et mandat de recherche conditions strictes",
-      "nullité de l'acte accompli en violation de l'art. 1161",
+      "double mandat possible à condition d'un accord écrit exprès des deux parties",
       "devoir de loyauté renforcé en cas de double mandat",
+      "nullité de l'acte accompli en violation de l'art. 1161 du Code civil",
+      "art. 1161 Code civil autocontrat et représentation de parties aux intérêts opposés",
     ],
     overrideDomain: 'agent_immobilier',
+    embedLabel: "art. 1161 Code civil — double mandat agent immobilier : interdiction sauf accord exprès des deux parties",
   },
 ]
 
@@ -251,6 +258,13 @@ async function embedTextNomic(text: string): Promise<number[] | null> {
 
 interface SummaryJSON { situation: string; principe: string; consequence: string }
 
+// Filtre CLI : --article=1161 ou --article=1161,8-1 pour ne re-indexer qu'un
+// sous-ensemble des pivots (utile pour patchs ciblés sans toucher le reste).
+const articleArg = process.argv.find(a => a.startsWith('--article='))
+const ARTICLE_FILTER: string[] | null = articleArg
+  ? articleArg.slice('--article='.length).split(',').map(s => s.trim()).filter(Boolean)
+  : null
+
 async function main(): Promise<void> {
   const { createClient } = await import('@supabase/supabase-js')
   const { openRouterChat, MODELS } = await import('../lib/openrouter')
@@ -260,12 +274,19 @@ async function main(): Promise<void> {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  console.log(`\n🔄  Re-indexation de ${PILLARS.length} pivots juridiques\n`)
+  const pillars = ARTICLE_FILTER
+    ? PILLARS.filter(p => ARTICLE_FILTER.includes(p.article_num))
+    : PILLARS
+
+  if (ARTICLE_FILTER) {
+    console.log(`\n🎛️   Filtre --article=${ARTICLE_FILTER.join(',')} → ${pillars.length}/${PILLARS.length} pivots retenus`)
+  }
+  console.log(`\n🔄  Re-indexation de ${pillars.length} pivots juridiques\n`)
 
   let updated = 0
   let failed  = 0
 
-  for (const p of PILLARS) {
+  for (const p of pillars) {
     console.log(`\n→ ${p.label}`)
 
     // 1. Fetch row existante
@@ -317,7 +338,7 @@ async function main(): Promise<void> {
     // 3. Embed text focalisé — court et ciblé (~600-900 chars)
     // Pas de content brut : dilue le signal sémantique (vu au diagnostic précédent)
     const embedText = [
-      title,
+      p.embedLabel ?? title,
       `Situation : ${summary.situation}`,
       `Règle : ${summary.principe}`,
       `Conséquence : ${summary.consequence}`,
