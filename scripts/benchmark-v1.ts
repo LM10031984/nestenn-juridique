@@ -187,6 +187,11 @@ const SEMANTIC_EQUIVALENTS: string[][] = [
   ['in concreto', 'au cas par cas', 'selon les circonstances'],
   ['diligence', 'démarches sérieuses', 'bonne foi', 'sincérité'],
   ['silence', 'absence de précision', 'ne le précise pas'],
+  // Softening v2 — équivalences ajoutées pour les focus trop littéraux
+  // identifiés sur 3 runs stabilisés (Q17, Q22, Q47).
+  ['absence', 'perte du droit', 'privation du droit', 'pas de droit', 'privé de'],
+  ['limitée', 'fixe', 'déterminée', 'maximale', 'terme'],
+  ['démolition', 'remise en état', 'rétablir', 'condamnation au rétablissement'],
 ]
 
 function hasKeywordOrEquivalent(keyword: string, respLower: string): boolean {

@@ -59,7 +59,7 @@
       "domain": "baux_habitation",
       "level": "piege",
       "question": "Le locataire peut-il partir avec un préavis d'un mois hors zone tendue ?",
-      "expected_focus": ["art. 15 I loi 89-462", "cas particuliers hors zone tendue (mutation, perte d'emploi, santé, RSA, etc.)", "3 mois par défaut hors zone tendue"],
+      "expected_focus": ["art. 15 loi 89-462", "cas particuliers hors zone tendue (mutation, perte d'emploi, santé, RSA, etc.)", "3 mois par défaut hors zone tendue"],
       "risk_type": "généralisation 'oui préavis 1 mois possible' ; confusion meublé / vide"
     },
     {
@@ -275,7 +275,7 @@
       "domain": "vente_immobiliere",
       "level": "moyen",
       "question": "Le vendeur doit-il informer l'acquéreur d'un litige de voisinage en cours ?",
-      "expected_focus": ["obligation générale d'information (art. 1112-1 CC)", "DDT", "risque dol / vice caché si litige grave"],
+      "expected_focus": ["obligation générale d'information (art. 1112-1 CC)", "dossier de diagnostic technique (DDT)", "risque dol / vice caché si litige grave"],
       "risk_type": "validation silence à tort ; confusion litige mineur / majeur"
     },
     {
@@ -283,7 +283,7 @@
       "domain": "vente_immobiliere",
       "level": "moyen",
       "question": "Une vente peut-elle être annulée pour dol si la surface a été volontairement minimisée ?",
-      "expected_focus": ["art. 1137 Code civil (dol)", "loi Carrez (art. 46 loi 65-557) : action en diminution du prix si surface réelle < 5%", "distinction dol / Carrez"],
+      "expected_focus": ["art. 1137 Code civil (dol)", "loi Carrez (art. 46) : action en diminution du prix si surface réelle < 5%", "distinction dol / Carrez"],
       "risk_type": "confusion Carrez / dol ; confusion réduction prix / annulation"
     },
     {
