@@ -17,6 +17,7 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
+import { buildJuriSanitizer } from '@/lib/juri-filter'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -342,7 +343,12 @@ export async function POST(req: NextRequest) {
       })()
     )
 
-    const outputStream = clientStream
+    const outputStream =
+      process.env.ENABLE_JURI_FILTER === 'true'
+        ? clientStream.pipeThrough(
+            buildJuriSanitizer([...filteredPgJuriCases, ...liveJuriCases]),
+          )
+        : clientStream
 
     return new Response(outputStream, {
       status: 200,

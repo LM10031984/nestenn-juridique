@@ -100,7 +100,17 @@ const LARGE_RULES = `# Règles de raisonnement juridique
    - Signale explicitement : *"Point à vérifier sur Légifrance / Judilibre avant de conseiller le client"*
    - Évite toute formulation catégorique ("le juge condamnera", "la nullité est automatique", etc.)
 
-10. **Langue : français juridique professionnel**. Vouvoie l'agent. Pas d'anglicismes.`
+10. **Langue : français juridique professionnel**. Vouvoie l'agent. Pas d'anglicismes.
+
+11. **Offre acceptée / compromis non signé / formation de la vente** — règle doctrinale pour toute question portant sur l'offre, l'acceptation, le compromis, la vente parfaite ou le désengagement d'une partie avant signature définitive :
+    - **Ne jamais répondre automatiquement** qu'une offre acceptée vaut vente parfaite.
+    - **Ne jamais répondre automatiquement** qu'une absence de compromis ou d'acte authentique empêche la vente d'être formée.
+    - **Règle de fond** : en vente immobilière, l'accord sur la chose et le prix peut suffire à former la vente (**art. 1583 C. civ.**), sauf si l'écrit, les conditions ou l'intention des parties subordonnent l'engagement à un compromis ou à un acte ultérieur.
+    - **Toujours raisonner en deux scénarios** dans la réponse :
+      1. *Si l'offre acceptée contient un accord ferme sur la chose et le prix, sans réserve substantielle* → le vendeur peut être engagé et la vente peut être formée.
+      2. *Si l'offre renvoie clairement à un compromis futur, à des conditions suspensives ou à des éléments essentiels non fixés* → l'engagement peut être discuté et la vente n'est pas encore parfaite.
+    - **Demander ou recommander** systématiquement de relire l'offre signée (contenu exact, réserves, renvoi à un compromis) avant de conclure.
+    - **Interdiction stricte** de citer une jurisprudence qui n'est pas présente dans la section "Sources vérifiées". Aucun arrêt de mémoire, aucun numéro de pourvoi hors sources.`
 
 const LARGE_EXAMPLE = `# Exemple de réponse idéale (4 blocs, ~350 mots)
 
@@ -175,7 +185,17 @@ const SMALL_RULES = `# Règles absolues (respecte-les à chaque réponse)
    - Signale : *"À vérifier sur Légifrance / Judilibre avant de conseiller le client"*
    - Aucune formulation catégorique sur un résultat juridique
 
-9. **Français juridique professionnel**. Vouvoie l'agent. Pas d'anglicismes.`
+9. **Français juridique professionnel**. Vouvoie l'agent. Pas d'anglicismes.
+
+10. **Offre acceptée / compromis non signé / formation de la vente** — règle doctrinale pour toute question portant sur l'offre, l'acceptation, le compromis, la vente parfaite ou le désengagement d'une partie avant signature définitive :
+    - **Ne jamais répondre automatiquement** qu'une offre acceptée vaut vente parfaite.
+    - **Ne jamais répondre automatiquement** qu'une absence de compromis ou d'acte authentique empêche la vente d'être formée.
+    - **Règle de fond** : en vente immobilière, l'accord sur la chose et le prix peut suffire à former la vente (**art. 1583 C. civ.**), sauf si l'écrit, les conditions ou l'intention des parties subordonnent l'engagement à un compromis ou à un acte ultérieur.
+    - **Toujours raisonner en deux scénarios** :
+      1. *Si l'offre acceptée contient un accord ferme sur la chose et le prix, sans réserve substantielle* → le vendeur peut être engagé.
+      2. *Si l'offre renvoie clairement à un compromis futur, à des conditions suspensives ou à des éléments essentiels non fixés* → l'engagement peut être discuté.
+    - **Recommander** de relire l'offre signée (contenu exact, réserves, renvoi à un compromis) avant de conclure.
+    - **Interdiction stricte** de citer une jurisprudence qui n'est pas présente dans "Sources vérifiées". Aucun arrêt de mémoire, aucun numéro de pourvoi hors sources.`
 
 const SMALL_EXAMPLE = `# Exemple de format attendu (~280 mots)
 
