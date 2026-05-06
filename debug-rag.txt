@@ -1,0 +1,99 @@
+🕵️‍♂️🕵️‍♂️🕵️‍♂️ [DEBUG RAG] DOCUMENTS REMONTÉS DEPUIS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️
+Question : Un acquéreur a visité une maison avec mon agence (j'ai un bon de visite), mais il a finalement signé le compromis avec une autre agence moins chère. Puis-je exiger ma commission ?
+
+📄 Document 1 : [Le bon de visite ne confère pas automatiquement droit à commission : la faute doit être prouvée] - Art. N/A
+🎯 Similarité : 0.908530123246639
+📝 Texte extrait :
+Contexte : Le bon de visite ne confère pas automatiquement droit à commission : la faute doit être prouvée
+Règle : Le bon de visite signé par un acquéreur lors d'une visite avec une agence immobilière n'est pas un mandat et ne confère aucun droit automatique à commission pour l'agence. Si l'acquéreur signe finalement le compromis de vente avec une autre agence (moins chère), l'agence initiale ne peut pas exiger le paiement de sa commission sur le seul fondement du bon de visite. Le bon de visite n'est qu'une preuve de la mise en relation entre l'acquéreur et le bien. Pour obtenir des dommages-intérêts, l'agence doit démontrer la faute de l'acquéreur, c'est-à-dire prouver que celui-ci a volontairement contourné l'agence pour éviter de payer ses honoraires (manœuvre frauduleuse). La simple signature avec une autre agence ne constitue pas en soi une faute. Sans mandat exclusif, l'acquéreur reste libre de traiter avec l'agence de son choix. Seule la preuve d'une faute délictuelle peut fonder une demande en dommages-intérêts.
+--------------------------------------------------
+
+📄 Document 2 : [Art. 1652 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre V : Des obligations de l'acheteur.] - Art. N/A
+🎯 Similarité : 0.812727822015197
+📝 Texte extrait :
+Contexte : Lorsque l'acheteur a conclu un compromis de vente et attend la signature de l'acte authentique.
+Règle : L'acheteur doit payer des intérêts sur le prix de vente jusqu'au règlement du capital, dans des situations précises : si cela a été convenu, si le bien livré génère des revenus, ou s'il a reçu une sommation de paiement.
+En pratique : En cas de non-respect, le vendeur peut demander des intérêts dus, ou engager une action en justice pour réclamer les sommes dues, entraînant éventuellement des dommages-intérêts.
+--------------------------------------------------
+
+📄 Document 3 : [Art. 1642 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 3 : De la garantie. &gt; Paragraphe 2 : De la garantie des défauts de la chose vendue.] - Art. N/A
+🎯 Similarité : 0.794396296989815
+📝 Texte extrait :
+Contexte : Lorsqu'un acheteur visite un bien immobilier avant de signer le compromis de vente.
+Règle : Le vendeur doit informer l'acheteur des défauts cachés du bien, mais il n'est pas responsable des vices apparents que l'acheteur aurait pu détecter lors de sa visite.
+En pratique : Si l'acheteur découvre un vice apparent après la vente, il ne pourra pas agir contre le vendeur pour demander une réduction du prix ou des dommages-intérêts.
+--------------------------------------------------
+
+📄 Document 4 : [Art. 1648 C — code civil] - Art. N/A
+🎯 Similarité : 0.791539559667664
+📝 Texte extrait :
+Contexte : acquéreur
+Règle : L'acquéreur doit intenter une action pour vices rédhibitoires dans un délai de deux ans à compter de leur découverte, ou dans un an suivant la date de décharge des vices apparents pour certains cas.
+En pratique : Si ce délai n'est pas respecté, l'action est forclose et ne peut plus être engagée.
+--------------------------------------------------
+
+📄 Document 5 : [Art. 1620 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 2 : De la délivrance.] - Art. N/A
+🎯 Similarité : 0.788547439963623
+📝 Texte extrait :
+Contexte : Lorsque le vendeur découvre un excédent de mesure après la signature du compromis de vente.
+Règle : Le vendeur doit informer l'acheteur de l'excédent de mesure et, en cas d'augmentation de prix, l'acheteur a le choix entre se désister du contrat ou payer le supplément de prix avec intérêts.
+En pratique : En cas de non-respect, l'acheteur peut demander la nullité du contrat ou exercer un recours pour réclamer des dommages-intérêts.
+--------------------------------------------------
+
+📄 Document 6 : [Art. 1359 — code civil] - Art. N/A
+🎯 Similarité : 0.785778437764315
+📝 Texte extrait :
+Contexte : Parties à un acte juridique portant sur une somme ou une valeur excédant un montant fixé par décret
+Règle : L'acte doit être prouvé par écrit sous signature privée ou authentique pour être valide.
+En pratique : En l'absence de preuve écrite, la créance ne peut pas être reconnue ou appliquée.
+--------------------------------------------------
+
+📄 Document 7 : [Art. L.313-41 C — Code de la consommation] - Art. N/A
+🎯 Similarité : 0.785772026579945
+📝 Texte extrait :
+Contexte : Lorsqu'un acheteur signe un compromis de vente et qu'il a besoin d'un prêt pour financer son achat.
+Règle : Le vendeur doit savoir que la vente est conditionnée à l'obtention du prêt par l'acheteur, avec une durée de validité minimale d'un mois après la signature de l'acte.
+En pratique : Si l'acheteur ne parvient pas à obtenir le prêt dans ce délai, il a droit à un remboursement immédiat et intégral de toute somme versée, sans aucune pénalité ni indemnité.
+--------------------------------------------------
+
+📄 Document 8 : [Art. 1165 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre III : Des sources d'obligations &gt; Sous-titre Ier :  Le contrat  &gt; Chapitre II : La formation du contrat &gt; Section 2 : La validité du contrat &gt; Sous-section 3 : Le contenu du contrat ] - Art. N/A
+🎯 Similarité : 0.784733255389829
+📝 Texte extrait :
+Contexte : Un vendeur et un acheteur s'apprêtent à signer un contrat de vente pour un bien immobilier.
+Règle : Le vendeur doit établir un prix justifié pour la vente du bien, et l'acheteur peut contester ce prix si aucune entente explicite n'a été convenue avant la signature du compromis.
+En pratique : En cas d'abus dans la fixation du prix, l'acheteur peut demander des dommages et intérêts ou même la résolution du contrat devant le juge.
+--------------------------------------------------
+
+📄 Document 9 : [Art. 1621 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 2 : De la délivrance.] - Art. N/A
+🎯 Similarité : 0.784716154108779
+📝 Texte extrait :
+Contexte : Lorsqu'un acquéreur souhaite se désister de la vente après la signature du compromis.
+Règle : Le vendeur doit restituer à l'acheteur non seulement le prix de la vente s'il a déjà été perçu, mais également tous les frais liés à ce contrat.
+En pratique : En cas de non-respect de cette obligation, l'acheteur peut demander une action en nullité du contrat et entamer des recours pour obtenir des dommages-intérêts.
+--------------------------------------------------
+
+📄 Document 10 : [Art. 1650 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre V : Des obligations de l'acheteur.] - Art. N/A
+🎯 Similarité : 0.784031634583191
+📝 Texte extrait :
+Contexte : Lors de la signature d'un compromis de vente entre un vendeur et un acheteur.
+Règle : L'acheteur doit payer le prix de vente au jour et au lieu convenus dans le contrat.
+En pratique : En cas de non-respect, le vendeur peut demander des dommages-intérêts et envisager une action en nullité du contrat.
+--------------------------------------------------
+
+📄 Document 11 : [Art. 1624 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 2 : De la délivrance.] - Art. N/A
+🎯 Similarité : 0.783955488522961
+📝 Texte extrait :
+Contexte : Lors de la signature du compromis de vente, si la chose vendue subit une perte ou une détérioration avant la livraison.
+Règle : Le vendeur doit garantir la chose jusqu'à la livraison, tandis que l'acheteur prend le risque de la perte ou de la détérioration après livraison.
+En pratique : En cas de non-respect, l'acheteur peut demander des dommages-intérêts ou la résolution du contrat si la chose est détruite.
+--------------------------------------------------
+
+📄 Document 12 : [Art. L.313-42 — code de la consommation] - Art. N/A
+🎯 Similarité : 0.783872479481954
+📝 Texte extrait :
+Contexte : acheteur
+Règle : L'acquéreur doit reconnaître par écrit qu'il n'utilisera pas de prêt pour le paiement et qu'il ne pourra pas se prévaloir des dispositions de ce chapitre s'il en fait un malgré cela.
+En pratique : Si l'acheteur ne respecte pas cette obligation, le contrat est considéré comme conclu sous condition suspensive.
+--------------------------------------------------
+
+🕵️‍♂️🕵️‍♂️🕵️‍♂️ FIN DES DOCUMENTS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️

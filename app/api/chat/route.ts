@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 // app/api/chat/route.ts
 // Pipeline Augmenté v4 — le LLM est enrichi par pgvector, pas contraint par lui
 // Filtre hors-sujet → embedding + pgvector → prompt augmenté → streaming direct
@@ -95,16 +97,7 @@ function detectPromptInjection(message: string): boolean {
 const MAX_MESSAGE_LENGTH = 2000
 const MAX_HISTORY_TURNS = 10
 
-const REFUSAL_MESSAGE =
-  "Je suis spécialisé en droit immobilier français. Je ne peux pas répondre à cette question.\n\n" +
-  "Je suis là pour vous aider sur :\n" +
-  "- La **loi Hoguet** et les agents immobiliers\n" +
-  "- Les **baux d'habitation** (location vide, meublée, mobilité)\n" +
-  "- La **copropriété** (charges, assemblée générale, syndic)\n" +
-  "- Les **diagnostics immobiliers** (DPE, amiante, plomb…)\n" +
-  "- Les **transactions immobilières** (compromis, promesse de vente, conditions suspensives)\n" +
-  "- L'**urbanisme** et la **fiscalité immobilière** (SCI, plus-value, Pinel)\n\n" +
-  "N'hésitez pas à me poser une question dans ces domaines."
+export const REFUSAL_MESSAGE = "Désolé, je suis un assistant spécialisé exclusivement en droit immobilier français. Pour vous aider au mieux, je vous invite à me poser des questions sur des sujets tels que les baux de location, la loi Pinel, les diagnostics obligatoires (DPE) ou les règles de copropriété. Comment puis-je vous accompagner sur l'un de ces points ?";
 
 const FILTER_SYSTEM = `Tu es un filtre. Réponds OUI ou NON.
 OUI si la question touche au droit immobilier français : bail, loyer, sous-location,
@@ -200,9 +193,27 @@ export async function POST(req: NextRequest) {
   const { chunks, juriCases: pgJuriCases } = await fetchRelevantSources(
     embedding,
     domains.length > 0 ? domains : null,
-    8,    // max résultats
-    0.30, // threshold minimum
+    12,   // max résultats (augmenté pour couvrir plus de documents injectés)
+    0.25, // threshold abaissé pour capturer les documents custom
   )
+
+  // --- DÉBUT ESPION RAG ---
+  let debugContent = `🕵️‍♂️🕵️‍♂️🕵️‍♂️ [DEBUG RAG] DOCUMENTS REMONTÉS DEPUIS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️\n`;
+  debugContent += `Question : ${trimmedMessage}\n`;
+  chunks.forEach((chunk, index) => {
+    debugContent += `\n📄 Document ${index + 1} : [${chunk.sourceLaw}] - Art. ${chunk.sourceArticle || 'N/A'}\n`;
+    debugContent += `🎯 Similarité : ${chunk.similarity}\n`;
+    debugContent += `📝 Texte extrait :\n${chunk.chunkText}\n`;
+    debugContent += `--------------------------------------------------\n`;
+  });
+  debugContent += `\n🕵️‍♂️🕵️‍♂️🕵️‍♂️ FIN DES DOCUMENTS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️\n`;
+  
+  try {
+    fs.writeFileSync(path.join(process.cwd(), 'debug-rag.txt'), debugContent, 'utf-8');
+  } catch (err) {
+    console.error('Erreur lors de l\'écriture du fichier de debug RAG:', err);
+  }
+  // --- FIN ESPION RAG ---
 
   console.info(
     `[judilibre-live] ${liveJuriCases.length} arrêts : `
@@ -427,7 +438,7 @@ export async function POST(req: NextRequest) {
 
     // Passe 2.5 — détecter et neutraliser les citations libres d'articles
     const { cleaned: noFreeArticles, found: freeArticleCitations } =
-      stripUnauthorizedArticleCitations(noFreeCaseNumbers, allowedArticleTags)
+      stripUnauthorizedArticleCitations(noFreeCaseNumbers, taggedArticles)
 
     // Signal de confiance article
     let articleCitationMode: 'tagged' | 'free' | 'mixed'

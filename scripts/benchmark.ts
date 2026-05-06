@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 try {
   const envPath = resolve(__dirname, '../.env.local')
   const envContent = readFileSync(envPath, 'utf-8')
-  for (const line of envContent.split('\n')) {
+  for (const line of envContent.split(/\r?\n/)) {
     const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim()
   }

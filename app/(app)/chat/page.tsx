@@ -64,12 +64,12 @@ function ThinkingBar() {
   }, [])
   return (
     <div className="flex-1 min-w-0">
-      <motion.p key={step} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground mb-3">
+      <motion.p key={step} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-white/70 mb-3">
         {steps[step]}
       </motion.p>
-      <div className="relative h-0.5 rounded-full bg-border overflow-hidden">
+      <div className="relative h-0.5 rounded-full bg-white/20 overflow-hidden">
         <motion.div
-          className="absolute top-0 h-full bg-primary rounded-full"
+          className="absolute top-0 h-full bg-white rounded-full"
           style={{ width: '40%' }}
           animate={{ left: ['-40%', '140%'] }}
           transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.1 }}
@@ -79,7 +79,7 @@ function ThinkingBar() {
   )
 }
 
-export default function ChatPage() {
+export default function ChatPage({ conversationId }: { conversationId?: string }) {
   // Messages et loading scopés par conversationId
   const [conversationMessages, setConversationMessages] = useState<Record<string, Message[]>>({})
   const [conversationLoading, setConversationLoading] = useState<Record<string, boolean>>({})
@@ -195,17 +195,37 @@ export default function ChatPage() {
   }
 
   useEffect(() => {
-    const stored = loadConversations()
-    setConversations(stored)
-    if (stored.length > 0) {
-      const last = stored[0]
-      setActiveConvId(last.id)
-      setMsgs(last.id, last.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
+    // Si on a un ID dans l'URL, on charge depuis la DB
+    if (conversationId) {
+      setActiveConvId(conversationId)
+      setLoading(conversationId, true)
+      
+      fetch(`/api/chat/history/${conversationId}/messages`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setMsgs(conversationId, data.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: new Date(m.created_at)
+            })))
+            // On met à jour l'ID Supabase mappé
+            supabaseConvIds.current[conversationId] = conversationId
+          }
+        })
+        .catch(err => console.error('Erreur chargement messages:', err))
+        .finally(() => setLoading(conversationId, false))
     } else {
-      setActiveConvId(genId())
+      // Pour un nouveau chat, on génère un ID frais
+      const newId = genId()
+      setActiveConvId(newId)
+      setMsgs(newId, [])
+      // On vide le cache de persistence pour forcer une nouvelle ligne en DB au premier message
+      import('@/lib/chat-persistence').then(m => m.resetConversation())
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [conversationId])
 
   function handleNewConversation() {
     const newId = genId()
@@ -473,12 +493,12 @@ export default function ChatPage() {
         <div className="max-w-3xl mx-auto space-y-6">
 
           {showSuggestions && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border border-border p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-[#00a1b0] rounded-xl shadow-sm p-6 text-white">
               <div className="flex items-start gap-3">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Scale className="h-4 w-4 text-primary" />
+                <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                  <Scale className="h-4 w-4 text-white" />
                 </div>
-                <p className="font-serif-legal text-sm text-foreground/85 leading-relaxed">
+                <p className="font-serif-legal text-sm text-white/90 leading-relaxed">
                   Je suis votre assistant juridique spécialisé en droit immobilier français. Posez-moi vos questions sur la copropriété, les mandats, les baux, la loi Hoguet ou les diagnostics obligatoires — je vous réponds avec des sources officielles Légifrance.
                 </p>
               </div>
@@ -489,7 +509,7 @@ export default function ChatPage() {
             if (msg.role === 'user') {
               return (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
-                  <div className="bg-primary text-primary-foreground px-5 py-3 rounded-xl rounded-br-sm text-sm max-w-lg">
+                  <div className="bg-slate-100 text-slate-900 border border-slate-200 px-5 py-3 rounded-xl rounded-br-sm text-sm max-w-lg">
                     {msg.content}
                   </div>
                 </motion.div>
@@ -510,40 +530,41 @@ export default function ChatPage() {
             }
 
             return (
-              <motion.div key={msg.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border border-border p-6">
+              <motion.div key={msg.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-[#00a1b0] text-white rounded-xl shadow-sm p-6">
                 <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Scale className="h-4 w-4 text-primary" />
+                  <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                    <Scale className="h-4 w-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     {msg.isStreaming && !msg.content ? (
                       <ThinkingBar />
                     ) : (
-                      <div className="text-sm text-foreground/85 leading-relaxed font-serif-legal prose-legal-md">
+                      <div className="text-sm text-white/90 leading-relaxed font-serif-legal prose-legal-md">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           rehypePlugins={[rehypeRaw]}
                           components={{
                             a: ({ href, children }) => (
                               <a href={href} target="_blank" rel="noopener noreferrer"
-                                style={{ color: '#00AEBC', textDecoration: 'underline', fontWeight: 500 }}>
+                                className="underline font-medium hover:text-white/80"
+                                style={{ color: 'white' }}>
                                 {children}
                               </a>
                             ),
-                            h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 700, margin: '1em 0 0.4em', color: '#1F2937' }}>{children}</h3>,
-                            h4: ({ children }) => <h4 style={{ fontSize: 14, fontWeight: 600, margin: '0.8em 0 0.3em', color: '#374151' }}>{children}</h4>,
+                            h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 700, margin: '1em 0 0.4em', color: 'white' }}>{children}</h3>,
+                            h4: ({ children }) => <h4 style={{ fontSize: 14, fontWeight: 600, margin: '0.8em 0 0.3em', color: 'white' }}>{children}</h4>,
                             table: ({ children }) => (
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, margin: '0.5em 0' }}>{children}</table>
                             ),
                             th: ({ children }) => (
-                              <th style={{ border: '1px solid #E5E7EB', padding: '6px 8px', background: '#F9FAFB', fontWeight: 600, textAlign: 'left', fontSize: 11 }}>{children}</th>
+                              <th style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px 8px', background: 'rgba(0,0,0,0.1)', fontWeight: 600, textAlign: 'left', fontSize: 11 }}>{children}</th>
                             ),
                             td: ({ children }) => (
-                              <td style={{ border: '1px solid #E5E7EB', padding: '6px 8px', fontSize: 12 }}>{children}</td>
+                              <td style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px 8px', fontSize: 12 }}>{children}</td>
                             ),
-                            hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E5E7EB', margin: '0.8em 0' }} />,
+                            hr: () => <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.2)', margin: '0.8em 0' }} />,
                             blockquote: ({ children }) => (
-                              <blockquote style={{ borderLeft: '3px solid #00AEBC', paddingLeft: 12, margin: '0.5em 0', color: '#4B5563', fontStyle: 'italic' }}>{children}</blockquote>
+                              <blockquote style={{ borderLeft: '3px solid white', paddingLeft: 12, margin: '0.5em 0', color: 'rgba(255,255,255,0.8)', fontStyle: 'italic' }}>{children}</blockquote>
                             ),
                           }}
                         >
@@ -554,12 +575,12 @@ export default function ChatPage() {
                     )}
                     {!msg.isStreaming && msg.content && (
                       <div className="flex items-center gap-2 mt-3">
-                        <span className="text-[10px] text-muted-foreground">Utile ?</span>
+                        <span className="text-[10px] text-white/70">Utile ?</span>
                         {([1, -1] as const).map(v => (
                           <button
                             key={v}
                             onClick={() => handleFeedback(msg.id, v)}
-                            className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${feedbacks[msg.id] === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/50'}`}
+                            className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${feedbacks[msg.id] === v ? 'border-white bg-white/20 text-white' : 'border-white/30 text-white/70 hover:border-white/60 hover:text-white'}`}
                           >
                             {v === 1 ? '👍' : '👎'}
                           </button>

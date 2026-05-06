@@ -12,5 +12,5 @@ export function buildClaudeSystemPrompt(
   liveJuri: JuriCase[],
   _context?: PromptContext,
 ): string {
-  return getSystemPromptAugmented(chunks, pgJuri, liveJuri)
+  return getSystemPromptAugmented(chunks, pgJuri, liveJuri, _context)
 }

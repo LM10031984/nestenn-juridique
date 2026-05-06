@@ -46,8 +46,8 @@ export default function MessageBubble({
     return (
       <div className="message-appear flex justify-end px-4 sm:px-6 py-1.5">
         <div className="flex flex-col items-end gap-1 max-w-[75%] sm:max-w-[65%]">
-          <div className="rounded-2xl rounded-br-sm px-4 py-2.5 text-white text-sm leading-relaxed"
-            style={{ background: '#00AEBC', fontFamily: 'Lato, sans-serif', textAlign: 'left' }}>
+          <div className="rounded-2xl rounded-br-sm px-4 py-2.5 text-slate-900 text-sm leading-relaxed bg-slate-100 border border-slate-200"
+            style={{ fontFamily: 'Lato, sans-serif', textAlign: 'left' }}>
             {content}
           </div>
           {time && <span className="text-[11px] text-nestenn-muted pr-0.5">{time}</span>}
@@ -64,22 +64,20 @@ export default function MessageBubble({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex flex-col items-start gap-1 max-w-[85%] sm:max-w-[75%]">
+        {/* Header (déplacé hors de la bulle pour que l'icône soit visible avec sa couleur) */}
+        <div className="flex items-center gap-1.5 mb-1 pl-1">
+          <svg width="13" height="13" viewBox="0 0 32 32" fill="none" aria-hidden="true" className="flex-shrink-0 text-[#00a1b0]">
+            <path d="M16 3.5 L29 14 L3 14 Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
+            <path d="M6 14 L6 29 L26 29 L26 14" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
+            <path d="M11.5 23.5 L11.5 18 L20.5 23.5 L20.5 18" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          </svg>
+          <span style={{ fontSize: 11, fontFamily: 'Lato, sans-serif', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Nestenn Juridique
+          </span>
+        </div>
+
         {/* Bubble */}
-        <div className="bg-white rounded-2xl rounded-tl-sm border px-4 py-3"
-          style={{ borderColor: '#E5E7EB', borderLeftColor: '#00AEBC', borderLeftWidth: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-
-          {/* Header */}
-          <div className="flex items-center gap-1.5 mb-2.5">
-            <svg width="13" height="13" viewBox="0 0 32 32" fill="none" aria-hidden="true" className="flex-shrink-0">
-              <path d="M16 3.5 L29 14 L3 14 Z" stroke="#00AEBC" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
-              <path d="M6 14 L6 29 L26 29 L26 14" stroke="#00AEBC" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
-              <path d="M11.5 23.5 L11.5 18 L20.5 23.5 L20.5 18" stroke="#00AEBC" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            </svg>
-            <span style={{ fontSize: 11, fontFamily: 'Lato, sans-serif', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Nestenn Juridique
-            </span>
-          </div>
-
+        <div className="bg-[#00a1b0] text-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
           {/* Content */}
           <div className={`prose-legal${isStreaming ? ' typing-cursor' : ''}`}>
             <ReactMarkdown
@@ -87,24 +85,25 @@ export default function MessageBubble({
               components={{
                 a: ({ href, children }) => (
                   <a href={href} target="_blank" rel="noopener noreferrer"
-                    style={{ color: '#00AEBC', textDecoration: 'underline', fontWeight: 500 }}>
+                    className="underline font-medium hover:text-white/80"
+                    style={{ color: 'white' }}>
                     {children}
                   </a>
                 ),
                 p: ({ children }) => <p style={{ margin: '0 0 0.65em' }}>{children}</p>,
-                h3: ({ children }) => <h3 style={{ fontSize: 14, fontWeight: 700, margin: '1em 0 0.4em', color: '#1F2937' }}>{children}</h3>,
-                h4: ({ children }) => <h4 style={{ fontSize: 13, fontWeight: 600, margin: '0.8em 0 0.3em', color: '#374151' }}>{children}</h4>,
-                strong: ({ children }) => <strong style={{ fontWeight: 700, color: '#111827' }}>{children}</strong>,
+                h3: ({ children }) => <h3 style={{ fontSize: 14, fontWeight: 700, margin: '1em 0 0.4em', color: 'white' }}>{children}</h3>,
+                h4: ({ children }) => <h4 style={{ fontSize: 13, fontWeight: 600, margin: '0.8em 0 0.3em', color: 'white' }}>{children}</h4>,
+                strong: ({ children }) => <strong style={{ fontWeight: 700, color: 'white' }}>{children}</strong>,
                 table: ({ children }) => (
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, margin: '0.5em 0' }}>{children}</table>
                 ),
                 th: ({ children }) => (
-                  <th style={{ border: '1px solid #E5E7EB', padding: '6px 8px', background: '#F9FAFB', fontWeight: 600, textAlign: 'left', fontSize: 11 }}>{children}</th>
+                  <th style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px 8px', background: 'rgba(0,0,0,0.1)', fontWeight: 600, textAlign: 'left', fontSize: 11 }}>{children}</th>
                 ),
                 td: ({ children }) => (
-                  <td style={{ border: '1px solid #E5E7EB', padding: '6px 8px', fontSize: 12 }}>{children}</td>
+                  <td style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px 8px', fontSize: 12 }}>{children}</td>
                 ),
-                hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E5E7EB', margin: '0.8em 0' }} />,
+                hr: () => <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.2)', margin: '0.8em 0' }} />,
               }}
             >
               {content}

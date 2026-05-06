@@ -267,6 +267,18 @@ describe('findFreeFormArticleCitations', () => {
     expect(found[0].article).toBe('R.123-4')
   })
 
+  it('should detect and consume full long law names with dates', () => {
+    const text1 = "Conformément à l'article 78 du décret n° 72-678 du 20 juillet 1972, le mandat est nul."
+    const found1 = findFreeFormArticleCitations(text1)
+    expect(found1.length).toBeGreaterThanOrEqual(1)
+    expect(found1[0].match).toContain("1972")
+    
+    const text2 = "Selon l'article 7 de la loi n° 70-9 du 2 janvier 1970 dite loi Hoguet."
+    const found2 = findFreeFormArticleCitations(text2)
+    expect(found2.length).toBeGreaterThanOrEqual(1)
+    expect(found2[0].match).toContain("1970")
+  })
+
   it('should NOT detect authorized tags [A1][A2]', () => {
     const text = 'Selon [A1] et [A2], le bailleur doit notifier.'
     const found = findFreeFormArticleCitations(text)

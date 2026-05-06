@@ -351,8 +351,8 @@ export interface FreeArticleCitation {
 }
 
 // Regex partagée : "art. L.1331-8 du Code de la santé publique", "article 1641", "l'art. 24 de la loi n° 89-462"
-// Le suffixe de loi s'arrête aux conjonctions (et, ou, ainsi) et à la ponctuation.
-const FREE_ARTICLE_RE = /\b(?:l[''])?art(?:icle)?s?\.?\s+((?:[LRDA]\.?\s*)?\d[\d\-\.]*)(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou|ainsi)\b)\S+){0,5})?/gi
+// Le suffixe de loi s'arrête aux conjonctions (et, ou, ainsi), aux verbes d'action, et à la ponctuation.
+const FREE_ARTICLE_RE = /\b(?:l[''])?art(?:icle)?s?\.?\s+((?:[LRDA]\.?\s*)?\d[\d\-\.]*)(?:\s+(?:du|de\s+(?:la|l['']))\s+(?:code|loi|décret|ordonnance)(?:\s+(?!(?:et|ou|ainsi|indique|précise|dispose|prévoit|stipule|est|sont|a|ont|doit|doivent|peut|peuvent|qui|que|dont|il|elle|ils|elles)\b)[\wéèàâêîôûç°\-']+){0,12})?/gi
 
 /**
  * Détecte toutes les citations libres d'articles dans le texte.
@@ -375,15 +375,21 @@ export function findFreeFormArticleCitations(text: string): FreeArticleCitation[
  */
 export function stripUnauthorizedArticleCitations(
   text: string,
-  allowedArticleTags: string[],
+  taggedArticles: TaggedArticle[],
 ): { cleaned: string; found: FreeArticleCitation[] } {
   const found = findFreeFormArticleCitations(text)
-  if (allowedArticleTags.length === 0 || found.length === 0) {
+  if (taggedArticles.length === 0 || found.length === 0) {
     return { cleaned: text, found }
   }
 
   const re = new RegExp(FREE_ARTICLE_RE.source, FREE_ARTICLE_RE.flags)
-  const cleaned = text.replace(re, (match) => {
+  const cleaned = text.replace(re, (match, articleNum) => {
+    const num = articleNum ? articleNum.trim() : ''
+    const matched = taggedArticles.find(a => a.sourceArticle && a.sourceArticle === num)
+    if (matched) {
+      console.info(`[post-process] 🔄 Citation libre "${match.trim()}" convertie en tag [${matched.tag}]`)
+      return `[${matched.tag}]`
+    }
     console.warn(`[post-process] ⚠️ Citation libre article supprimée : "${match.trim()}"`)
     return 'la disposition applicable'
   })
