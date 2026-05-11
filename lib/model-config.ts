@@ -38,15 +38,15 @@ export interface ModelConfig {
   buildSystemPrompt: SystemPromptBuilder
 }
 
-export const DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4-6'
+export const DEFAULT_MODEL_ID = 'mistralai/mistral-large-2512'
 
 export const AVAILABLE_MODELS: ModelConfig[] = [
   {
     id: 'anthropic/claude-sonnet-4-6',
     name: 'Claude Sonnet 4',
     provider: 'Anthropic',
-    description: 'Qualité maximale (référence actuelle)',
-    badge: 'Référence',
+    description: 'Qualité maximale (coût premium)',
+    badge: 'Premium',
     color: '#CC785C',
     maxTokens: 8192,
     temperature: 0.3,
@@ -57,7 +57,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     name: 'Mistral Large 3',
     provider: 'Mistral AI',
     description: 'Flagship français, RGPD natif, 256K context',
-    badge: 'Recommandé',
+    badge: 'Référence',
     color: '#FA520F',
     maxTokens: 8192,
     temperature: 0.1,
