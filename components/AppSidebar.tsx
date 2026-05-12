@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Scale, ChevronLeft, User, BarChart2, Users, Building2, LogOut, Plus, MessageSquare, History, BookOpen } from 'lucide-react'
+import {
+  Scale, ChevronLeft, User, BarChart2, Users, Building2,
+  LogOut, Plus, MessageSquare, History, BookOpen, AlertCircle, RefreshCw
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Sidebar,
@@ -19,6 +22,8 @@ import {
 import { cn } from '@/lib/utils'
 import type { AuthUser } from '@/lib/auth'
 
+// ── Navigation principale ──
+
 const allNav = [
   { title: 'Assistant Juridique', url: '/chat', icon: Scale, roles: ['super_admin', 'responsable_agence', 'conseiller'] },
   { title: 'Base de connaissances', url: '/admin/seed', icon: BookOpen, roles: ['super_admin'] },
@@ -33,34 +38,119 @@ const roleLabels: Record<string, string> = {
   conseiller: 'Conseiller',
 }
 
+// ── Types ──
+
+interface ChatHistoryItem {
+  id: string
+  title: string
+  created_at: string
+}
+
+type HistoryState = 'loading' | 'error' | 'success'
+
+// ── Helpers de date ──
+
+function groupByDate(items: ChatHistoryItem[]): { label: string; chats: ChatHistoryItem[] }[] {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+  const groups: Record<string, ChatHistoryItem[]> = {
+    "Aujourd'hui": [],
+    'Hier': [],
+    '7 derniers jours': [],
+    'Plus ancien': [],
+  }
+
+  for (const item of items) {
+    const d = new Date(item.created_at)
+    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+
+    if (day.getTime() >= today.getTime()) {
+      groups["Aujourd'hui"].push(item)
+    } else if (day.getTime() >= yesterday.getTime()) {
+      groups['Hier'].push(item)
+    } else if (day.getTime() >= sevenDaysAgo.getTime()) {
+      groups['7 derniers jours'].push(item)
+    } else {
+      groups['Plus ancien'].push(item)
+    }
+  }
+
+  return Object.entries(groups)
+    .filter(([, chats]) => chats.length > 0)
+    .map(([label, chats]) => ({ label, chats }))
+}
+
+// ── Skeletons ──
+
+function HistorySkeletons() {
+  return (
+    <div className="space-y-1 px-3">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg animate-pulse">
+          <div className="h-3 w-3 rounded bg-sidebar-foreground/[0.06] shrink-0" />
+          <div
+            className="h-3 rounded bg-sidebar-foreground/[0.06]"
+            style={{ width: `${60 + Math.random() * 30}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Composant principal ──
+
 export function AppSidebar({ user }: { user: AuthUser }) {
   const { state, toggleSidebar } = useSidebar()
   const pathname = usePathname()
   const router = useRouter()
   const collapsed = state === 'collapsed'
 
-  // État de l'historique
-  const [history, setHistory] = useState<any[]>([])
-  const [loadingHistory, setLoadingHistory] = useState(true)
+  // État de l'historique (3 états)
+  const [history, setHistory] = useState<ChatHistoryItem[]>([])
+  const [historyState, setHistoryState] = useState<HistoryState>('loading')
+  const hasLoadedOnce = history.length > 0 || historyState === 'success'
 
   // Fetch de l'historique
-  useEffect(() => {
-    async function fetchHistory() {
-      try {
-        const res = await fetch('/api/chat/history')
-        if (res.ok) {
-          const data = await res.json()
-          setHistory(data)
-        }
-      } catch (err) {
-        console.error('[Sidebar] Erreur historique:', err)
-      } finally {
-        setLoadingHistory(false)
+  const fetchHistory = useCallback(async (silent = false) => {
+    // Ne montrer les skeletons que pour le tout premier chargement
+    if (!silent) setHistoryState('loading')
+    try {
+      const res = await fetch('/api/chat/history')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      // Guard : s'assurer que c'est bien un tableau
+      if (Array.isArray(data)) {
+        setHistory(data as ChatHistoryItem[])
+        setHistoryState('success')
+      } else {
+        console.warn('[Sidebar] Réponse inattendue:', data)
+        setHistoryState('success') // Ne pas bloquer sur les skeletons
       }
+    } catch (err) {
+      console.error('[Sidebar] Erreur historique:', err)
+      // Si on a déjà des données, on garde le state "success" pour ne pas casser l'UI
+      if (!hasLoadedOnce) setHistoryState('error')
     }
-    
-    // On recharge l'historique au montage et quand on change de chat
-    fetchHistory()
+  }, [hasLoadedOnce])
+
+  // Premier chargement : skeletons visibles
+  useEffect(() => {
+    fetchHistory(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Rechargement silencieux quand la route change (nouveau chat, etc.)
+  useEffect(() => {
+    if (hasLoadedOnce) {
+      fetchHistory(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   async function handleSignOut() {
@@ -70,9 +160,11 @@ export function AppSidebar({ user }: { user: AuthUser }) {
   }
 
   const nav = allNav.filter(item => item.roles.includes(user.role))
+  const groupedHistory = groupByDate(history)
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
+      {/* ── Header ── */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
           <div className="flex items-center gap-2.5">
@@ -86,21 +178,21 @@ export function AppSidebar({ user }: { user: AuthUser }) {
           onClick={toggleSidebar}
           className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
         >
-          <ChevronLeft className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')} />
+          <ChevronLeft className={cn('h-4 w-4 transition-transform duration-200', collapsed && 'rotate-180')} />
         </button>
       </div>
 
       <SidebarContent className="pt-4">
-        {/* BOUTON NOUVEAU CHAT */}
-        <div className="px-3 mb-6">
+        {/* ── Bouton Nouveau Chat ── */}
+        <div className="px-3 mb-4">
           <button
-            onClick={() => {
-              // Réinitialise la conversation et redirige vers le chat vierge
-              router.push('/chat')
-            }}
+            onClick={() => router.push('/chat')}
             className={cn(
-              "w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20",
-              collapsed && "p-2.5"
+              'w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all duration-200',
+              'bg-primary text-primary-foreground hover:bg-primary/90',
+              'shadow-lg shadow-primary/20 hover:shadow-primary/30',
+              'active:scale-[0.97]',
+              collapsed && 'p-2.5'
             )}
           >
             <Plus className="h-4 w-4" />
@@ -108,6 +200,7 @@ export function AppSidebar({ user }: { user: AuthUser }) {
           </button>
         </div>
 
+        {/* ── Navigation principale ── */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -119,7 +212,8 @@ export function AppSidebar({ user }: { user: AuthUser }) {
                       <Link
                         href={item.url}
                         className={cn(
-                          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all',
+                          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150',
+                          'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
                           isActive && 'bg-sidebar-accent text-sidebar-primary-foreground font-medium',
                         )}
                       >
@@ -134,23 +228,62 @@ export function AppSidebar({ user }: { user: AuthUser }) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* SECTION HISTORIQUE (Visible uniquement si non replié) */}
-        {!collapsed && history.length > 0 && (
-          <SidebarGroup className="mt-6">
-            <div className="px-4 py-2 flex items-center justify-between mb-1">
+        {/* ── Historique des conversations ── */}
+        {!collapsed && (
+          <div className="mt-6 flex-1 overflow-y-auto">
+            {/* Titre section */}
+            <div className="px-4 py-2 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/30">
                 Historique récent
               </span>
-              <History className="h-3 w-3 text-sidebar-foreground/20" />
+              {historyState === 'success' && (
+                <button
+                  onClick={fetchHistory}
+                  className="p-1 rounded hover:bg-sidebar-accent text-sidebar-foreground/20 hover:text-sidebar-foreground/50 transition-colors"
+                  title="Actualiser"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </button>
+              )}
             </div>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {loadingHistory ? (
-                  <div className="px-4 py-2 text-[10px] text-sidebar-foreground/20 animate-pulse">
-                    Chargement de la mémoire...
-                  </div>
-                ) : (
-                  history.map((chat) => {
+
+            {/* État : Loading → Skeletons */}
+            {historyState === 'loading' && <HistorySkeletons />}
+
+            {/* État : Erreur */}
+            {historyState === 'error' && (
+              <div className="px-4 py-6 flex flex-col items-center gap-3 text-center">
+                <AlertCircle className="h-5 w-5 text-sidebar-foreground/20" />
+                <p className="text-[11px] text-sidebar-foreground/30 leading-relaxed">
+                  Impossible de charger<br />l'historique
+                </p>
+                <button
+                  onClick={fetchHistory}
+                  className="text-[10px] text-primary hover:text-primary/80 font-semibold transition-colors"
+                >
+                  Réessayer
+                </button>
+              </div>
+            )}
+
+            {/* État : Succès, mais vide */}
+            {historyState === 'success' && history.length === 0 && (
+              <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+                <MessageSquare className="h-5 w-5 text-sidebar-foreground/10" />
+                <p className="text-[11px] text-sidebar-foreground/25 italic">
+                  Aucune conversation
+                </p>
+              </div>
+            )}
+
+            {/* État : Succès avec données → groupé par date */}
+            {historyState === 'success' && groupedHistory.map((group) => (
+              <div key={group.label} className="mb-3">
+                <p className="px-4 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-sidebar-foreground/20">
+                  {group.label}
+                </p>
+                <SidebarMenu>
+                  {group.chats.map((chat) => {
                     const isActive = pathname === `/chat/${chat.id}`
                     return (
                       <SidebarMenuItem key={chat.id}>
@@ -158,24 +291,31 @@ export function AppSidebar({ user }: { user: AuthUser }) {
                           <Link
                             href={`/chat/${chat.id}`}
                             className={cn(
-                              'flex items-center gap-2.5 px-4 py-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-lg transition-all truncate',
-                              isActive && 'text-sidebar-foreground font-semibold bg-sidebar-accent'
+                              'group flex items-center gap-2.5 mx-2 px-3 py-2 rounded-lg transition-all duration-150',
+                              'text-[12px] leading-tight',
+                              isActive
+                                ? 'bg-sidebar-accent text-sidebar-foreground font-semibold shadow-sm'
+                                : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/40'
                             )}
                           >
-                            <MessageSquare className="h-3 w-3 shrink-0 opacity-30" />
-                            <span className="truncate">{chat.title}</span>
+                            <MessageSquare className={cn(
+                              'h-3.5 w-3.5 shrink-0 transition-colors duration-150',
+                              isActive ? 'text-primary' : 'text-sidebar-foreground/20 group-hover:text-sidebar-foreground/40'
+                            )} />
+                            <span className="truncate flex-1 min-w-0">{chat.title}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     )
-                  })
-                )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                  })}
+                </SidebarMenu>
+              </div>
+            ))}
+          </div>
         )}
       </SidebarContent>
 
+      {/* ── Footer utilisateur ── */}
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-2 px-2 py-2">
           <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
@@ -201,4 +341,3 @@ export function AppSidebar({ user }: { user: AuthUser }) {
     </Sidebar>
   )
 }
-

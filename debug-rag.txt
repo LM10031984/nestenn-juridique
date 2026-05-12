@@ -1,99 +1,100 @@
 🕵️‍♂️🕵️‍♂️🕵️‍♂️ [DEBUG RAG] DOCUMENTS REMONTÉS DEPUIS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️
-Question : Un acquéreur a visité une maison avec mon agence (j'ai un bon de visite), mais il a finalement signé le compromis avec une autre agence moins chère. Puis-je exiger ma commission ?
+Question : Lors d'une vente, le notaire s'aperçoit que l'acte de naissance du vendeur (né sous X) complique la vérification de son état civil. Le délai de validité du compromis expire demain. La vente est-elle caduque ?
 
-📄 Document 1 : [Le bon de visite ne confère pas automatiquement droit à commission : la faute doit être prouvée] - Art. N/A
-🎯 Similarité : 0.908530123246639
+📄 Document 1 : [Art. 150 VE — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
+🎯 Similarité : 0.956925747315452
 📝 Texte extrait :
-Contexte : Le bon de visite ne confère pas automatiquement droit à commission : la faute doit être prouvée
-Règle : Le bon de visite signé par un acquéreur lors d'une visite avec une agence immobilière n'est pas un mandat et ne confère aucun droit automatique à commission pour l'agence. Si l'acquéreur signe finalement le compromis de vente avec une autre agence (moins chère), l'agence initiale ne peut pas exiger le paiement de sa commission sur le seul fondement du bon de visite. Le bon de visite n'est qu'une preuve de la mise en relation entre l'acquéreur et le bien. Pour obtenir des dommages-intérêts, l'agence doit démontrer la faute de l'acquéreur, c'est-à-dire prouver que celui-ci a volontairement contourné l'agence pour éviter de payer ses honoraires (manœuvre frauduleuse). La simple signature avec une autre agence ne constitue pas en soi une faute. Sans mandat exclusif, l'acquéreur reste libre de traiter avec l'agence de son choix. Seule la preuve d'une faute délictuelle peut fonder une demande en dommages-intérêts.
+Contexte : Lorsqu'un vendeur souhaite céder un bien immobilier situé dans une zone à déséquilibre ou dans le cadre d'opérations d'urbanisme, et qu'il a signé une promesse de vente.
+Règle : Le vendeur doit s'assurer que la cession respecte les conditions pour bénéficier d'un abattement sur la plus-value, notamment en signant une promesse unilatérale ou synallagmatique avant le 31 décembre 2027 et en réalisant la vente dans les deux ans suivant cette signature.
+En pratique : Si ces conditions ne sont pas respectées, l'acheteur peut demander une action en nullité de la vente ou des dommages-intérêts pour perte de bénéfice d'abattement.
 --------------------------------------------------
 
-📄 Document 2 : [Art. 1652 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre V : Des obligations de l'acheteur.] - Art. N/A
-🎯 Similarité : 0.812727822015197
+📄 Document 2 : [Art. 150 VG — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
+🎯 Similarité : 0.95206437380415
 📝 Texte extrait :
-Contexte : Lorsque l'acheteur a conclu un compromis de vente et attend la signature de l'acte authentique.
-Règle : L'acheteur doit payer des intérêts sur le prix de vente jusqu'au règlement du capital, dans des situations précises : si cela a été convenu, si le bien livré génère des revenus, ou s'il a reçu une sommation de paiement.
-En pratique : En cas de non-respect, le vendeur peut demander des intérêts dus, ou engager une action en justice pour réclamer les sommes dues, entraînant éventuellement des dommages-intérêts.
+Contexte : Le vendeur doit déclarer la plus-value lors de la vente d'un bien immobilier.
+Règle : Le vendeur doit remettre une déclaration de la plus-value au service des impôts dans un délai d'un mois suivant la cession, sous peine de refus d'enregistrement de l'acte de vente.
+En pratique : En cas de non-respect, le vendeur risque un refus d'enregistrement de la vente et peut également faire face à des sanctions fiscales, comme des pénalités ou des intérêts de retard.
 --------------------------------------------------
 
-📄 Document 3 : [Art. 1642 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 3 : De la garantie. &gt; Paragraphe 2 : De la garantie des défauts de la chose vendue.] - Art. N/A
-🎯 Similarité : 0.794396296989815
+📄 Document 3 : [Art. L162-15 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
+🎯 Similarité : 0.94662107844819
 📝 Texte extrait :
-Contexte : Lorsqu'un acheteur visite un bien immobilier avant de signer le compromis de vente.
-Règle : Le vendeur doit informer l'acheteur des défauts cachés du bien, mais il n'est pas responsable des vices apparents que l'acheteur aurait pu détecter lors de sa visite.
-En pratique : Si l'acheteur découvre un vice apparent après la vente, il ne pourra pas agir contre le vendeur pour demander une réduction du prix ou des dommages-intérêts.
+Contexte : Lorsqu'un vendeur découvre des dommages environnementaux sur son bien avant la vente.
+Règle : Le vendeur doit informer l'acheteur des risques environnementaux et des travaux de dépollution nécessaires avant la signature du compromis de vente.
+En pratique : En cas de non-respect, l'acheteur peut demander des dommages-intérêts, la résolution du contrat ou une action en nullité pour défaut d'information.
 --------------------------------------------------
 
-📄 Document 4 : [Art. 1648 C — code civil] - Art. N/A
-🎯 Similarité : 0.791539559667664
+📄 Document 4 : [Art. 150 UD — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
+🎯 Similarité : 0.94068388262848
 📝 Texte extrait :
-Contexte : acquéreur
-Règle : L'acquéreur doit intenter une action pour vices rédhibitoires dans un délai de deux ans à compter de leur découverte, ou dans un an suivant la date de décharge des vices apparents pour certains cas.
-En pratique : Si ce délai n'est pas respecté, l'action est forclose et ne peut plus être engagée.
+Contexte : Lorsqu'un vendeur cède un bien immobilier et réalise une plus-value sur la vente.
+Règle : Le vendeur doit déclarer les plus-values réalisées lors de la vente de biens immobiliers soumis à l'impôt sur le revenu, conformément aux dispositions fiscales applicables.
+En pratique : En cas de non-respect de cette obligation, le vendeur s'expose à des sanctions fiscales, qui peuvent inclure des pénalités financières ou la requalification de la cession, entraînant un redressement fiscal.
 --------------------------------------------------
 
-📄 Document 5 : [Art. 1620 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 2 : De la délivrance.] - Art. N/A
-🎯 Similarité : 0.788547439963623
+📄 Document 5 : [Art. L161-2 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
+🎯 Similarité : 0.935430803652316
 📝 Texte extrait :
-Contexte : Lorsque le vendeur découvre un excédent de mesure après la signature du compromis de vente.
-Règle : Le vendeur doit informer l'acheteur de l'excédent de mesure et, en cas d'augmentation de prix, l'acheteur a le choix entre se désister du contrat ou payer le supplément de prix avec intérêts.
-En pratique : En cas de non-respect, l'acheteur peut demander la nullité du contrat ou exercer un recours pour réclamer des dommages-intérêts.
+Contexte : Lors de la vente d'un bien immobilier, si le vendeur découvre des dommages environnementaux inévitables liés aux exclusions de responsabilité définies, par exemple à cause d'un phénomène naturel exceptionnel,
+Règle : Le vendeur doit informer l'acheteur de la situation sans être tenu responsable si les dommages relèvent des catégories précisées dans l'article, notamment des événements de force majeure ou liés à la sécurité nationale.
+En pratique : L'acheteur ne pourra pas demander l'annulation de la vente ou des dommages-intérêts pour ces dommages, mais il peut tout de même négocier d'autres conditions dans le compromis de vente.
 --------------------------------------------------
 
-📄 Document 6 : [Art. 1359 — code civil] - Art. N/A
-🎯 Similarité : 0.785778437764315
+📄 Document 6 : [Art. L165-2 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
+🎯 Similarité : 0.934597572641457
 📝 Texte extrait :
-Contexte : Parties à un acte juridique portant sur une somme ou une valeur excédant un montant fixé par décret
-Règle : L'acte doit être prouvé par écrit sous signature privée ou authentique pour être valide.
-En pratique : En l'absence de preuve écrite, la créance ne peut pas être reconnue ou appliquée.
+Contexte : Lors de la vente d'un bien immobilier nécessitant des travaux de dépollution
+Règle : Le vendeur doit s'assurer que des mesures de prévention et de réparation des dommages environnementaux soient mises en œuvre conformément à la réglementation en vigueur, en tenant compte des obligations déterminées par les autorités compétentes.
+En pratique : En cas de non-respect, l'acheteur peut demander des dommages-intérêts ou engager une action en nullité du contrat si un vice caché lié à l'environnement est découvert après la signature.
 --------------------------------------------------
 
-📄 Document 7 : [Art. L.313-41 C — Code de la consommation] - Art. N/A
-🎯 Similarité : 0.785772026579945
+📄 Document 7 : [Art. 150 VA — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
+🎯 Similarité : 0.9345353363044
 📝 Texte extrait :
-Contexte : Lorsqu'un acheteur signe un compromis de vente et qu'il a besoin d'un prêt pour financer son achat.
-Règle : Le vendeur doit savoir que la vente est conditionnée à l'obtention du prêt par l'acheteur, avec une durée de validité minimale d'un mois après la signature de l'acte.
-En pratique : Si l'acheteur ne parvient pas à obtenir le prêt dans ce délai, il a droit à un remboursement immédiat et intégral de toute somme versée, sans aucune pénalité ni indemnité.
+Contexte : Lors de la vente d'un bien immobilier, le vendeur doit être transparent sur le prix de cession et les charges associées.
+Règle : Le vendeur doit indiquer le prix réel dans l'acte de vente ; en cas de dissimulation, ce prix doit être majoré. En outre, il peut déduire certaines charges et frais lors de la détermination du prix de cession.
+En pratique : En cas de non-respect de cette obligation, l'administration fiscale peut appliquer une requalification du prix de cession, entraînant une majoration d'impôt, voire des sanctions financières.
 --------------------------------------------------
 
-📄 Document 8 : [Art. 1165 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre III : Des sources d'obligations &gt; Sous-titre Ier :  Le contrat  &gt; Chapitre II : La formation du contrat &gt; Section 2 : La validité du contrat &gt; Sous-section 3 : Le contenu du contrat ] - Art. N/A
-🎯 Similarité : 0.784733255389829
+📄 Document 8 : [Art. L1331-1-1 — code de la santé publique] - Art. N/A
+🎯 Similarité : 0.934183100352706
 📝 Texte extrait :
-Contexte : Un vendeur et un acheteur s'apprêtent à signer un contrat de vente pour un bien immobilier.
-Règle : Le vendeur doit établir un prix justifié pour la vente du bien, et l'acheteur peut contester ce prix si aucune entente explicite n'a été convenue avant la signature du compromis.
-En pratique : En cas d'abus dans la fixation du prix, l'acheteur peut demander des dommages et intérêts ou même la résolution du contrat devant le juge.
+Contexte : Le vendeur d'un bien immobilier non raccordé au réseau public de collecte des eaux usées doit assurer l'entretien de l'installation d'assainissement non collectif.
+Règle : Le vendeur doit faire vidanger périodiquement l'installation d'assainissement par un professionnel agréé, tandis que l'acheteur a le droit d'être informé de l'état de cette installation avant la signature du compromis de vente.
+En pratique : En cas de non-respect, l'acheteur peut demander une action en nullité de la vente, des dommages-intérêts pour vices cachés ou même la résolution du contrat si l'état de l'installation s'avère défectueux.
 --------------------------------------------------
 
-📄 Document 9 : [Art. 1621 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 2 : De la délivrance.] - Art. N/A
-🎯 Similarité : 0.784716154108779
+📄 Document 9 : [Art. L162-14 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
+🎯 Similarité : 0.933771537008232
 📝 Texte extrait :
-Contexte : Lorsqu'un acquéreur souhaite se désister de la vente après la signature du compromis.
-Règle : Le vendeur doit restituer à l'acheteur non seulement le prix de la vente s'il a déjà été perçu, mais également tous les frais liés à ce contrat.
-En pratique : En cas de non-respect de cette obligation, l'acheteur peut demander une action en nullité du contrat et entamer des recours pour obtenir des dommages-intérêts.
+Contexte : Lorsqu'un vendeur découvre qu'il n'a pas respecté les obligations de dépollution d'un bien immobilier avant la vente.
+Règle : Le vendeur doit prendre toutes les mesures nécessaires pour réparer les dommages environnementaux liés à la propriété qu'il met en vente, conformément aux obligations légales.
+En pratique : En cas de non-respect, l'acheteur peut demander une action en nullité de la vente ou des dommages-intérêts pour préjudice, et en cas de défaut de réparation, l'autorité compétente peut ordonner des mesures de dépollution.
 --------------------------------------------------
 
-📄 Document 10 : [Art. 1650 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre V : Des obligations de l'acheteur.] - Art. N/A
-🎯 Similarité : 0.784031634583191
+📄 Document 10 : [Art. 973 — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre IV : Enregistrement, publicité foncière, timbre, impôt sur la fortune, immobilière &gt; Chapitre II bis : Impôt sur la fortune immobilière  &gt; Section III : Règles de l'évaluation des biens ] - Art. N/A
+🎯 Similarité : 0.933008258309082
 📝 Texte extrait :
-Contexte : Lors de la signature d'un compromis de vente entre un vendeur et un acheteur.
-Règle : L'acheteur doit payer le prix de vente au jour et au lieu convenus dans le contrat.
-En pratique : En cas de non-respect, le vendeur peut demander des dommages-intérêts et envisager une action en nullité du contrat.
+Contexte : Lors de la vente d'un bien immobilier occupé par le vendeur à titre de résidence principale.
+Règle : Le vendeur doit déclarer la valeur vénale du bien, en tenant compte d'un abattement de 30 % si celui-ci est sa résidence principale.
+En pratique : En cas de non-respect de ces règles, l'acheteur peut demander une action en nullité de la vente ou des dommages-intérêts pour compenser une éventuelle surévaluation.
 --------------------------------------------------
 
-📄 Document 11 : [Art. 1624 — Livre III : Des différentes manières dont on acquiert la propriété &gt; Titre VI : De la vente &gt; Chapitre IV : Des obligations du vendeur &gt; Section 2 : De la délivrance.] - Art. N/A
-🎯 Similarité : 0.783955488522961
+📄 Document 11 : [Art. 969 — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre IV : Enregistrement, publicité foncière, timbre, impôt sur la fortune, immobilière &gt; Chapitre II bis : Impôt sur la fortune immobilière  &gt; Section II : Assiette de l'impôt ] - Art. N/A
+🎯 Similarité : 0.929853357373033
 📝 Texte extrait :
-Contexte : Lors de la signature du compromis de vente, si la chose vendue subit une perte ou une détérioration avant la livraison.
-Règle : Le vendeur doit garantir la chose jusqu'à la livraison, tandis que l'acheteur prend le risque de la perte ou de la détérioration après livraison.
-En pratique : En cas de non-respect, l'acheteur peut demander des dommages-intérêts ou la résolution du contrat si la chose est détruite.
+Contexte : Lors de la vente d'un bien immobilier impliquant un patrimoine fiduciaire, le vendeur doit prendre en compte les actifs transférés dans son patrimoine.
+Règle : Le vendeur doit s'assurer que les actifs transférés dans un patrimoine fiduciaire sont intégrés dans son patrimoine pour leur valeur vénale nette lors de la transaction.
+En pratique : En cas de non-respect, l'acheteur est en droit de demander des dommages-intérêts ou une action en nullité du contrat si les actifs n'ont pas été correctement déclarés.
 --------------------------------------------------
 
-📄 Document 12 : [Art. L.313-42 — code de la consommation] - Art. N/A
-🎯 Similarité : 0.783872479481954
+📄 Document 12 : [Art. 150 VD — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
+🎯 Similarité : 0.92462436982175
 📝 Texte extrait :
-Contexte : acheteur
-Règle : L'acquéreur doit reconnaître par écrit qu'il n'utilisera pas de prêt pour le paiement et qu'il ne pourra pas se prévaloir des dispositions de ce chapitre s'il en fait un malgré cela.
-En pratique : Si l'acheteur ne respecte pas cette obligation, le contrat est considéré comme conclu sous condition suspensive.
+Contexte : Lors de la vente d'un immeuble par le vendeur qui a acquis le bien par fractions successives.
+Règle : Le vendeur doit prendre en compte les plus-values brutes réalisées, en tenant compte des moins-values, si celles-ci sont constatées dans le même acte et entre les mêmes parties.
+En pratique : En cas de non-respect de ces obligations, le vendeur risque de ne pas bénéficier de l'abattement fiscal, ce qui peut entraîner un montant d'imposition plus élevé, et il pourra être confronté à des recours tels que la contestation des calculs par l'acheteur.
 --------------------------------------------------
 
 🕵️‍♂️🕵️‍♂️🕵️‍♂️ FIN DES DOCUMENTS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️

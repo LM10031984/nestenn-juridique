@@ -1,72 +1,142 @@
 [
   {
-    "id": 201,
-    "theme": "llm-classifier",
-    "question": "Mon client avait obtenu son accord de financement depuis 3 semaines. Il m'appelle aujourd'hui pour m'annoncer qu'il ne souhaite plus acquérir le bien. Ma commission est-elle définitivement perdue ?",
-    "expected_refs": ["loi 70-9", "article 1583", "code civil"],
-    "expected_keywords": ["commission due", "conditions suspensives levées", "acheteur fautif", "vente parfaite", "inexécution fautive"]
+    "id": 1,
+    "theme": "Bail d'habitation / Loi ALUR",
+    "question": "Un propriétaire bailleur souhaite donner congé pour vendre à son locataire. Le locataire a 66 ans et des revenus annuels de 18 000€. Le bailleur a 64 ans mais ses revenus sont de 35 000€. Le congé est-il valable sans offre de relogement ?",
+    "expected_refs": ["Article 15", "Loi du 6 juillet 1989", "Loi ALUR"],
+    "expected_keywords": ["protection locataire âgé", "plafond de ressources", "offre de relogement", "âge du bailleur"]
   },
   {
-    "id": 202,
-    "theme": "llm-classifier",
-    "question": "Le passage chez le notaire était planifié il y a deux mois. Depuis, le dossier est au point mort — personne ne fait de démarche ni d'un côté ni de l'autre. Le contrat de vente est-il toujours valable ou s'est-il éteint automatiquement ?",
-    "expected_refs": ["article 1589", "article 1104", "code civil"],
-    "expected_keywords": ["non automatiquement", "mise en demeure", "clause expresse", "délai indicatif", "exécution forcée"]
+    "id": 2,
+    "theme": "Copropriété / Loi SRU",
+    "question": "Une assemblée générale vote à la majorité de l'article 24 la réfection de la toiture. Un copropriétaire s'y oppose au motif que le règlement de copropriété (datant de 1985) prévoit l'unanimité. Que prévaut entre le RC et la loi SRU sur ce vote ?",
+    "expected_refs": ["Loi du 10 juillet 1965", "Loi SRU", "Article 24"],
+    "expected_keywords": ["ordre public", "clause réputée non écrite", "majorité légale prévaut", "règlement de copropriété caduc"]
   },
   {
-    "id": 203,
-    "theme": "llm-classifier",
-    "question": "L'acquéreur n'a contacté que son conseiller bancaire habituel, qui lui a opposé un refus. Il réclame maintenant la restitution de son dépôt en invoquant la clause de financement du compromis. Peut-il le faire ?",
-    "expected_refs": ["article L313-41", "code de la consommation"],
-    "expected_keywords": ["bonne foi", "diligences sérieuses", "plusieurs établissements", "condition réputée accomplie", "défaillance imputable"]
+    "id": 3,
+    "theme": "Bail commercial / Requalification",
+    "question": "Un locataire signe une convention d'occupation précaire de 30 mois pour exploiter un fonds de commerce. À l'issue des 30 mois, il reste dans les lieux sans opposition du bailleur. Quelle est la nature de son bail désormais ?",
+    "expected_refs": ["Article L145-5", "Code de commerce"],
+    "expected_keywords": ["bail commercial", "requalification", "statut des baux commerciaux", "tacite reconduction", "9 ans"]
   },
   {
-    "id": 204,
-    "theme": "llm-classifier",
-    "question": "J'ai vendu un appartement sans évoquer l'existence d'un projet d'implantation d'une voie de circulation bruyante à 80 mètres de l'immeuble, pourtant visible dans le PLU. L'acquéreur le découvre trois mois après la vente. Quelle est mon exposition juridique ?",
-    "expected_refs": ["loi 70-9", "article 1240", "code civil"],
-    "expected_keywords": ["obligation d'information", "réticence dolosive", "information essentielle", "devoir de conseil", "responsabilité"]
+    "id": 4,
+    "theme": "Transaction / Droit de préemption",
+    "question": "La mairie exerce son droit de préemption urbain (DPU) à un prix inférieur de 30% au prix du compromis signé. L'agent immobilier perd-il définitivement sa commission si le vendeur accepte le prix de la mairie ?",
+    "expected_refs": ["Article L213-14", "Code de l'urbanisme", "Loi Hoguet"],
+    "expected_keywords": ["commission due par la mairie", "subrogation", "rémunération préservée"]
   },
   {
-    "id": 205,
-    "theme": "llm-classifier",
-    "question": "J'ai présenté un acquéreur sérieux au prix demandé et le compromis a été signé. Le propriétaire-vendeur m'appelle maintenant pour me dire qu'il préfère garder son bien et souhaite annuler l'opération. Est-ce que je touche quand même ma commission ?",
-    "expected_refs": ["loi 70-9", "code civil"],
-    "expected_keywords": ["commission non due", "acte authentique", "vente non conclue", "dommages et intérêts", "faute du vendeur"]
+    "id": 5,
+    "theme": "Vente / Servitude",
+    "question": "Après l'achat, l'acquéreur découvre une servitude de tréfonds (canalisation enterrée) non mentionnée dans l'acte de vente. Le vendeur prétendait l'ignorer. L'acquéreur peut-il demander la nullité de la vente ?",
+    "expected_refs": ["Article 1638", "Code civil"],
+    "expected_keywords": ["servitude non apparente", "résiliation de la vente", "indemnité", "garantie d'éviction", "importance déterminante"]
   },
   {
-    "id": 206,
-    "theme": "llm-classifier",
-    "question": "Trois mois après la vente, l'acheteur me contacte pour me signaler des infiltrations en sous-sol qu'il dit n'avoir pas été signalées lors de la visite. Il exige que je renonce à mes honoraires pour compenser son préjudice. A-t-il un quelconque fondement juridique ?",
-    "expected_refs": ["loi 70-9", "article 1641", "code civil"],
-    "expected_keywords": ["honoraires indépendants", "vice caché", "action distincte", "garantie des vices cachés", "obligation séparée"]
+    "id": 6,
+    "theme": "Mandat / Loi Hoguet",
+    "question": "Un mandat exclusif de vente a été signé électroniquement hors établissement (au domicile du vendeur). L'agent immobilier trouve un acquéreur au prix 5 jours après. Le vendeur peut-il se rétracter de son mandat et refuser la vente ?",
+    "expected_refs": ["Article L221-18", "Code de la consommation", "Loi Hoguet"],
+    "expected_keywords": ["délai de rétractation", "14 jours", "démarchage à domicile", "mandat nul", "rétractation valide"]
   },
   {
-    "id": 207,
-    "theme": "llm-classifier",
-    "question": "Mon locataire ne s'est pas présenté à l'état des lieux de sortie. J'ai tout de même fait constater l'état du logement en présence d'un huissier. Ce document me permet-il de retenir une partie du dépôt de garantie ?",
-    "expected_refs": ["loi 89-462", "article 22"],
-    "expected_keywords": ["état des lieux contradictoire", "non opposable", "constat unilatéral", "convocation", "opposable"]
+    "id": 7,
+    "theme": "Bail / Préavis",
+    "question": "Un locataire en zone tendue (Paris) envoie son préavis de départ d'un mois par mail avec accusé de lecture, arguant de l'urgence de sa mutation. Le préavis est-il juridiquement valable à la date d'envoi du mail ?",
+    "expected_refs": ["Article 15", "Loi du 6 juillet 1989", "Loi ALUR"],
+    "expected_keywords": ["LRAR", "remise en main propre", "acte d'huissier", "mail non valable", "formalité substantielle"]
   },
   {
-    "id": 208,
-    "theme": "llm-classifier",
-    "question": "L'acheteur avait inséré dans l'acte une clause liée à l'obtention d'une autorisation d'urbanisme pour son projet de construction sur le terrain. La mairie vient de la refuser. Qu'advient-il du compromis ?",
-    "expected_refs": ["article 1304", "article 1304-2", "code civil"],
-    "expected_keywords": ["condition suspensive", "permis de construire", "délai raisonnable", "caducité", "diligence du demandeur"]
+    "id": 8,
+    "theme": "Copropriété / Droit de surplomb",
+    "question": "Pour l'isolation thermique par l'extérieur (ITE) d'un immeuble en copropriété, l'isolant doit empiéter de 15 cm sur la propriété voisine. Le voisin refuse catégoriquement. La copropriété peut-elle forcer le passage avec la loi Climat ?",
+    "expected_refs": ["Article L113-5-1", "Code de la construction et de l'habitation", "Loi Climat et Résilience"],
+    "expected_keywords": ["droit de surplomb", "indemnité", "autorisation préalable", "sauf obstacle technique"]
   },
   {
-    "id": 209,
-    "theme": "llm-classifier-collision",
-    "question": "Le propriétaire est injoignable depuis 5 semaines. La signature définitive de l'acte aurait dû avoir lieu mi-février chez le notaire. En tant qu'agent, puis-je réclamer ma rémunération, et quels recours reste-t-il à l'acheteur ?",
-    "expected_refs": ["article 1589", "loi 70-9", "code civil"],
-    "expected_keywords": ["mise en demeure", "acte authentique", "commission", "réitération", "exécution forcée"]
+    "id": 9,
+    "theme": "Vente / Diagnostics",
+    "question": "Le DPE fourni lors du compromis classait le bien en D. Le lendemain de l'acte authentique, l'acquéreur refait un DPE qui classe le bien en F. Peut-il se retourner contre le diagnostiqueur et demander le coût des travaux ?",
+    "expected_refs": ["Loi ELAN", "Article L271-4", "Code de la construction"],
+    "expected_keywords": ["DPE opposable", "responsabilité civile", "diagnostiqueur", "perte de chance", "coût des travaux"]
   },
   {
-    "id": 210,
-    "theme": "llm-classifier",
-    "question": "Mon contrat de représentation avec le vendeur s'est achevé le 5 mars. La vente s'est finalement conclue le 19 mars avec l'acheteur que j'avais fait visiter en février. Le vendeur conteste mes honoraires en affirmant que je n'avais plus qualité pour agir. A-t-il raison ?",
-    "expected_refs": ["loi 70-9", "loi Hoguet"],
-    "expected_keywords": ["mandat expiré", "commission non due", "sans mandat valide", "registre des mandats", "loi Hoguet"]
+    "id": 10,
+    "theme": "Bail / Impayés",
+    "question": "Un locataire cesse de payer son loyer. Le bailleur constate que le logement est abandonné (vide de meubles). Peut-il reprendre le logement immédiatement pour le relouer ?",
+    "expected_refs": ["Loi du 6 juillet 1989", "Loi Béteille 2010"],
+    "expected_keywords": ["reprise des lieux abandonnés", "mise en demeure", "constat d'huissier", "ordonnance du juge", "violation de domicile"]
+  },
+  {
+    "id": 11,
+    "theme": "Urbanisme / DP",
+    "question": "Un acheteur signe un compromis avec condition suspensive d'obtention d'une Déclaration Préalable pour une piscine. La mairie ne répond pas pendant 2 mois. Le notaire refuse de passer l'acte sans papier de la mairie. A-t-il raison ?",
+    "expected_refs": ["Article R424-1", "Code de l'urbanisme"],
+    "expected_keywords": ["décision implicite d'acceptation", "silence vaut accord", "délai d'un mois", "certificat de non-opposition"]
+  },
+  {
+    "id": 12,
+    "theme": "Vente / Usufruit",
+    "question": "Un nu-propriétaire et un usufruitier vendent conjointement un bien démembré. Le compromis ne précise pas la répartition du prix de vente. Comment s'opère la répartition par défaut selon la loi ?",
+    "expected_refs": ["Article 669", "Code général des impôts", "Code civil"],
+    "expected_keywords": ["barème fiscal", "âge de l'usufruitier", "accord des parties"]
+  },
+  {
+    "id": 13,
+    "theme": "Bail commercial / Loyer",
+    "question": "Lors du renouvellement d'un bail commercial de 9 ans, le bailleur souhaite déplafonner le loyer car la rue est devenue piétonne, attirant beaucoup plus de clients. Est-ce un motif valable de déplafonnement ?",
+    "expected_refs": ["Article L145-33", "Code de commerce"],
+    "expected_keywords": ["modification matérielle", "facteurs locaux de commercialité", "déplafonnement", "valeur locative"]
+  },
+  {
+    "id": 14,
+    "theme": "Copropriété / Charges",
+    "question": "Un copropriétaire au rez-de-chaussée refuse de payer les charges d'ascenseur, arguant qu'il ne l'utilise jamais. Le règlement de copropriété lui impute pourtant des tantièmes d'ascenseur. Doit-il payer ?",
+    "expected_refs": ["Article 10", "Loi du 10 juillet 1965"],
+    "expected_keywords": ["critère d'utilité", "règlement réputé non écrit", "dispense légale", "action en nullité"]
+  },
+  {
+    "id": 15,
+    "theme": "Mandat / Honoraires",
+    "question": "L'agent immobilier avec mandat exclusif organise une visite. L'acquéreur potentiel contourne l'agent et achète les parts de la SCI propriétaire du bien directement. L'agent peut-il réclamer sa commission ?",
+    "expected_refs": ["Cour de cassation", "Jurisprudence", "Loi Hoguet"],
+    "expected_keywords": ["cession de parts sociales", "fraude aux droits du mandataire", "dommages et intérêts", "clause pénale"]
+  },
+  {
+    "id": 16,
+    "theme": "Bail / Colocation",
+    "question": "Dans une colocation à bail unique avec clause de solidarité, un colocataire donne congé. Le bailleur peut-il exiger qu'il paie le loyer de ses anciens colocataires 1 an après son départ ?",
+    "expected_refs": ["Article 8-1", "Loi du 6 juillet 1989", "Loi ALUR"],
+    "expected_keywords": ["fin de solidarité", "6 mois après le congé", "remplacement du colocataire"]
+  },
+  {
+    "id": 17,
+    "theme": "Vente / Viager",
+    "question": "Le vendeur en viager (crédirentier) décède 15 jours après la signature de l'acte authentique d'une maladie dont l'acquéreur n'avait pas connaissance. Les héritiers peuvent-ils faire annuler la vente ?",
+    "expected_refs": ["Article 1975", "Code civil"],
+    "expected_keywords": ["maladie dont il est mort", "délai de 20 jours", "nullité de droit", "aléa disparu"]
+  },
+  {
+    "id": 18,
+    "theme": "Fiscalité / Plus-value",
+    "question": "Un couple en instance de divorce vend sa résidence secondaire. Madame occupe le bien depuis la séparation, Monsieur vit en location ailleurs. Bénéficient-ils de l'exonération de plus-value pour résidence principale ?",
+    "expected_refs": ["Article 150 U", "Code général des impôts"],
+    "expected_keywords": ["résidence secondaire", "non exonéré", "résidence principale au jour de la cession", "tolérance fiscale séparation"]
+  },
+  {
+    "id": 19,
+    "theme": "Copropriété / Airbnb",
+    "question": "Un règlement de copropriété comporte une clause d'habitation bourgeoise stricte. Un copropriétaire souhaite louer son lot commercial au rez-de-chaussée en location courte durée (Airbnb). La copropriété peut-elle l'interdire ?",
+    "expected_refs": ["Jurisprudence", "Cour de cassation"],
+    "expected_keywords": ["destination de l'immeuble", "bourgeoise stricte", "incompatibilité", "troubles de voisinage"]
+  },
+  {
+    "id": 20,
+    "theme": "Vente / Compromis",
+    "question": "Lors d'une vente, le notaire s'aperçoit que l'acte de naissance du vendeur (né sous X) complique la vérification de son état civil. Le délai de validité du compromis expire demain. La vente est-elle caduque ?",
+    "expected_refs": ["Code civil", "Jurisprudence"],
+    "expected_keywords": ["délai extinctif", "délai constitutif", "mise en demeure", "prorogation tacite"]
   }
 ]

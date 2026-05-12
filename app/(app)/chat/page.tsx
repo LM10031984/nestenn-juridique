@@ -12,11 +12,8 @@ import { createClient } from '@/lib/supabase/client'
 import { SuggestionCard } from '@/components/SuggestionCard'
 import { LegalDisclaimer } from '@/components/LegalDisclaimer'
 import { LetterModal } from '@/components/LetterModal'
-import ConversationSidebar from '@/components/chat/ConversationSidebar'
 import {
-  loadConversations,
   saveConversation,
-  deleteConversation,
   generateTitle,
   type StoredConversation,
 } from '@/lib/conversation-storage'
@@ -88,14 +85,11 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
   const [feedbacks, setFeedbacks] = useState<Record<string, 1 | -1>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const [conversations, setConversations] = useState<StoredConversation[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [letterSuggestions, setLetterSuggestions] = useState<Record<string, LetterSuggestion>>({})
   const [letterModal, setLetterModal] = useState<{ open: boolean; msgId: string } | null>(null)
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-  const [uploadedDoc, setUploadedDoc] = useState<{ fileName: string; extractedText: string } | null>(null)
+  const [attachedFile, setAttachedFile] = useState<{ path: string; name: string } | null>(null)
   // Un AbortController et un supabaseConvId par conversation
   const abortControllers = useRef<Record<string, AbortController>>({})
   const supabaseConvIds = useRef<Record<string, string>>({})
@@ -170,29 +164,7 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
     recognition.start()
   }
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (fileInputRef.current) fileInputRef.current.value = ''
 
-    setIsUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-
-    try {
-      const res = await fetch('/api/documents', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (data.text) {
-        setUploadedDoc({ fileName: data.filename ?? file.name, extractedText: data.text })
-      } else {
-        alert(data.error ?? 'Erreur lors de l\'extraction du document.')
-      }
-    } catch {
-      alert('Erreur réseau lors de l\'upload.')
-    } finally {
-      setIsUploading(false)
-    }
-  }
 
   useEffect(() => {
     // Si on a un ID dans l'URL, on charge depuis la DB
@@ -231,39 +203,13 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
     const newId = genId()
     setActiveConvId(newId)
     // Pas d'abort — les streams en cours continuent en arrière-plan
-    setIsSidebarOpen(false)
   }
 
-  function handleSelectConversation(id: string) {
-    const conv = conversations.find(c => c.id === id)
-    if (!conv) return
-    setActiveConvId(id)
-    // Charger depuis localStorage uniquement si pas déjà en mémoire (streaming en cours possible)
-    if (!conversationMessages[id]) {
-      setMsgs(id, conv.messages.map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.timestamp) })))
-    }
-    setIsSidebarOpen(false)
-  }
 
-  function handleDeleteConversation(id: string) {
-    // Annuler le stream si actif pour cette conversation
-    abortControllers.current[id]?.abort()
-    delete abortControllers.current[id]
-    deleteConversation(id)
-    const updated = loadConversations()
-    setConversations(updated)
-    if (id === activeConvId) {
-      if (updated.length > 0) {
-        handleSelectConversation(updated[0].id)
-      } else {
-        setActiveConvId(genId())
-      }
-    }
-  }
 
-  function handleRenameConversation(_id: string, _newTitle: string) {
-    setConversations(loadConversations())
-  }
+
+
+
 
   // Scroll vers le bas uniquement quand un nouveau message apparaît (pas pendant le streaming)
   const prevMsgCount = useRef(0)
@@ -286,13 +232,11 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
     abortControllers.current[convId] = new AbortController()
     const signal = abortControllers.current[convId].signal
 
-    // Injecter le document si présent
-    let fullMessage = question
+    // On ne pré-injecte plus le texte ici, on envoie le chemin du document
+    const fullMessage = question
     let docLabel: string | null = null
-    if (uploadedDoc) {
-      docLabel = uploadedDoc.fileName
-      fullMessage = `[Document joint : ${uploadedDoc.fileName}]\n\n${uploadedDoc.extractedText.slice(0, 10000)}\n\n---\n\nMa question : ${question}`
-      setUploadedDoc(null)
+    if (attachedFile) {
+      docLabel = attachedFile.name
     }
 
     const userMsg: Message = {
@@ -336,8 +280,13 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
           messageId: dbMessageId ?? undefined,
           conversationId: supabaseConvIds.current[convId] ?? undefined,
           model: canSwitchModel ? selectedModel : undefined,
+          documentPath: attachedFile?.path, // Transmission du chemin Supabase
         }),
       })
+
+      if (res.ok) {
+        setAttachedFile(null) // Reset du fichier après envoi
+      }
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Erreur inconnue' }))
@@ -419,7 +368,6 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
             updatedAt: new Date().toISOString(),
           }
           saveConversation(conv)
-          setConversations(loadConversations())
           return prev
         })
       }
@@ -442,35 +390,17 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
   }
 
   const showSuggestions = messages.length === 0 && !isLoading
+  const placeholderText = isListening 
+    ? 'Écoute...' 
+    : attachedFile 
+      ? `Question sur ${attachedFile.name}...` 
+      : 'Posez votre question juridique...'
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] md:h-screen bg-background">
-      {/* Sidebar des conversations */}
-      <ConversationSidebar
-        conversations={conversations}
-        activeId={activeConvId}
-        onSelect={handleSelectConversation}
-        onNew={handleNewConversation}
-        onDelete={handleDeleteConversation}
-        onRename={handleRenameConversation}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
-
-      <div className="flex flex-col flex-1 min-w-0">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen bg-background w-full">
       {/* Header */}
       <div className="shrink-0 border-b border-border bg-card px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
-          {/* Bouton hamburger mobile pour ouvrir la sidebar conversations */}
-          <button
-            className="sm:hidden p-1.5 rounded-lg hover:bg-muted transition-colors mr-1"
-            onClick={() => setIsSidebarOpen(true)}
-            aria-label="Voir les conversations"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-          </button>
           <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
             <Scale className="h-5 w-5 text-primary" />
           </div>
@@ -646,14 +576,14 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
       {/* Input */}
       <div className="shrink-0 border-t border-border bg-card">
         <div className="max-w-3xl mx-auto px-6 py-3">
-          {/* Badge document joint */}
-          {uploadedDoc && (
-            <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-primary/10 rounded-lg text-xs w-fit">
+          {/* Badge document joint (Supabase Storage) */}
+          {attachedFile && (
+            <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-primary/10 rounded-lg text-xs w-fit border border-primary/20 animate-in fade-in slide-in-from-bottom-1">
               <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span className="text-primary font-medium truncate max-w-[200px]">{uploadedDoc.fileName}</span>
+              <span className="text-primary font-medium truncate max-w-[200px]">{attachedFile.name}</span>
               <button
-                onClick={() => setUploadedDoc(null)}
-                className="text-primary/60 hover:text-primary transition-colors"
+                onClick={() => setAttachedFile(null)}
+                className="text-primary/60 hover:text-primary transition-colors ml-1"
                 aria-label="Retirer le document"
               >
                 <X className="h-3 w-3" />
@@ -661,35 +591,17 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
             </div>
           )}
           <div className="flex gap-2 mb-2">
-            {/* Bouton upload fichier */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.txt"
-              onChange={handleUpload}
-              className="hidden"
-              id="doc-upload"
+            {/* Nouveau composant d'upload asynchrone direct vers Supabase */}
+            <DocumentUpload 
+              onUploadSuccess={(path, name) => setAttachedFile({ path, name })}
+              disabled={isLoading}
             />
-            <label
-              htmlFor="doc-upload"
-              className={`px-3 py-3 rounded-xl cursor-pointer transition-colors ${
-                isUploading
-                  ? 'bg-muted/50 text-muted-foreground/50 cursor-wait'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-              title="Joindre un document (PDF, DOCX, TXT)"
-            >
-              {isUploading
-                ? <span className="block h-4 w-4 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
-                : <Paperclip className="h-4 w-4" />
-              }
-            </label>
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit(input)}
-              placeholder={isListening ? 'Écoute...' : uploadedDoc ? 'Posez votre question sur ce document...' : 'Posez votre question juridique...'}
+              placeholder={placeholderText}
               className="flex-1 px-4 py-3 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary transition-all"
               disabled={isLoading}
             />
@@ -723,7 +635,6 @@ export default function ChatPage({ conversationId }: { conversationId?: string }
           </div>
           <LegalDisclaimer />
         </div>
-      </div>
       </div>
     </div>
   )
