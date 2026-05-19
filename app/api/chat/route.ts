@@ -39,6 +39,7 @@ import {
 import type { PromptContext } from '@/lib/model-config'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { extractTextFromSupabasePDF } from '@/lib/pdfExtractor'
 
 // ── Whitelist dynamique (cache 5 min) ──
 
@@ -97,7 +98,7 @@ function detectPromptInjection(message: string): boolean {
 const MAX_MESSAGE_LENGTH = 2000
 const MAX_HISTORY_TURNS = 10
 
-export const REFUSAL_MESSAGE = "Désolé, je suis un assistant spécialisé exclusivement en droit immobilier français. Pour vous aider au mieux, je vous invite à me poser des questions sur des sujets tels que les baux de location, la loi Pinel, les diagnostics obligatoires (DPE) ou les règles de copropriété. Comment puis-je vous accompagner sur l'un de ces points ?";
+const REFUSAL_MESSAGE = "Désolé, je suis un assistant spécialisé exclusivement en droit immobilier français. Pour vous aider au mieux, je vous invite à me poser des questions sur des sujets tels que les baux de location, la loi Pinel, les diagnostics obligatoires (DPE) ou les règles de copropriété. Comment puis-je vous accompagner sur l'un de ces points ?";
 
 const FILTER_SYSTEM = `Tu es un filtre. Réponds OUI ou NON.
 OUI si la question touche au droit immobilier français : bail, loyer, sous-location,
@@ -114,6 +115,7 @@ interface ChatRequestBody {
   messageId?: string   // UUID Supabase du message user, pour le logging analytics
   conversationId?: string // UUID Supabase de la conversation
   model?: string       // Modèle LLM demandé (super_admin uniquement)
+  documentPath?: string // Chemin du document PDF sur Supabase Storage
 }
 
 // ── Pipeline principal ──
@@ -125,8 +127,46 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json() as ChatRequestBody
-  const trimmedMessage = (body.message ?? '').trim().slice(0, MAX_MESSAGE_LENGTH)
-  const { messageId, conversationId } = body
+  const { messageId, conversationId, documentPath } = body
+  let trimmedMessage = (body.message ?? '').trim().slice(0, MAX_MESSAGE_LENGTH)
+
+  // ── Étape 0 : Traitement du document attaché (PDF) ──
+  if (documentPath) {
+    try {
+      console.info(`[pipeline] Récupération du texte pré-analysé pour : ${documentPath}`)
+      const adminClient = createAdminClient()
+      const { data: docData, error: docError } = await adminClient
+        .from('document_contents')
+        .select('content')
+        .eq('file_path', documentPath)
+        .single()
+
+      if (docError || !docData?.content) {
+        throw new Error(docError?.message || "Texte non trouvé en base de données.")
+      }
+      
+      const extractedText = docData.content
+
+      // Injection structurée dans le message
+      trimmedMessage = `L'utilisateur a joint un document. Voici son contenu intégral pour ton analyse : 
+
+<DOCUMENT_ATTACHÉ>
+${extractedText}
+</DOCUMENT_ATTACHÉ>
+
+Question de l'utilisateur : ${trimmedMessage}`
+      
+      console.info(`[pipeline] Texte récupéré avec succès depuis la DB (${extractedText.length} chars)`)
+    } catch (err: any) {
+      console.error(`[pipeline] Erreur extraction document ${documentPath}:`, err.message)
+      // On prévient l'IA de l'échec de lecture pour qu'elle puisse informer l'utilisateur
+      trimmedMessage = `L'utilisateur a joint un document (${documentPath}), mais je n'ai pas pu lire son contenu. 
+Erreur technique : ${err.message}
+Veuillez informer l'utilisateur que vous n'avez pas accès au contenu du document.
+
+Question de l'utilisateur : ${trimmedMessage}`
+    }
+  }
 
   // Sélection du modèle — fallback silencieux sur le défaut si invalide
   const requestedModel = body.model as string | undefined
@@ -193,8 +233,8 @@ export async function POST(req: NextRequest) {
   const { chunks, juriCases: pgJuriCases } = await fetchRelevantSources(
     embedding,
     domains.length > 0 ? domains : null,
-    12,   // max résultats (augmenté pour couvrir plus de documents injectés)
-    0.25, // threshold abaissé pour capturer les documents custom
+    4,    // Top-K strict : on limite à 4 chunks maximum (contre 12 auparavant)
+    0.45, // Seuil de similarité augmenté (0.45 au lieu de 0.25) pour éviter le bruit
   )
 
   // --- DÉBUT ESPION RAG ---
@@ -372,15 +412,19 @@ export async function POST(req: NextRequest) {
   const systemPrompt = modelConfig.buildSystemPrompt(allChunks, filteredPgJuriCases, liveJuriCases, promptContext)
   const history = sanitizeHistory(body.conversationHistory)
 
+  // ── Étape 4 : Génération en streaming direct ──
+  
+  // On place le systemPrompt en premier avec le tag de cache explicitement pour OpenRouter/Anthropic
   const messages: OpenRouterMessage[] = [
-    { role: 'system', content: systemPrompt },
+    { 
+      role: 'system', 
+      content: systemPrompt,
+    },
     ...history,
     { role: 'user', content: trimmedMessage },
   ]
 
-  console.info(`[pipeline] prompt=${systemPrompt.length} chars`)
-
-  // ── Étape 4 : Génération en streaming direct ──
+  console.info(`[pipeline] prompt=${systemPrompt.length} chars (Cache-Control: ephemeral)`)
 
   try {
     const llmStream = await openRouterStreamWithFallback(messages, modelConfig.maxTokens, selectedModel, modelConfig.temperature)
@@ -667,10 +711,26 @@ async function autoEnrichWhitelist(message: string): Promise<void> {
 
 function sanitizeHistory(raw: unknown): OpenRouterMessage[] {
   if (!Array.isArray(raw)) return []
-  return (raw as Array<{ role?: string; content?: string }>)
+  const validMessages = (raw as Array<{ role?: string; content?: string }>)
     .filter(t => t?.role && t?.content && ['user', 'assistant'].includes(t.role))
-    .slice(-MAX_HISTORY_TURNS * 2)
     .map(t => ({ role: t.role as 'user' | 'assistant', content: t.content as string }))
+
+  // Trouver si un message contient le document attaché
+  const documentMessageIndex = validMessages.findIndex(m => m.content.includes('<DOCUMENT_ATTACHÉ>'))
+  
+  // Ne garder que les 4 derniers messages de l'historique
+  const recentMessagesStart = validMessages.length > 4 ? validMessages.length - 4 : 0
+  const finalHistory: OpenRouterMessage[] = []
+
+  // Si le message avec document existe et qu'il est trop vieux pour être dans les 4 derniers, on le réinjecte
+  if (documentMessageIndex !== -1 && documentMessageIndex < recentMessagesStart) {
+    finalHistory.push(validMessages[documentMessageIndex])
+  }
+
+  // Ajouter les 4 derniers messages
+  finalHistory.push(...validMessages.slice(-4))
+
+  return finalHistory
 }
 
 // ── Analytics ──

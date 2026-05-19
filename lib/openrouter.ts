@@ -48,6 +48,9 @@ export async function openRouterChat(
       messages,
       max_tokens: maxTokens,
       stream: false,
+      // Prompt caching support for supported providers (Anthropic, DeepSeek, etc.)
+      // OpenRouter automatically applies breakpoints to the last cacheable block
+      cache_control: { type: 'ephemeral' }
     }),
   })
 
@@ -81,6 +84,8 @@ export async function openRouterStream(
       max_tokens: maxTokens,
       temperature,
       stream: true,
+      // Prompt caching support
+      cache_control: { type: 'ephemeral' }
     }),
   })
 

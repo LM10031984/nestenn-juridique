@@ -1,7 +1,7 @@
 'use client'
 
-import ChatPage from '../page'
+import { ChatUI } from '../_components/ChatUI'
 
 export default function DynamicChatPage({ params }: { params: { id: string } }) {
-  return <ChatPage conversationId={params.id} />
+  return <ChatUI conversationId={params.id} />
 }

@@ -48,10 +48,13 @@ export default async function HomePage() {
                   Poser ma question juridique
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <span className="inline-flex items-center gap-2 px-6 py-3.5 text-white/30 text-sm cursor-default select-none">
-                  <FileText className="h-4 w-4" />
-                  Bientôt : analyse de documents
-                </span>
+                <Link
+                  href="/chat"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-white/80 text-sm font-medium border border-white/15 hover:border-white/30 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  <FileText className="h-4 w-4 text-primary" />
+                  Analyse de documents par IA intégrée
+                </Link>
               </div>
             </div>
           </div>

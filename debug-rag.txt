@@ -1,100 +1,36 @@
 🕵️‍♂️🕵️‍♂️🕵️‍♂️ [DEBUG RAG] DOCUMENTS REMONTÉS DEPUIS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️
-Question : Lors d'une vente, le notaire s'aperçoit que l'acte de naissance du vendeur (né sous X) complique la vérification de son état civil. Le délai de validité du compromis expire demain. La vente est-elle caduque ?
+Question : Bonjour, pouvez-vous me rappeler les règles concernant le diagnostic amiante pour une vente ?
 
-📄 Document 1 : [Art. 150 VE — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
-🎯 Similarité : 0.956925747315452
+📄 Document 1 : [Art. L.271-4 CCH — Code de la construction et de l'habitation] - Art. N/A
+🎯 Similarité : 0.874834139774733
 📝 Texte extrait :
-Contexte : Lorsqu'un vendeur souhaite céder un bien immobilier situé dans une zone à déséquilibre ou dans le cadre d'opérations d'urbanisme, et qu'il a signé une promesse de vente.
-Règle : Le vendeur doit s'assurer que la cession respecte les conditions pour bénéficier d'un abattement sur la plus-value, notamment en signant une promesse unilatérale ou synallagmatique avant le 31 décembre 2027 et en réalisant la vente dans les deux ans suivant cette signature.
-En pratique : Si ces conditions ne sont pas respectées, l'acheteur peut demander une action en nullité de la vente ou des dommages-intérêts pour perte de bénéfice d'abattement.
+Contexte : Lors de la vente d'un immeuble bâti, le vendeur doit fournir un dossier de diagnostic technique.
+Règle : Le vendeur doit annexer le dossier de diagnostic technique à la promesse de vente ou à l'acte authentique de vente, incluant les diagnostics requis par la loi (amiante, plomb, termites, etc.).
+En pratique : En cas de non-respect de cette obligation, l'acheteur peut demander l'annulation de la vente pour vice caché, des dommages-intérêts, ou même la résolution du contrat.
 --------------------------------------------------
 
-📄 Document 2 : [Art. 150 VG — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
-🎯 Similarité : 0.95206437380415
+📄 Document 2 : [Art. L.271-6 — code de la construction et de l'habitation] - Art. N/A
+🎯 Similarité : 0.857480716465931
 📝 Texte extrait :
-Contexte : Le vendeur doit déclarer la plus-value lors de la vente d'un bien immobilier.
-Règle : Le vendeur doit remettre une déclaration de la plus-value au service des impôts dans un délai d'un mois suivant la cession, sous peine de refus d'enregistrement de l'acte de vente.
-En pratique : En cas de non-respect, le vendeur risque un refus d'enregistrement de la vente et peut également faire face à des sanctions fiscales, comme des pénalités ou des intérêts de retard.
+Contexte : professionnels réalisant des diagnostics immobiliers
+Règle : Les documents relatifs aux diagnostics doivent être établis par une personne compétente et indépendante disposant d'une assurance responsabilité.
+En pratique : En cas de non-respect, les documents peuvent être considérés comme nuls et engager la responsabilité de la personne ayant établi les diagnostics.
 --------------------------------------------------
 
-📄 Document 3 : [Art. L162-15 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
-🎯 Similarité : 0.94662107844819
+📄 Document 3 : [Art. L.1334-13 — code de la santé publique] - Art. N/A
+🎯 Similarité : 0.851356712835269
 📝 Texte extrait :
-Contexte : Lorsqu'un vendeur découvre des dommages environnementaux sur son bien avant la vente.
-Règle : Le vendeur doit informer l'acheteur des risques environnementaux et des travaux de dépollution nécessaires avant la signature du compromis de vente.
-En pratique : En cas de non-respect, l'acheteur peut demander des dommages-intérêts, la résolution du contrat ou une action en nullité pour défaut d'information.
+Contexte : Lors de la vente d'un immeuble bâti, le vendeur doit fournir un état sur la présence d'amiante.
+Règle : Le vendeur doit produire un diagnostic amiante, conformément aux exigences du code de la construction et de l'habitation, afin d'informer l'acheteur sur l'état de l'immeuble.
+En pratique : En cas de non-remise de ce diagnostic, l'acheteur peut engager une action en nullité de la vente ou demander des dommages-intérêts pour vices cachés.
 --------------------------------------------------
 
-📄 Document 4 : [Art. 150 UD — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
-🎯 Similarité : 0.94068388262848
+📄 Document 4 : [Art. L.271-6 CCH — Code de la construction et de l'habitation] - Art. N/A
+🎯 Similarité : 0.839973716143535
 📝 Texte extrait :
-Contexte : Lorsqu'un vendeur cède un bien immobilier et réalise une plus-value sur la vente.
-Règle : Le vendeur doit déclarer les plus-values réalisées lors de la vente de biens immobiliers soumis à l'impôt sur le revenu, conformément aux dispositions fiscales applicables.
-En pratique : En cas de non-respect de cette obligation, le vendeur s'expose à des sanctions fiscales, qui peuvent inclure des pénalités financières ou la requalification de la cession, entraînant un redressement fiscal.
---------------------------------------------------
-
-📄 Document 5 : [Art. L161-2 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
-🎯 Similarité : 0.935430803652316
-📝 Texte extrait :
-Contexte : Lors de la vente d'un bien immobilier, si le vendeur découvre des dommages environnementaux inévitables liés aux exclusions de responsabilité définies, par exemple à cause d'un phénomène naturel exceptionnel,
-Règle : Le vendeur doit informer l'acheteur de la situation sans être tenu responsable si les dommages relèvent des catégories précisées dans l'article, notamment des événements de force majeure ou liés à la sécurité nationale.
-En pratique : L'acheteur ne pourra pas demander l'annulation de la vente ou des dommages-intérêts pour ces dommages, mais il peut tout de même négocier d'autres conditions dans le compromis de vente.
---------------------------------------------------
-
-📄 Document 6 : [Art. L165-2 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
-🎯 Similarité : 0.934597572641457
-📝 Texte extrait :
-Contexte : Lors de la vente d'un bien immobilier nécessitant des travaux de dépollution
-Règle : Le vendeur doit s'assurer que des mesures de prévention et de réparation des dommages environnementaux soient mises en œuvre conformément à la réglementation en vigueur, en tenant compte des obligations déterminées par les autorités compétentes.
-En pratique : En cas de non-respect, l'acheteur peut demander des dommages-intérêts ou engager une action en nullité du contrat si un vice caché lié à l'environnement est découvert après la signature.
---------------------------------------------------
-
-📄 Document 7 : [Art. 150 VA — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
-🎯 Similarité : 0.9345353363044
-📝 Texte extrait :
-Contexte : Lors de la vente d'un bien immobilier, le vendeur doit être transparent sur le prix de cession et les charges associées.
-Règle : Le vendeur doit indiquer le prix réel dans l'acte de vente ; en cas de dissimulation, ce prix doit être majoré. En outre, il peut déduire certaines charges et frais lors de la détermination du prix de cession.
-En pratique : En cas de non-respect de cette obligation, l'administration fiscale peut appliquer une requalification du prix de cession, entraînant une majoration d'impôt, voire des sanctions financières.
---------------------------------------------------
-
-📄 Document 8 : [Art. L1331-1-1 — code de la santé publique] - Art. N/A
-🎯 Similarité : 0.934183100352706
-📝 Texte extrait :
-Contexte : Le vendeur d'un bien immobilier non raccordé au réseau public de collecte des eaux usées doit assurer l'entretien de l'installation d'assainissement non collectif.
-Règle : Le vendeur doit faire vidanger périodiquement l'installation d'assainissement par un professionnel agréé, tandis que l'acheteur a le droit d'être informé de l'état de cette installation avant la signature du compromis de vente.
-En pratique : En cas de non-respect, l'acheteur peut demander une action en nullité de la vente, des dommages-intérêts pour vices cachés ou même la résolution du contrat si l'état de l'installation s'avère défectueux.
---------------------------------------------------
-
-📄 Document 9 : [Art. L162-14 — Code de l'environnement — Responsabilité environnementale (L.160-1 à L.165-2)] - Art. N/A
-🎯 Similarité : 0.933771537008232
-📝 Texte extrait :
-Contexte : Lorsqu'un vendeur découvre qu'il n'a pas respecté les obligations de dépollution d'un bien immobilier avant la vente.
-Règle : Le vendeur doit prendre toutes les mesures nécessaires pour réparer les dommages environnementaux liés à la propriété qu'il met en vente, conformément aux obligations légales.
-En pratique : En cas de non-respect, l'acheteur peut demander une action en nullité de la vente ou des dommages-intérêts pour préjudice, et en cas de défaut de réparation, l'autorité compétente peut ordonner des mesures de dépollution.
---------------------------------------------------
-
-📄 Document 10 : [Art. 973 — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre IV : Enregistrement, publicité foncière, timbre, impôt sur la fortune, immobilière &gt; Chapitre II bis : Impôt sur la fortune immobilière  &gt; Section III : Règles de l'évaluation des biens ] - Art. N/A
-🎯 Similarité : 0.933008258309082
-📝 Texte extrait :
-Contexte : Lors de la vente d'un bien immobilier occupé par le vendeur à titre de résidence principale.
-Règle : Le vendeur doit déclarer la valeur vénale du bien, en tenant compte d'un abattement de 30 % si celui-ci est sa résidence principale.
-En pratique : En cas de non-respect de ces règles, l'acheteur peut demander une action en nullité de la vente ou des dommages-intérêts pour compenser une éventuelle surévaluation.
---------------------------------------------------
-
-📄 Document 11 : [Art. 969 — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre IV : Enregistrement, publicité foncière, timbre, impôt sur la fortune, immobilière &gt; Chapitre II bis : Impôt sur la fortune immobilière  &gt; Section II : Assiette de l'impôt ] - Art. N/A
-🎯 Similarité : 0.929853357373033
-📝 Texte extrait :
-Contexte : Lors de la vente d'un bien immobilier impliquant un patrimoine fiduciaire, le vendeur doit prendre en compte les actifs transférés dans son patrimoine.
-Règle : Le vendeur doit s'assurer que les actifs transférés dans un patrimoine fiduciaire sont intégrés dans son patrimoine pour leur valeur vénale nette lors de la transaction.
-En pratique : En cas de non-respect, l'acheteur est en droit de demander des dommages-intérêts ou une action en nullité du contrat si les actifs n'ont pas été correctement déclarés.
---------------------------------------------------
-
-📄 Document 12 : [Art. 150 VD — Livre premier : Assiette et liquidation de l'impôt &gt; Première Partie : Impôts d'État &gt; Titre premier : Impôts directs et taxes assimilées &gt; Chapitre premier : Impôt sur le revenu &gt; Section II : Revenus imposables &gt; 1re Sous-section : Détermination des bénéfices ou revenus nets des diverses catégories de revenus &gt; VII ter : Plus-values de cession à titre onéreux de biens ou de droits de toute nature &gt; 2. Biens et droits mobiliers ou immobiliers] - Art. N/A
-🎯 Similarité : 0.92462436982175
-📝 Texte extrait :
-Contexte : Lors de la vente d'un immeuble par le vendeur qui a acquis le bien par fractions successives.
-Règle : Le vendeur doit prendre en compte les plus-values brutes réalisées, en tenant compte des moins-values, si celles-ci sont constatées dans le même acte et entre les mêmes parties.
-En pratique : En cas de non-respect de ces obligations, le vendeur risque de ne pas bénéficier de l'abattement fiscal, ce qui peut entraîner un montant d'imposition plus élevé, et il pourra être confronté à des recours tels que la contestation des calculs par l'acheteur.
+Contexte : Lorsqu'un vendeur décide de vendre son bien immobilier
+Règle : Le vendeur doit faire réaliser les diagnostics obligatoires par un professionnel compétent et impartial, qui dispose d'une assurance pour couvrir sa responsabilité en cas de problèmes liés aux diagnostics.
+En pratique : En cas de non-respect, l'acheteur peut demander la résolution de la vente, des dommages-intérêts pour couvrir les frais engagés ou encore engager une action en nullité si les diagnostics s'avèrent inexacts.
 --------------------------------------------------
 
 🕵️‍♂️🕵️‍♂️🕵️‍♂️ FIN DES DOCUMENTS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️

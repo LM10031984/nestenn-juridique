@@ -19,18 +19,16 @@ export function ModelSelector({ selected, onChange, disabled }: Props) {
       <button
         onClick={() => !disabled && setOpen(!open)}
         disabled={disabled}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-transparent hover:bg-muted transition-colors text-sm text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <Sparkles className="h-3 w-3" style={{ color: current.color }} />
-        <span className="font-medium text-foreground">{current.name}</span>
-        <span className="text-muted-foreground hidden sm:inline">· {current.provider}</span>
-        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        <span className="font-medium text-foreground/80">{current.name}</span>
+        <ChevronDown className="h-4 w-4" />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="absolute bottom-full right-0 mb-2 w-80 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden">
             <div className="px-4 py-2 border-b border-border bg-muted/50">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Choisir le modèle IA

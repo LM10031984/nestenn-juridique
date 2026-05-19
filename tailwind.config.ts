@@ -16,6 +16,10 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        'nestenn-dark': '#152A38',
+        'nestenn-cyan': '#00A0A5',
+        'nestenn-cyan-hover': '#008B8F',
+        'nestenn-light': '#F4F7F8',
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
