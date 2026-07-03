@@ -1,5 +1,3 @@
-import fs from 'fs'
-import path from 'path'
 // app/api/chat/route.ts
 // Pipeline Augmenté v4 — le LLM est enrichi par pgvector, pas contraint par lui
 // Filtre hors-sujet → embedding + pgvector → prompt augmenté → streaming direct
@@ -19,8 +17,9 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
-import { resolveLiveArticles, resolvedArticlesToChunks } from '@/lib/legifrance-resolver'
+import { resolveLiveArticles, resolvedArticlesToChunks, normalizeArticleNum } from '@/lib/legifrance-resolver'
 import { lookupLegitext } from '@/lib/legifrance'
+import { extractArticleRefs, refsToCandidates } from '@/lib/extract-refs'
 import { detectTopicArticles } from '@/lib/topic-articles'
 import {
   sanitizeJuriNumbers,
@@ -237,24 +236,6 @@ Question de l'utilisateur : ${trimmedMessage}`
     0.45, // Seuil de similarité augmenté (0.45 au lieu de 0.25) pour éviter le bruit
   )
 
-  // --- DÉBUT ESPION RAG ---
-  let debugContent = `🕵️‍♂️🕵️‍♂️🕵️‍♂️ [DEBUG RAG] DOCUMENTS REMONTÉS DEPUIS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️\n`;
-  debugContent += `Question : ${trimmedMessage}\n`;
-  chunks.forEach((chunk, index) => {
-    debugContent += `\n📄 Document ${index + 1} : [${chunk.sourceLaw}] - Art. ${chunk.sourceArticle || 'N/A'}\n`;
-    debugContent += `🎯 Similarité : ${chunk.similarity}\n`;
-    debugContent += `📝 Texte extrait :\n${chunk.chunkText}\n`;
-    debugContent += `--------------------------------------------------\n`;
-  });
-  debugContent += `\n🕵️‍♂️🕵️‍♂️🕵️‍♂️ FIN DES DOCUMENTS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️\n`;
-  
-  try {
-    fs.writeFileSync(path.join(process.cwd(), 'debug-rag.txt'), debugContent, 'utf-8');
-  } catch (err) {
-    console.error('Erreur lors de l\'écriture du fichier de debug RAG:', err);
-  }
-  // --- FIN ESPION RAG ---
-
   console.info(
     `[judilibre-live] ${liveJuriCases.length} arrêts : `
     + liveJuriCases.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
@@ -362,30 +343,54 @@ Question de l'utilisateur : ${trimmedMessage}`
   const taggedLiveCases = buildTaggedLiveCases(liveJuriCases)
   const pgTaggedArticles = buildTaggedArticles(chunks)
 
-  // ── Consolidation live conditionnelle (legiPart → getArticle) ────────────────
-  // Déclencheurs : pas d'articles pgvector OU domaine sensible à réglementation récente
+  // ── Consolidation live (legiPart → getArticle) ───────────────────────────────
+  // Deux déclencheurs indépendants :
+  // 1. Références explicites dans la question (« article 1751 du code civil ») →
+  //    résolution live SYSTÉMATIQUE : le texte exact et en vigueur prime sur pgvector.
+  // 2. Consolidation conditionnelle : pas d'articles pgvector OU domaine sensible
+  //    à réglementation récente → articles forcés du topic.
   const LIVE_RESOLUTION_DOMAINS = new Set(['urbanisme', 'environnement', 'environnement_immo', 'fiscalite', 'servitudes'])
   const needsLiveResolution =
-    !!process.env.PISTE_CLIENT_ID &&
-    (pgTaggedArticles.length === 0 || domains.some(d => LIVE_RESOLUTION_DOMAINS.has(d)))
+    pgTaggedArticles.length === 0 || domains.some(d => LIVE_RESOLUTION_DOMAINS.has(d))
 
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
 
-  if (needsLiveResolution) {
-    const topicMatch = detectTopicArticles(correctedMessage)
+  if (process.env.PISTE_CLIENT_ID) {
+    // Déclencheur 1 — références citées par l'agent (extraction regex, ~0ms)
+    const explicitCandidates = refsToCandidates(extractArticleRefs(correctedMessage))
 
-    if (topicMatch && topicMatch.forcedArticles.length > 0) {
-      // Convertir ForcedArticle[] → candidats { textId, articleNum, lawName }
-      const candidates = topicMatch.forcedArticles.flatMap(fa => {
-        const textId = lookupLegitext(fa.law)
-        if (!textId) return []
-        return [{ textId, articleNum: fa.artNum, lawName: fa.label ?? fa.law }]
-      })
-
-      if (candidates.length > 0) {
-        const resolved = await resolveLiveArticles(candidates).catch(() => [])
-        liveChunks = resolvedArticlesToChunks(resolved)
+    // Déclencheur 2 — articles forcés du topic (comportement historique)
+    let topicCandidates: Array<{ textId: string; articleNum: string; lawName: string }> = []
+    if (needsLiveResolution) {
+      const topicMatch = detectTopicArticles(correctedMessage)
+      if (topicMatch && topicMatch.forcedArticles.length > 0) {
+        topicCandidates = topicMatch.forcedArticles.flatMap(fa => {
+          const textId = lookupLegitext(fa.law)
+          if (!textId) return []
+          return [{ textId, articleNum: fa.artNum, lawName: fa.label ?? fa.law }]
+        })
       }
+    }
+
+    // Fusion : refs explicites en premier (priorité dans le cap MAX_LIVE_ARTICLES),
+    // déduplication par texte + numéro normalisé
+    const seenCandidates = new Set<string>()
+    const candidates = [...explicitCandidates, ...topicCandidates].filter(c => {
+      const key = `${c.textId}:${normalizeArticleNum(c.articleNum)}`
+      if (seenCandidates.has(key)) return false
+      seenCandidates.add(key)
+      return true
+    })
+
+    if (candidates.length > 0) {
+      if (explicitCandidates.length > 0) {
+        console.info(
+          `[legifrance-live] ${explicitCandidates.length} ref(s) explicite(s) dans la question : `
+          + explicitCandidates.map(c => `${c.lawName} art. ${c.articleNum}`).join(' | ')
+        )
+      }
+      const resolved = await resolveLiveArticles(candidates).catch(() => [])
+      liveChunks = resolvedArticlesToChunks(resolved)
     }
   }
 
