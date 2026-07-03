@@ -35,10 +35,24 @@ function fetchWithTimeout(url: string, init: RequestInit, ms = TIMEOUT_MS): Prom
   return fetch(url, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer))
 }
 
+// Normalisation des numéros d'articles pour comparaison tolérante :
+// « L. 412-6 », « L412-6 », « L-412-6 » et « l 412-6 » désignent le même article.
+// On uniformise le séparateur après la lettre L/R/D et on supprime les espaces.
+export function normalizeArticleNum(raw: string): string {
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/^([LRD])[\s.\-]*/, '$1')
+    .replace(/\s+/g, '')
+}
+
 // Traversée récursive de l'arbre legiPart — même logique que legifrance.ts
+// Match exact d'abord (comportement historique), puis match normalisé.
 function findArticleInTree(node: any, artNum: string): { id: string; cid: string } | null {
+  const wanted = normalizeArticleNum(artNum)
   for (const art of (node.articles ?? [])) {
-    if ((art.etat ?? '').toUpperCase() === 'VIGUEUR' && art.num === artNum) {
+    const inForce = (art.etat ?? '').toUpperCase() === 'VIGUEUR'
+    if (inForce && (art.num === artNum || normalizeArticleNum(art.num ?? '') === wanted)) {
       const id: string = art.id ?? art.cid ?? ''
       const cid: string = art.cid ?? art.id ?? ''
       if (id) return { id, cid }

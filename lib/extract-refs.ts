@@ -2,7 +2,9 @@
 // Extraction regex des numéros d'articles et lois mentionnés dans la question utilisateur.
 // Retourne des forcedArticles injectables dans le pipeline Légifrance.
 
-interface ExtractedRef {
+import { lookupLegitext } from './legifrance'
+
+export interface ExtractedRef {
   law: string
   artNums: string[]
 }
@@ -11,15 +13,17 @@ interface ExtractedRef {
 const LAW_PATTERNS: Array<{ regex: RegExp; law: string }> = [
   { regex: /code\s+civil/i, law: 'code civil' },
   { regex: /code\s+de\s+la\s+construction|code\s+de\s+l'habitation|\bCCH\b/i, law: 'cch' },
-  { regex: /code\s+de\s+l'urbanisme|code\s+urbanisme/i, law: 'code urbanisme' },
-  { regex: /code\s+de\s+l'environnement|code\s+environnement/i, law: 'code environnement' },
-  { regex: /code\s+de\s+la\s+consommation|code\s+consommation|code\s+conso/i, law: 'code consommation' },
+  // NB : les clés `law` doivent exister dans LEGITEXT_MAP (lib/legifrance.ts),
+  // sinon lookupLegitext retourne null et la référence est ignorée silencieusement.
+  { regex: /code\s+de\s+l'urbanisme|code\s+urbanisme/i, law: 'urbanisme' },
+  { regex: /code\s+de\s+l'environnement|code\s+environnement/i, law: 'environnement' },
+  { regex: /code\s+de\s+la\s+consommation|code\s+consommation|code\s+conso/i, law: 'code de la consommation' },
   { regex: /code\s+de\s+commerce|code\s+commerce/i, law: 'code commerce' },
-  { regex: /code\s+des\s+assurances|code\s+assurances/i, law: 'code assurances' },
-  { regex: /code\s+mon[ée]taire|CMF/i, law: 'code monétaire et financier' },
-  { regex: /code\s+de\s+la\s+sant[ée]\s+publique|code\s+sant[ée]/i, law: 'code santé publique' },
+  { regex: /code\s+des\s+assurances|code\s+assurances/i, law: 'code des assurances' },
+  { regex: /code\s+mon[ée]taire|CMF/i, law: 'cmf' },
+  { regex: /code\s+de\s+la\s+sant[ée]\s+publique|code\s+sant[ée]/i, law: 'csp' },
   { regex: /code\s+g[ée]n[ée]ral\s+des\s+imp[ôo]ts|\bCGI\b/i, law: 'cgi' },
-  { regex: /code\s+de\s+proc[ée]dure\s+civile|CPC\b/i, law: 'code procédure civile' },
+  { regex: /code\s+de\s+proc[ée]dure\s+civile|CPC\b/i, law: 'cpc' },
   { regex: /\bCPCE\b|code.*proc[ée]dures.*civiles.*ex[ée]cution/i, law: 'cpce' },
   { regex: /loi\s+(?:n°?\s*)?70[- ]9\b|loi\s+hoguet/i, law: 'loi 70-9' },
   { regex: /loi\s+(?:n°?\s*)?89[- ]462\b/i, law: 'loi 89-462' },
@@ -136,4 +140,61 @@ function findClosestLaw(message: string, artIndex: number): string | null {
 function addRef(refs: Map<string, Set<string>>, law: string, artNum: string) {
   if (!refs.has(law)) refs.set(law, new Set())
   refs.get(law)!.add(artNum)
+}
+
+// ---------------------------------------------------------------------------
+// refsToCandidates — conversion vers les candidats du résolveur Légifrance live
+// ---------------------------------------------------------------------------
+
+// Noms lisibles pour le titre injecté dans le prompt (« Art. X — <lawName> »)
+const LAW_DISPLAY_NAMES: Record<string, string> = {
+  'code civil':               'Code civil',
+  'cch':                      "Code de la construction et de l'habitation",
+  'urbanisme':                "Code de l'urbanisme",
+  'environnement':            "Code de l'environnement",
+  'code de la consommation':  'Code de la consommation',
+  'code commerce':            'Code de commerce',
+  'code des assurances':      'Code des assurances',
+  'cmf':                      'Code monétaire et financier',
+  'csp':                      'Code de la santé publique',
+  'cgi':                      'Code général des impôts',
+  'cpc':                      'Code de procédure civile',
+  'cpce':                     "Code des procédures civiles d'exécution",
+  'loi 70-9':                 'Loi n° 70-9 du 2 janvier 1970 (Hoguet)',
+  'loi 89-462':               'Loi n° 89-462 du 6 juillet 1989',
+  'loi 65-557':               'Loi n° 65-557 du 10 juillet 1965',
+  'décret 72-678':            'Décret n° 72-678 du 20 juillet 1972',
+  'décret 67-223':            'Décret n° 67-223 du 17 mars 1967',
+  'loi 2014-366':             'Loi n° 2014-366 du 24 mars 2014 (ALUR)',
+  'loi 2018-1021':            'Loi n° 2018-1021 du 23 novembre 2018 (ELAN)',
+  'loi 2021-1104':            'Loi n° 2021-1104 du 22 août 2021 (Climat et résilience)',
+}
+
+export interface LiveArticleCandidate {
+  textId: string
+  articleNum: string
+  lawName: string
+}
+
+/**
+ * Convertit les références extraites de la question en candidats pour
+ * resolveLiveArticles(). Les lois absentes de LEGITEXT_MAP sont ignorées.
+ */
+export function refsToCandidates(refs: ExtractedRef[]): LiveArticleCandidate[] {
+  const candidates: LiveArticleCandidate[] = []
+  for (const ref of refs) {
+    const textId = lookupLegitext(ref.law)
+    if (!textId) {
+      console.info(`[extract-refs] loi inconnue de LEGITEXT_MAP, ignorée : "${ref.law}"`)
+      continue
+    }
+    for (const artNum of ref.artNums) {
+      candidates.push({
+        textId,
+        articleNum: artNum,
+        lawName: LAW_DISPLAY_NAMES[ref.law] ?? ref.law,
+      })
+    }
+  }
+  return candidates
 }
