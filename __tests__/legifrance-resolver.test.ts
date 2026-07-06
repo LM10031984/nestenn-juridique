@@ -3,7 +3,7 @@
 // Lancer : npx vitest run __tests__/legifrance-resolver.test.ts
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { resolveLiveArticle, resolveLiveArticles, resolvedArticlesToChunks } from '@/lib/legifrance-resolver'
+import { resolveLiveArticle, resolveLiveArticles, resolvedArticlesToChunks, clearResolveCache } from '@/lib/legifrance-resolver'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,7 @@ describe('resolveLiveArticle', () => {
 
   beforeEach(() => {
     originalFetch = global.fetch
+    clearResolveCache()
   })
 
   afterEach(() => {
@@ -240,6 +241,7 @@ describe('resolveLiveArticles', () => {
 
   beforeEach(() => {
     originalFetch = global.fetch
+    clearResolveCache()
   })
 
   afterEach(() => {

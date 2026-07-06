@@ -24,6 +24,9 @@ const LAW_PATTERNS: Array<{ regex: RegExp; law: string }> = [
   { regex: /code\s+de\s+la\s+sant[ée]\s+publique|code\s+sant[ée]/i, law: 'csp' },
   { regex: /code\s+g[ée]n[ée]ral\s+des\s+imp[ôo]ts|\bCGI\b/i, law: 'cgi' },
   { regex: /code\s+de\s+proc[ée]dure\s+civile|CPC\b/i, law: 'cpc' },
+  { regex: /code\s+p[ée]nal/i, law: 'pénal' },
+  { regex: /code\s+du\s+tourisme/i, law: 'code du tourisme' },
+  { regex: /code\s+rural/i, law: 'code rural' },
   { regex: /\bCPCE\b|code.*proc[ée]dures.*civiles.*ex[ée]cution/i, law: 'cpce' },
   { regex: /loi\s+(?:n°?\s*)?70[- ]9\b|loi\s+hoguet/i, law: 'loi 70-9' },
   { regex: /loi\s+(?:n°?\s*)?89[- ]462\b/i, law: 'loi 89-462' },
@@ -39,14 +42,16 @@ const LAW_PATTERNS: Array<{ regex: RegExp; law: string }> = [
 ]
 
 // Regex pour capturer les numéros d'articles
-// Capture : Art. 24, Article L412-6, L313-41, R423-23, article 1641, art. 78
-const ART_NUM_REGEX = /\b(?:art(?:icle)?\.?\s*)([LRD]?\d+(?:[- ]\d+)*(?:[- ]\d+)*)\b/gi
+// Capture : Art. 24, Article L412-6, L. 313-41, R423-23, article 1641, art. 78
+// Le préfixe lettre accepte les formes « L », « L. », « L. » + espace (usage Légifrance).
+const ART_PREFIX = String.raw`(?:[LRDA]\.?\s?)?`
+const ART_NUM_REGEX = new RegExp(String.raw`\b(?:art(?:icle)?\.?\s*)(${ART_PREFIX}\d+(?:[- ]\d+)*(?:[- ]\d+)*)\b`, 'gi')
 
 // Regex pour capturer "article X du/de la [loi/code/décret]"
-const ART_WITH_LAW_REGEX = /\b(?:art(?:icle)?\.?\s*)([LRD]?\d+(?:[- ]\d+)*)\s+(?:du|de\s+la|de\s+l['']|des?)\s+(.{5,60}?)(?=[.,;?!\n]|$)/gi
+const ART_WITH_LAW_REGEX = new RegExp(String.raw`\b(?:art(?:icle)?\.?\s*)(${ART_PREFIX}\d+(?:[- ]\d+)*)\s+(?:du|de\s+la|de\s+l['']|des?)\s+(.{5,60}?)(?=[.,;?!\n]|$)`, 'gi')
 
 // Regex pour capturer "loi/décret X article Y" (ordre inversé)
-const LAW_THEN_ART_REGEX = /(?:loi|d[ée]cret|ordonnance|code)\s+[^\n]{3,40}?\s+(?:art(?:icle)?\.?\s*)([LRD]?\d+(?:[- ]\d+)*)/gi
+const LAW_THEN_ART_REGEX = new RegExp(String.raw`(?:loi|d[ée]cret|ordonnance|code)\s+[^\n]{3,40}?\s+(?:art(?:icle)?\.?\s*)(${ART_PREFIX}\d+(?:[- ]\d+)*)`, 'gi')
 
 export function extractArticleRefs(message: string): ExtractedRef[] {
   const refs = new Map<string, Set<string>>() // law → Set<artNum>
@@ -107,7 +112,13 @@ export function extractArticleRefs(message: string): ExtractedRef[] {
 }
 
 function normalizeArtNum(raw: string): string {
-  return raw.replace(/\s+/g, '-').replace(/^0+/, '') || ''
+  return raw
+    .trim()
+    // « L. 121-2 » / « l 121-2 » → « L121-2 » (format candidat, comparé
+    // ensuite via normalizeArticleNum côté résolveur)
+    .replace(/^([LRDA])\.?\s*/i, (_, l: string) => l.toUpperCase())
+    .replace(/\s+/g, '-')
+    .replace(/^0+/, '') || ''
 }
 
 function identifyLaw(text: string): string | null {
@@ -160,6 +171,9 @@ const LAW_DISPLAY_NAMES: Record<string, string> = {
   'cgi':                      'Code général des impôts',
   'cpc':                      'Code de procédure civile',
   'cpce':                     "Code des procédures civiles d'exécution",
+  'pénal':                    'Code pénal',
+  'code du tourisme':         'Code du tourisme',
+  'code rural':               'Code rural et de la pêche maritime',
   'loi 70-9':                 'Loi n° 70-9 du 2 janvier 1970 (Hoguet)',
   'loi 89-462':               'Loi n° 89-462 du 6 juillet 1989',
   'loi 65-557':               'Loi n° 65-557 du 10 juillet 1965',

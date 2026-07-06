@@ -77,7 +77,32 @@ function findArticleInTree(node: any, artNum: string): { id: string; cid: string
  * @param articleNum Numéro d'article tel qu'il apparaît dans l'arbre (ex : 'L.1331-1')
  * @param lawName   Nom lisible du texte, pour le titre et le chunkText
  */
+// Cache module-level : évite de re-résoudre le même article à chaque requête
+// (les textes en vigueur changent rarement en cours de journée).
+const resolveCache = new Map<string, { at: number; value: ResolvedArticle | null }>()
+const RESOLVE_CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 h
+
+/** Vide le cache de résolution — utilisé par les tests. */
+export function clearResolveCache(): void {
+  resolveCache.clear()
+}
+
 export async function resolveLiveArticle(
+  textId: string,
+  articleNum: string,
+  lawName = 'Texte officiel',
+): Promise<ResolvedArticle | null> {
+  const cacheKey = `${textId}:${normalizeArticleNum(articleNum)}`
+  const cached = resolveCache.get(cacheKey)
+  if (cached && Date.now() - cached.at < RESOLVE_CACHE_TTL_MS) {
+    return cached.value
+  }
+  const value = await resolveLiveArticleUncached(textId, articleNum, lawName)
+  resolveCache.set(cacheKey, { at: Date.now(), value })
+  return value
+}
+
+async function resolveLiveArticleUncached(
   textId: string,
   articleNum: string,
   lawName = 'Texte officiel',

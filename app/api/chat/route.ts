@@ -31,9 +31,11 @@ import {
   injectRealCaseCitations,
   injectRealArticleCitations,
   stripUnauthorizedArticleCitations,
+  findFreeFormArticleCitations,
   optionallyDowngradeUnsupportedNormativeClaims,
   detectNormativeDensity,
   NORMATIVE_DENSITY_HIGH,
+  type TaggedArticle,
 } from '@/lib/post-treatment'
 import type { PromptContext } from '@/lib/model-config'
 import { createClient } from '@/lib/supabase/server'
@@ -485,9 +487,41 @@ Question de l'utilisateur : ${trimmedMessage}`
       )
     }
 
-    // Passe 2.5 — détecter et neutraliser les citations libres d'articles
-    const { cleaned: noFreeArticles, found: freeArticleCitations } =
-      stripUnauthorizedArticleCitations(noFreeCaseNumbers, taggedArticles)
+    // Passe 2.4 — vérifier les citations libres sur Légifrance AVANT de neutraliser.
+    // Le modèle cite souvent de mémoire des articles corrects mais absents des
+    // sources (ex : art. 15 loi 89-462). Plutôt que de les supprimer aveuglément,
+    // on les résout en live (legiPart+getArticle, cache 6 h) : vérifiées → elles
+    // gagnent un tag [Ax] + le lien officiel ; invérifiables → neutralisées.
+    let verifiedFreeArticles: TaggedArticle[] = []
+    const freeCandidatesFound = findFreeFormArticleCitations(noFreeCaseNumbers)
+    if (freeCandidatesFound.length > 0 && process.env.PISTE_CLIENT_ID) {
+      const alreadyTagged = new Set(taggedArticles.map(a => a.sourceArticle))
+      const freeRefsText = freeCandidatesFound
+        .filter(c => !alreadyTagged.has(c.article))
+        .map(c => c.match).join(' ; ')
+      const freeCandidates = refsToCandidates(extractArticleRefs(freeRefsText))
+      if (freeCandidates.length > 0) {
+        const resolvedFree = await resolveLiveArticles(freeCandidates).catch(() => [])
+        verifiedFreeArticles = resolvedFree.map((a, i) => ({
+          tag: `A${taggedArticles.length + i + 1}`,
+          title: `Art. ${a.articleNum} — ${a.lawName}`,
+          sourceLaw: a.lawName,
+          sourceArticle: a.articleNum,
+          sourceUrl: a.url,
+        }))
+        if (verifiedFreeArticles.length > 0) {
+          console.info(
+            `[post-process] ✅ ${verifiedFreeArticles.length} citation(s) libre(s) vérifiée(s) sur Légifrance : `
+            + verifiedFreeArticles.map(a => a.title).join(' | ')
+          )
+        }
+      }
+    }
+    const taggedArticlesWithVerified = [...taggedArticles, ...verifiedFreeArticles]
+
+    // Passe 2.5 — neutraliser les citations libres restées invérifiables
+    const { cleaned: noFreeArticles, stripped: freeArticleCitations } =
+      stripUnauthorizedArticleCitations(noFreeCaseNumbers, taggedArticlesWithVerified)
 
     // Signal de confiance article
     let articleCitationMode: 'tagged' | 'free' | 'mixed'
@@ -536,7 +570,7 @@ Question de l'utilisateur : ${trimmedMessage}`
     // Passe 3 — injecter les vraies citations jurisprudentielles et articles
     let finalText = noFreeArticles
     finalText = injectRealCaseCitations(finalText, taggedLiveCases)
-    finalText = injectRealArticleCitations(finalText, taggedArticles)
+    finalText = injectRealArticleCitations(finalText, taggedArticlesWithVerified)
 
     // Passe 3.5 — downgrade normatif si sources insuffisantes
     if (normativeSafetyMode) {
