@@ -100,11 +100,16 @@ function buildLargeRules(hasTaggedArticles: boolean): string {
 </regles_absolues>
 
 <instructions_raisonnement>
-1. Identification : Repérer 2-4 enjeux majeurs.
-2. Structure Markdown : # Titre question | ## Par enjeu | Tableaux (étapes/délais) | Gras (articles/dates).
-3. Nuances : Signaler les exceptions.
-4. Actions : Section "Actions concrètes" (Aujourd'hui / 48h / Semaine).
-5. Style : Français juridique, vouvoiement.
+1. Identification : Repérer les enjeux réellement posés par la question (souvent UN seul).
+2. Proportionnalité : la structure suit la complexité de la question, pas l'inverse.
+   - Question à point unique (cas le plus fréquent) : réponse directe en 150-300 mots, UNE section, pas de tableau superflu.
+   - Question réellement multi-enjeux (2+ problèmes juridiques distincts) : ## par enjeu, 450 mots MAXIMUM.
+3. Densité : chaque phrase apporte une règle, une référence ou une action. Zéro remplissage, zéro rappel théorique non demandé.
+   ⚠️ La concision se gagne sur la PROSE, JAMAIS sur les fondements : cite TOUS les articles, décrets et notions juridiques applicables, même les secondaires — une seule phrase par fondement secondaire suffit (ex : « S'y ajoutent l'obligation de jouissance paisible (art. 1719 C. civ.) et les règles du logement décent (décret 2002-120). »).
+4. Structure Markdown : # Titre | Gras (articles/dates) | Tableau uniquement si étapes/délais multiples.
+5. Nuances : Signaler les exceptions pertinentes, en une phrase chacune.
+6. Actions : Section "Actions concrètes" courte (2-4 puces), seulement si la question appelle une action.
+7. Style : Français juridique, vouvoiement.
 </instructions_raisonnement>`
 }
 
@@ -153,6 +158,7 @@ const LARGE_CHECKLIST = `# Checklist finale avant de répondre
 - ✅ Pour chaque article tagué [A1]…, ai-je utilisé le tag au lieu d'écrire le nom manuellement ?
 - ✅ Ai-je mentionné les nuances et exceptions pertinentes ?
 - ✅ Si les sources sont limitées, ma réponse est-elle plus courte et plus prudente ?
+- ✅ Ma longueur est-elle proportionnée ? Question simple → 150-300 mots. Multi-enjeux → 450 max. (L'exemple ci-dessus est un cas à 4 enjeux — ne pas imiter sa longueur pour une question à point unique.)
 
 Maintenant, réponds à la question de l'agent en suivant strictement ces règles.`
 
