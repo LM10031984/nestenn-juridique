@@ -373,27 +373,35 @@ export function findFreeFormArticleCitations(text: string): FreeArticleCitation[
  * Actif uniquement si des tags [A1][A2]… sont définis (allowedArticleTags non vide).
  * Si aucun tag n'est actif → retour sans modification (mode libre autorisé).
  */
+// Comparaison tolérante aux formats : « L. 121-2 » ≡ « L121-2 » ≡ « L-121-2 »
+function sameArticleNum(a: string, b: string): boolean {
+  const norm = (s: string) => s.trim().toUpperCase().replace(/^([LRDA])[\s.\-]*/, '$1').replace(/\s+/g, '')
+  return norm(a) === norm(b)
+}
+
 export function stripUnauthorizedArticleCitations(
   text: string,
   taggedArticles: TaggedArticle[],
-): { cleaned: string; found: FreeArticleCitation[] } {
+): { cleaned: string; found: FreeArticleCitation[]; stripped: FreeArticleCitation[] } {
   const found = findFreeFormArticleCitations(text)
   if (taggedArticles.length === 0 || found.length === 0) {
-    return { cleaned: text, found }
+    return { cleaned: text, found, stripped: [] }
   }
 
+  const stripped: FreeArticleCitation[] = []
   const re = new RegExp(FREE_ARTICLE_RE.source, FREE_ARTICLE_RE.flags)
-  const cleaned = text.replace(re, (match, articleNum) => {
+  const cleaned = text.replace(re, (match, articleNum, offset: number) => {
     const num = articleNum ? articleNum.trim() : ''
-    const matched = taggedArticles.find(a => a.sourceArticle && a.sourceArticle === num)
+    const matched = taggedArticles.find(a => a.sourceArticle && sameArticleNum(a.sourceArticle, num))
     if (matched) {
       console.info(`[post-process] 🔄 Citation libre "${match.trim()}" convertie en tag [${matched.tag}]`)
       return `[${matched.tag}]`
     }
     console.warn(`[post-process] ⚠️ Citation libre article supprimée : "${match.trim()}"`)
+    stripped.push({ match, article: num, index: offset })
     return 'la disposition applicable'
   })
-  return { cleaned, found }
+  return { cleaned, found, stripped }
 }
 
 /**

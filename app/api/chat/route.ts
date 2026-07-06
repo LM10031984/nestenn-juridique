@@ -1,5 +1,3 @@
-import fs from 'fs'
-import path from 'path'
 // app/api/chat/route.ts
 // Pipeline Augmenté v4 — le LLM est enrichi par pgvector, pas contraint par lui
 // Filtre hors-sujet → embedding + pgvector → prompt augmenté → streaming direct
@@ -19,8 +17,10 @@ import { correctTypos } from '@/lib/typo-corrector'
 import { fetchJudilibreLive } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
-import { resolveLiveArticles, resolvedArticlesToChunks } from '@/lib/legifrance-resolver'
+import { resolveLiveArticles, resolvedArticlesToChunks, normalizeArticleNum } from '@/lib/legifrance-resolver'
 import { lookupLegitext } from '@/lib/legifrance'
+import { extractArticleRefs, refsToCandidates } from '@/lib/extract-refs'
+import { scoutArticleRefs } from '@/lib/article-scout'
 import { detectTopicArticles } from '@/lib/topic-articles'
 import {
   sanitizeJuriNumbers,
@@ -32,9 +32,11 @@ import {
   injectRealCaseCitations,
   injectRealArticleCitations,
   stripUnauthorizedArticleCitations,
+  findFreeFormArticleCitations,
   optionallyDowngradeUnsupportedNormativeClaims,
   detectNormativeDensity,
   NORMATIVE_DENSITY_HIGH,
+  type TaggedArticle,
 } from '@/lib/post-treatment'
 import type { PromptContext } from '@/lib/model-config'
 import { createClient } from '@/lib/supabase/server'
@@ -216,6 +218,10 @@ Question de l'utilisateur : ${trimmedMessage}`
   // DomainMatch complet (avec judilibreTheme + judilibreChamber) pour la tentative ciblée
   const domainMatch = detectDomain(correctedMessage)
 
+  // Éclaireur d'articles : lancé tout de suite, résultat consommé à l'étape 3
+  // (latence masquée par l'embedding + Judilibre + pgvector + génération amont)
+  const scoutPromise = scoutArticleRefs(correctedMessage).catch(() => [] as Awaited<ReturnType<typeof scoutArticleRefs>>)
+
   // Judilibre TOUJOURS appelé — avantage compétitif vs ChatGPT/Claude sans accès live
   const [embedding, liveJuriCases] = await Promise.all([
     embedQuestion(trimmedMessage),
@@ -236,24 +242,6 @@ Question de l'utilisateur : ${trimmedMessage}`
     4,    // Top-K strict : on limite à 4 chunks maximum (contre 12 auparavant)
     0.45, // Seuil de similarité augmenté (0.45 au lieu de 0.25) pour éviter le bruit
   )
-
-  // --- DÉBUT ESPION RAG ---
-  let debugContent = `🕵️‍♂️🕵️‍♂️🕵️‍♂️ [DEBUG RAG] DOCUMENTS REMONTÉS DEPUIS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️\n`;
-  debugContent += `Question : ${trimmedMessage}\n`;
-  chunks.forEach((chunk, index) => {
-    debugContent += `\n📄 Document ${index + 1} : [${chunk.sourceLaw}] - Art. ${chunk.sourceArticle || 'N/A'}\n`;
-    debugContent += `🎯 Similarité : ${chunk.similarity}\n`;
-    debugContent += `📝 Texte extrait :\n${chunk.chunkText}\n`;
-    debugContent += `--------------------------------------------------\n`;
-  });
-  debugContent += `\n🕵️‍♂️🕵️‍♂️🕵️‍♂️ FIN DES DOCUMENTS SUPABASE 🕵️‍♂️🕵️‍♂️🕵️‍♂️\n`;
-  
-  try {
-    fs.writeFileSync(path.join(process.cwd(), 'debug-rag.txt'), debugContent, 'utf-8');
-  } catch (err) {
-    console.error('Erreur lors de l\'écriture du fichier de debug RAG:', err);
-  }
-  // --- FIN ESPION RAG ---
 
   console.info(
     `[judilibre-live] ${liveJuriCases.length} arrêts : `
@@ -362,30 +350,58 @@ Question de l'utilisateur : ${trimmedMessage}`
   const taggedLiveCases = buildTaggedLiveCases(liveJuriCases)
   const pgTaggedArticles = buildTaggedArticles(chunks)
 
-  // ── Consolidation live conditionnelle (legiPart → getArticle) ────────────────
-  // Déclencheurs : pas d'articles pgvector OU domaine sensible à réglementation récente
+  // ── Consolidation live (legiPart → getArticle) ───────────────────────────────
+  // Deux déclencheurs indépendants :
+  // 1. Références explicites dans la question (« article 1751 du code civil ») →
+  //    résolution live SYSTÉMATIQUE : le texte exact et en vigueur prime sur pgvector.
+  // 2. Consolidation conditionnelle : pas d'articles pgvector OU domaine sensible
+  //    à réglementation récente → articles forcés du topic.
   const LIVE_RESOLUTION_DOMAINS = new Set(['urbanisme', 'environnement', 'environnement_immo', 'fiscalite', 'servitudes'])
   const needsLiveResolution =
-    !!process.env.PISTE_CLIENT_ID &&
-    (pgTaggedArticles.length === 0 || domains.some(d => LIVE_RESOLUTION_DOMAINS.has(d)))
+    pgTaggedArticles.length === 0 || domains.some(d => LIVE_RESOLUTION_DOMAINS.has(d))
 
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
 
-  if (needsLiveResolution) {
-    const topicMatch = detectTopicArticles(correctedMessage)
+  if (process.env.PISTE_CLIENT_ID) {
+    // Déclencheur 1 — références citées par l'agent (extraction regex, ~0ms)
+    const explicitCandidates = refsToCandidates(extractArticleRefs(correctedMessage))
 
-    if (topicMatch && topicMatch.forcedArticles.length > 0) {
-      // Convertir ForcedArticle[] → candidats { textId, articleNum, lawName }
-      const candidates = topicMatch.forcedArticles.flatMap(fa => {
-        const textId = lookupLegitext(fa.law)
-        if (!textId) return []
-        return [{ textId, articleNum: fa.artNum, lawName: fa.label ?? fa.law }]
-      })
+    // Déclencheur 2 — éclaireur LLM : articles suggérés par le savoir du modèle,
+    // résolus sur Légifrance (seul le texte officiel entre dans le prompt)
+    const scoutCandidates = await scoutPromise
 
-      if (candidates.length > 0) {
-        const resolved = await resolveLiveArticles(candidates).catch(() => [])
-        liveChunks = resolvedArticlesToChunks(resolved)
+    // Déclencheur 3 — articles forcés du topic (comportement historique)
+    let topicCandidates: Array<{ textId: string; articleNum: string; lawName: string }> = []
+    if (needsLiveResolution) {
+      const topicMatch = detectTopicArticles(correctedMessage)
+      if (topicMatch && topicMatch.forcedArticles.length > 0) {
+        topicCandidates = topicMatch.forcedArticles.flatMap(fa => {
+          const textId = lookupLegitext(fa.law)
+          if (!textId) return []
+          return [{ textId, articleNum: fa.artNum, lawName: fa.label ?? fa.law }]
+        })
       }
+    }
+
+    // Fusion par priorité : refs explicites > éclaireur > topic,
+    // déduplication par texte + numéro normalisé, cap 5 résolutions
+    const seenCandidates = new Set<string>()
+    const candidates = [...explicitCandidates, ...scoutCandidates, ...topicCandidates].filter(c => {
+      const key = `${c.textId}:${normalizeArticleNum(c.articleNum)}`
+      if (seenCandidates.has(key)) return false
+      seenCandidates.add(key)
+      return true
+    })
+
+    if (candidates.length > 0) {
+      if (explicitCandidates.length > 0) {
+        console.info(
+          `[legifrance-live] ${explicitCandidates.length} ref(s) explicite(s) dans la question : `
+          + explicitCandidates.map(c => `${c.lawName} art. ${c.articleNum}`).join(' | ')
+        )
+      }
+      const resolved = await resolveLiveArticles(candidates, 5).catch(() => [])
+      liveChunks = resolvedArticlesToChunks(resolved)
     }
   }
 
@@ -480,9 +496,41 @@ Question de l'utilisateur : ${trimmedMessage}`
       )
     }
 
-    // Passe 2.5 — détecter et neutraliser les citations libres d'articles
-    const { cleaned: noFreeArticles, found: freeArticleCitations } =
-      stripUnauthorizedArticleCitations(noFreeCaseNumbers, taggedArticles)
+    // Passe 2.4 — vérifier les citations libres sur Légifrance AVANT de neutraliser.
+    // Le modèle cite souvent de mémoire des articles corrects mais absents des
+    // sources (ex : art. 15 loi 89-462). Plutôt que de les supprimer aveuglément,
+    // on les résout en live (legiPart+getArticle, cache 6 h) : vérifiées → elles
+    // gagnent un tag [Ax] + le lien officiel ; invérifiables → neutralisées.
+    let verifiedFreeArticles: TaggedArticle[] = []
+    const freeCandidatesFound = findFreeFormArticleCitations(noFreeCaseNumbers)
+    if (freeCandidatesFound.length > 0 && process.env.PISTE_CLIENT_ID) {
+      const alreadyTagged = new Set(taggedArticles.map(a => a.sourceArticle))
+      const freeRefsText = freeCandidatesFound
+        .filter(c => !alreadyTagged.has(c.article))
+        .map(c => c.match).join(' ; ')
+      const freeCandidates = refsToCandidates(extractArticleRefs(freeRefsText))
+      if (freeCandidates.length > 0) {
+        const resolvedFree = await resolveLiveArticles(freeCandidates).catch(() => [])
+        verifiedFreeArticles = resolvedFree.map((a, i) => ({
+          tag: `A${taggedArticles.length + i + 1}`,
+          title: `Art. ${a.articleNum} — ${a.lawName}`,
+          sourceLaw: a.lawName,
+          sourceArticle: a.articleNum,
+          sourceUrl: a.url,
+        }))
+        if (verifiedFreeArticles.length > 0) {
+          console.info(
+            `[post-process] ✅ ${verifiedFreeArticles.length} citation(s) libre(s) vérifiée(s) sur Légifrance : `
+            + verifiedFreeArticles.map(a => a.title).join(' | ')
+          )
+        }
+      }
+    }
+    const taggedArticlesWithVerified = [...taggedArticles, ...verifiedFreeArticles]
+
+    // Passe 2.5 — neutraliser les citations libres restées invérifiables
+    const { cleaned: noFreeArticles, stripped: freeArticleCitations } =
+      stripUnauthorizedArticleCitations(noFreeCaseNumbers, taggedArticlesWithVerified)
 
     // Signal de confiance article
     let articleCitationMode: 'tagged' | 'free' | 'mixed'
@@ -531,7 +579,7 @@ Question de l'utilisateur : ${trimmedMessage}`
     // Passe 3 — injecter les vraies citations jurisprudentielles et articles
     let finalText = noFreeArticles
     finalText = injectRealCaseCitations(finalText, taggedLiveCases)
-    finalText = injectRealArticleCitations(finalText, taggedArticles)
+    finalText = injectRealArticleCitations(finalText, taggedArticlesWithVerified)
 
     // Passe 3.5 — downgrade normatif si sources insuffisantes
     if (normativeSafetyMode) {
