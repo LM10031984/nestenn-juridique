@@ -1618,3 +1618,120 @@ export async function fetchJudilibreLive(
 
   return []
 }
+
+// ---------------------------------------------------------------------------
+// Éclaireur jurisprudence — recherche par article de loi
+// Pour chaque article résolu en live (Légifrance), cherche les arrêts CC
+// publiés qui le mentionnent : chaque règle citée est ainsi adossée au texte
+// ET à la jurisprudence. Cache module-level (6 h) pour latence et quotas.
+// ---------------------------------------------------------------------------
+
+const articleSearchCache = new Map<string, { at: number; value: NormalizedCase[] }>()
+const ARTICLE_SEARCH_TTL_MS = 6 * 60 * 60 * 1000 // 6 h
+
+/** Vide le cache de recherche par article — utilisé par les tests. */
+export function clearArticleSearchCache(): void {
+  articleSearchCache.clear()
+}
+
+// « Loi n° 89-462 du 6 juillet 1989 (ALUR) » → « loi 89-462 » ;
+// « Code de la construction et de l'habitation » → « code de la construction »
+export function lawNameToQueryTerms(lawName: string): string {
+  return lawName
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')     // parenthèses (alias)
+    .replace(/n°\s*/g, '')          // « n° »
+    .replace(/\sdu\s.*$/, '')       // date « du 6 juillet 1989 »
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .slice(0, 4)                    // operator=and : limiter les termes requis
+    .join(' ')
+}
+
+async function searchOneArticle(
+  token: string,
+  candidate: { articleNum: string; lawName: string },
+): Promise<NormalizedCase[]> {
+  const cacheKey = `${candidate.lawName}:${candidate.articleNum}`.toLowerCase()
+  const cached = articleSearchCache.get(cacheKey)
+  if (cached && Date.now() - cached.at < ARTICLE_SEARCH_TTL_MS) return cached.value
+
+  // « L145-40-2 » → « 145-40-2 » : les arrêts écrivent « L. 145-40-2 »,
+  // le préfixe collé ferait rater le match en operator=and
+  const numForQuery = candidate.articleNum.replace(/^[LRDA][\s.\-]*/i, '')
+  const query = `article ${numForQuery} ${lawNameToQueryTerms(candidate.lawName)}`
+
+  const url = new URL(`${API_URL}/search`)
+  url.searchParams.set('query', query)
+  url.searchParams.set('operator', 'and')
+  url.searchParams.append('publication', 'b')
+  url.searchParams.append('publication', 'r')
+  url.searchParams.append('type', 'arret')
+  url.searchParams.append('field', 'summary')
+  url.searchParams.append('field', 'motivations')
+  url.searchParams.set('date_start', '2015-01-01')
+  url.searchParams.set('page_size', '2')
+  url.searchParams.set('resolve_references', 'true')
+
+  let value: NormalizedCase[] = []
+  try {
+    const res = await fetchWithTimeout(url.toString(), {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    })
+    if (res.ok) {
+      const data = await res.json() as { results?: any[]; total?: number }
+      const hit = (data.results ?? [])[0]
+      if (hit?.id) {
+        const detail = await fetchDecisionDetail(token, hit.id, query)
+        if (detail) value = [buildNormalizedCC(detail, ['b', 'r'], query)]
+      }
+      console.info(`[juri-scout] "${query}" → ${data?.total ?? 0} résultats, ${value.length} retenu(s)`)
+    } else {
+      console.warn(`[juri-scout] "${query}" → HTTP ${res.status}`)
+    }
+  } catch (err) {
+    console.error(`[juri-scout] "${query}" erreur:`, err)
+  }
+
+  articleSearchCache.set(cacheKey, { at: Date.now(), value })
+  return value
+}
+
+/**
+ * Cherche les arrêts CC publiés citant les articles candidats (max 1/article).
+ * Échecs individuels silencieux ; dédup par numéro d'arrêt.
+ */
+export async function searchJudilibreByArticles(
+  candidates: Array<{ articleNum: string; lawName: string }>,
+  maxArticles = 3,
+  maxTotal = 3,
+): Promise<NormalizedCase[]> {
+  const token = await getJudilibreToken()
+  if (!token || candidates.length === 0) return []
+
+  const settled = await Promise.allSettled(
+    candidates.slice(0, maxArticles).map(c => searchOneArticle(token, c))
+  )
+
+  const out: NormalizedCase[] = []
+  const seen = new Set<string>()
+  for (const r of settled) {
+    if (r.status !== 'fulfilled') continue
+    for (const c of r.value) {
+      if (!c.number || seen.has(c.number)) continue
+      seen.add(c.number)
+      out.push(c)
+      if (out.length >= maxTotal) break
+    }
+    if (out.length >= maxTotal) break
+  }
+
+  if (out.length > 0) {
+    console.info(
+      `[juri-scout] ${out.length} arrêt(s) par article : `
+      + out.map(c => `${c.court} ${c.date} n°${c.number}`).join(' | ')
+    )
+  }
+  return out
+}

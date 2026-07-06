@@ -14,7 +14,7 @@ import type { JuriCase } from '@/lib/sources'
 import { embedQuestion } from '@/lib/embedding'
 import { detectDomains, detectDomain } from '@/lib/domain-detector'
 import { correctTypos } from '@/lib/typo-corrector'
-import { fetchJudilibreLive } from '@/lib/judilibre'
+import { fetchJudilibreLive, searchJudilibreByArticles } from '@/lib/judilibre'
 import { detectTopic } from '@/lib/topic-detector'
 import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticleDomain } from '@/lib/auto-indexer'
 import { resolveLiveArticles, resolvedArticlesToChunks, normalizeArticleNum } from '@/lib/legifrance-resolver'
@@ -346,8 +346,6 @@ Question de l'utilisateur : ${trimmedMessage}`
 
   // ── Étape 3 : Assemblage du prompt augmenté ──
 
-  // Construire les tags fermés avant le prompt — le LLM ne voit que des [J1][A1]
-  const taggedLiveCases = buildTaggedLiveCases(liveJuriCases)
   const pgTaggedArticles = buildTaggedArticles(chunks)
 
   // ── Consolidation live (legiPart → getArticle) ───────────────────────────────
@@ -361,6 +359,8 @@ Question de l'utilisateur : ${trimmedMessage}`
     pgTaggedArticles.length === 0 || domains.some(d => LIVE_RESOLUTION_DOMAINS.has(d))
 
   let liveChunks: ReturnType<typeof resolvedArticlesToChunks> = []
+  // Arrêts trouvés par l'éclaireur jurisprudence (recherche Judilibre par article)
+  let articleJuriCases: JuriCase[] = []
 
   if (process.env.PISTE_CLIENT_ID) {
     // Déclencheur 1 — références citées par l'agent (extraction regex, ~0ms)
@@ -400,10 +400,36 @@ Question de l'utilisateur : ${trimmedMessage}`
           + explicitCandidates.map(c => `${c.lawName} art. ${c.articleNum}`).join(' | ')
         )
       }
-      const resolved = await resolveLiveArticles(candidates, 5).catch(() => [])
+      // Résolution Légifrance + éclaireur jurisprudence en parallèle :
+      // les arrêts CC publiés citant ces mêmes articles rejoignent le prompt
+      const [resolved, casesByArticle] = await Promise.all([
+        resolveLiveArticles(candidates, 5).catch(() => []),
+        searchJudilibreByArticles(candidates, 3, 3).catch(() => []),
+      ])
       liveChunks = resolvedArticlesToChunks(resolved)
+      articleJuriCases = casesByArticle.map((c): JuriCase => ({
+        court: c.court,
+        date: c.date,
+        number: c.number,
+        holding: c.holding,
+        url: c.url,
+      }))
     }
   }
+
+  // Fusion jurisprudence : live (question) > éclaireur (article), dédup par numéro
+  // vs live ET pgvector. Cap 5 pour garder le prompt lisible.
+  const knownJuriNumbers = new Set([
+    ...liveJuriCases.map(c => c.number),
+    ...filteredPgJuriCases.map(c => c.number),
+  ].filter(Boolean))
+  const mergedLiveJuriCases = [
+    ...liveJuriCases,
+    ...articleJuriCases.filter(c => c.number && !knownJuriNumbers.has(c.number)),
+  ].slice(0, 5)
+
+  // Construire les tags fermés avant le prompt — le LLM ne voit que des [J1][A1]
+  const taggedLiveCases = buildTaggedLiveCases(mergedLiveJuriCases)
 
   // Les articles live sont injectés en tête (priorité maximale sur pgvector)
   const allChunks = liveChunks.length > 0 ? [...liveChunks, ...chunks] : chunks
@@ -417,7 +443,7 @@ Question de l'utilisateur : ${trimmedMessage}`
   const promptContext: PromptContext = {
     taggedLiveCases,
     taggedArticles,
-    strictConcise: liveJuriCases.length <= 1 && filteredPgJuriCases.length === 0,
+    strictConcise: mergedLiveJuriCases.length <= 1 && filteredPgJuriCases.length === 0,
   }
 
   if (promptContext.strictConcise) {
@@ -425,7 +451,7 @@ Question de l'utilisateur : ${trimmedMessage}`
   }
 
   const modelConfig = getModelById(selectedModel)
-  const systemPrompt = modelConfig.buildSystemPrompt(allChunks, filteredPgJuriCases, liveJuriCases, promptContext)
+  const systemPrompt = modelConfig.buildSystemPrompt(allChunks, filteredPgJuriCases, mergedLiveJuriCases, promptContext)
   const history = sanitizeHistory(body.conversationHistory)
 
   // ── Étape 4 : Génération en streaming direct ──
@@ -587,7 +613,7 @@ Question de l'utilisateur : ${trimmedMessage}`
     }
 
     // Passe 4 — filet final : tout numéro résiduel post-injection → [arrêt non vérifié]
-    const validCases = [...liveJuriCases, ...filteredPgJuriCases]
+    const validCases = [...mergedLiveJuriCases, ...filteredPgJuriCases]
     const { sanitized: sanitizedText, removed } = sanitizeJuriNumbers(finalText, validCases)
     if (removed.length > 0) {
       console.warn(`[sanitize] ${removed.length} numéro(s) résiduel(s) non vérifié(s) : ${removed.join(', ')}`)
@@ -609,7 +635,7 @@ Question de l'utilisateur : ${trimmedMessage}`
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'X-Sources-Count': String(chunks.length),
-        'X-Juri-Count': String(liveJuriCases.length + filteredPgJuriCases.length),
+        'X-Juri-Count': String(mergedLiveJuriCases.length + filteredPgJuriCases.length),
         'X-Domain': primaryDomain ?? '',
         'X-Response-Mode': responseMode,
         'X-Model-Used': selectedModel,
