@@ -612,6 +612,21 @@ Question de l'utilisateur : ${trimmedMessage}`
       finalText = optionallyDowngradeUnsupportedNormativeClaims(finalText)
     }
 
+    // Passe 3.6 — garantie jurisprudence : si le modèle n'a cité aucun arrêt
+    // alors que des arrêts pertinents (trouvés par article ou par question)
+    // étaient fournis, le backend ajoute lui-même les 2 meilleurs. Déterministe :
+    // aucune dépendance à la bonne volonté du modèle.
+    if (validCaseTags.length === 0 && taggedLiveCases.length > 0) {
+      const topCases = taggedLiveCases.slice(0, 2).map(c => {
+        const title = `Cass. ${c.date}, n° ${c.number}`
+        const label = c.url ? `[${title}](${c.url})` : title
+        const holding = c.holding.length > 220 ? c.holding.slice(0, 217) + '…' : c.holding
+        return `- ${label} : ${holding}`
+      })
+      finalText += `\n\n**Jurisprudence utile :**\n${topCases.join('\n')}`
+      console.info(`[post-process] 📚 bloc jurisprudence ajouté (${topCases.length} arrêt(s), aucun cité par le modèle)`)
+    }
+
     // Passe 4 — filet final : tout numéro résiduel post-injection → [arrêt non vérifié]
     const validCases = [...mergedLiveJuriCases, ...filteredPgJuriCases]
     const { sanitized: sanitizedText, removed } = sanitizeJuriNumbers(finalText, validCases)
