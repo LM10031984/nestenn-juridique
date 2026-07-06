@@ -20,6 +20,7 @@ import { autoIndexMissingArticles, autoIndexMissingJurisprudence, classifyArticl
 import { resolveLiveArticles, resolvedArticlesToChunks, normalizeArticleNum } from '@/lib/legifrance-resolver'
 import { lookupLegitext } from '@/lib/legifrance'
 import { extractArticleRefs, refsToCandidates } from '@/lib/extract-refs'
+import { scoutArticleRefs } from '@/lib/article-scout'
 import { detectTopicArticles } from '@/lib/topic-articles'
 import {
   sanitizeJuriNumbers,
@@ -217,6 +218,10 @@ Question de l'utilisateur : ${trimmedMessage}`
   // DomainMatch complet (avec judilibreTheme + judilibreChamber) pour la tentative ciblée
   const domainMatch = detectDomain(correctedMessage)
 
+  // Éclaireur d'articles : lancé tout de suite, résultat consommé à l'étape 3
+  // (latence masquée par l'embedding + Judilibre + pgvector + génération amont)
+  const scoutPromise = scoutArticleRefs(correctedMessage).catch(() => [] as Awaited<ReturnType<typeof scoutArticleRefs>>)
+
   // Judilibre TOUJOURS appelé — avantage compétitif vs ChatGPT/Claude sans accès live
   const [embedding, liveJuriCases] = await Promise.all([
     embedQuestion(trimmedMessage),
@@ -361,7 +366,11 @@ Question de l'utilisateur : ${trimmedMessage}`
     // Déclencheur 1 — références citées par l'agent (extraction regex, ~0ms)
     const explicitCandidates = refsToCandidates(extractArticleRefs(correctedMessage))
 
-    // Déclencheur 2 — articles forcés du topic (comportement historique)
+    // Déclencheur 2 — éclaireur LLM : articles suggérés par le savoir du modèle,
+    // résolus sur Légifrance (seul le texte officiel entre dans le prompt)
+    const scoutCandidates = await scoutPromise
+
+    // Déclencheur 3 — articles forcés du topic (comportement historique)
     let topicCandidates: Array<{ textId: string; articleNum: string; lawName: string }> = []
     if (needsLiveResolution) {
       const topicMatch = detectTopicArticles(correctedMessage)
@@ -374,10 +383,10 @@ Question de l'utilisateur : ${trimmedMessage}`
       }
     }
 
-    // Fusion : refs explicites en premier (priorité dans le cap MAX_LIVE_ARTICLES),
-    // déduplication par texte + numéro normalisé
+    // Fusion par priorité : refs explicites > éclaireur > topic,
+    // déduplication par texte + numéro normalisé, cap 5 résolutions
     const seenCandidates = new Set<string>()
-    const candidates = [...explicitCandidates, ...topicCandidates].filter(c => {
+    const candidates = [...explicitCandidates, ...scoutCandidates, ...topicCandidates].filter(c => {
       const key = `${c.textId}:${normalizeArticleNum(c.articleNum)}`
       if (seenCandidates.has(key)) return false
       seenCandidates.add(key)
@@ -391,7 +400,7 @@ Question de l'utilisateur : ${trimmedMessage}`
           + explicitCandidates.map(c => `${c.lawName} art. ${c.articleNum}`).join(' | ')
         )
       }
-      const resolved = await resolveLiveArticles(candidates).catch(() => [])
+      const resolved = await resolveLiveArticles(candidates, 5).catch(() => [])
       liveChunks = resolvedArticlesToChunks(resolved)
     }
   }

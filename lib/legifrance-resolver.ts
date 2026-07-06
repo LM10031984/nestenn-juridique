@@ -183,8 +183,9 @@ async function resolveLiveArticleUncached(
  */
 export async function resolveLiveArticles(
   candidates: Array<{ textId: string; articleNum: string; lawName?: string }>,
+  maxArticles: number = MAX_LIVE_ARTICLES,
 ): Promise<ResolvedArticle[]> {
-  const batch = candidates.slice(0, MAX_LIVE_ARTICLES)
+  const batch = candidates.slice(0, maxArticles)
 
   const results = await Promise.allSettled(
     batch.map(c => resolveLiveArticle(c.textId, c.articleNum, c.lawName))
